@@ -820,11 +820,16 @@ async function stopProgressiveMarkdown(req, res) {
     await ensureConnected();
     const shopId = req.shopId || req.query.shop || req.body?.shop || req.headers["x-shopify-shop-domain"];
     const targetId = getParamId(req);
+    const bodyProdId = req.body?.productId || req.query?.productId || "";
+    const bodyVarId = req.body?.variantId || req.query?.variantId || "";
 
     if (!shopId) return res.status(401).json({ success: false, message: "Shop domain is required." });
 
     const accessToken = await getAccessToken(req, shopId);
-    const result = await progressiveMarkdownService.stopMarkdownRule(shopId, targetId, accessToken);
+    const result = await progressiveMarkdownService.stopMarkdownRule(shopId, targetId, accessToken, {
+      productId: bodyProdId,
+      variantId: bodyVarId,
+    });
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("Stop Markdown Error:", error);

@@ -858,6 +858,17 @@
         ? formatMoney(savings)
         : "";
 
+    if (
+      !companionTitle ||
+      companionTitle === "Product unavailable" ||
+      isPlaceholderTitle(companionTitle) ||
+      !deadStockTitle ||
+      deadStockTitle === "Product unavailable" ||
+      isPlaceholderTitle(deadStockTitle)
+    ) {
+      return;
+    }
+
     const element =
       createFeature(
         "bundle",
@@ -1461,19 +1472,6 @@
       discountPct = Number(data.progressiveMarkdown.currentDiscount);
     }
 
-    // 3. Check dead stock offer discount from backend
-    if (!discountPct && data?.deadStockOffer?.hasClearance && data?.deadStockOffer?.discountPercent) {
-      discountPct = Number(data.deadStockOffer.discountPercent);
-    }
-
-    // 4. Check clearance sale discount from backend
-    if (!discountPct && (data?.clearanceSale?.enabled || data?.clearanceSale?.hasClearance) && data?.clearanceSale?.discountPercentage) {
-      discountPct = Number(data.clearanceSale.discountPercentage);
-    }
-    if (!discountPct && data?.sale?.enabled && data?.sale?.discountPercentage) {
-      discountPct = Number(data.sale.discountPercentage);
-    }
-
     // 5. Fallback: Parse existing DOM price elements ONLY if compare-at price exists in theme
     const priceRoot = document.querySelector(
       ".product__info-container .price, .product__price .price, .price, .product-single__price"
@@ -1527,7 +1525,16 @@
     // =========================================================
     // UPDATE DOM: STRIKETHROUGH ORIGINAL PRICE & SHOW DISCOUNTED PRICE
     // =========================================================
-    if (priceRoot && originalFormatted && saleFormatted) {
+    const hasThemeSaleDisplay = Boolean(
+      priceRoot && (
+        priceRoot.classList.contains("price--on-sale") ||
+        (existingSaleEl && existingSaleEl.textContent.trim() !== "")
+      )
+    );
+
+    if (hasThemeSaleDisplay) {
+      document.querySelectorAll('[data-smart-stock-price-display="true"]').forEach((el) => el.remove());
+    } else if (priceRoot && originalFormatted && saleFormatted) {
       let priceDisplayWrapper = priceRoot.querySelector('[data-smart-stock-price-display="true"]');
       if (!priceDisplayWrapper) {
         priceDisplayWrapper = document.createElement("div");

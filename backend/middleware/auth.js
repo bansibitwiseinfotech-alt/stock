@@ -2,8 +2,15 @@ const Store = require("../models/Store");
 
 async function authenticateShop(req, res, next) {
   try {
-    const shop = req.query.shop || req.headers["x-shopify-shop-domain"] || req.body?.shop;
+    let shop = req.query.shop || req.headers["x-shopify-shop-domain"] || req.body?.shop;
     const accessToken = req.headers["x-shopify-access-token"] || req.body?.accessToken;
+
+    if (!shop) {
+      const fallback = await Store.findOne().sort({ updatedAt: -1 }).lean().catch(() => null);
+      if (fallback?.shop) {
+        shop = fallback.shop;
+      }
+    }
 
     if (!shop) {
       return res.status(401).json({

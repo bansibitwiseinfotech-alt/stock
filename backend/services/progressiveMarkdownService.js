@@ -891,17 +891,21 @@ async function processActiveMarkdownRules(shop = null) {
  * Manually stop Progressive Markdown:
  * Restores actual Shopify variant price to originalPrice, clears compareAtPrice, and marks rule COMPLETED.
  */
-async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null) {
+async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null, extraIds = {}) {
   try {
     if (!shop) throw new Error("Shop domain is required.");
-    if (!ruleIdOrVariantId) throw new Error("Rule ID or Variant ID is required.");
+    if (!ruleIdOrVariantId && !extraIds?.productId && !extraIds?.variantId) {
+      throw new Error("Rule ID, Variant ID, or Product ID is required.");
+    }
 
     const isObjectId =
       String(ruleIdOrVariantId).trim().length === 24 &&
       /^[0-9a-fA-F]{24}$/.test(String(ruleIdOrVariantId).trim());
-    const cleanVarId = cleanIdNumber(ruleIdOrVariantId);
-    const formattedVarId = ensureGid(ruleIdOrVariantId, "ProductVariant");
-    const formattedProdId = ensureGid(ruleIdOrVariantId, "Product");
+    const cleanId = ruleIdOrVariantId ? String(ruleIdOrVariantId).replace(/\D/g, "") : "";
+    const extraCleanProd = extraIds?.productId ? String(extraIds.productId).replace(/\D/g, "") : "";
+    const extraCleanVar = extraIds?.variantId ? String(extraIds.variantId).replace(/\D/g, "") : "";
+
+    const allCleanIds = [cleanId, extraCleanProd, extraCleanVar].filter(Boolean);
 
     let validToken = accessToken;
     if (!validToken) {
@@ -915,97 +919,149 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null) {
       throw new Error(`Shopify access token not found for ${shop}.`);
     }
 
-    const rules = await MarkdownRule.find({
-      shop,
+    const shopFilter = {
       $or: [
-        ...(isObjectId ? [{ _id: ruleIdOrVariantId }] : []),
-        { variantId: formattedVarId },
-        { variantId: cleanVarId },
-        { variantId: ruleIdOrVariantId },
-        { productId: formattedProdId },
-        { productId: cleanVarId },
+        { shop },
+        { shop: String(shop).replace(/^https?:\/\//i, "") },
+        { shop: new RegExp(`^${shop}$`, "i") },
       ],
+    };
+
+    const idOrList = [];
+    if (isObjectId) idOrList.push({ _id: ruleIdOrVariantId });
+    if (ruleIdOrVariantId) {
+      idOrList.push(
+        { variantId: ruleIdOrVariantId },
+        { productId: ruleIdOrVariantId }
+      );
+    }
+    for (const cId of allCleanIds) {
+      idOrList.push(
+        { variantId: `gid://shopify/ProductVariant/${cId}` },
+        { variantId: cId },
+        { variantId: { $regex: cId } },
+        { productId: `gid://shopify/Product/${cId}` },
+        { productId: cId },
+        { productId: { $regex: cId } }
+      );
+    }
+
+    const idFilter = { $or: idOrList };
+
+    const rules = await MarkdownRule.find({
+      $and: [shopFilter, idFilter],
     }).sort({ active: -1, createdAt: -1 });
+
+    let restoredPrice = null;
 
     if (!rules || rules.length === 0) {
       try {
-        const liveVar = await getShopifyVariant(shop, validToken, formattedVarId).catch(() => null);
-        if (liveVar && liveVar.compareAtPrice) {
-          await updateShopifyVariantPrice({
-            shop,
-            accessToken: validToken,
-            productId: liveVar.product?.id || formattedProdId,
-            variantId: formattedVarId,
-            price: Number(liveVar.compareAtPrice),
-            compareAtPrice: null,
-          });
+        const targetVarGid = cleanId ? `gid://shopify/ProductVariant/${cleanId}` : "";
+        if (targetVarGid) {
+          const liveVar = await getShopifyVariant(shop, validToken, targetVarGid).catch(() => null);
+          if (liveVar && liveVar.compareAtPrice) {
+            await updateShopifyVariantPrice({
+              shop,
+              accessToken: validToken,
+              productId: liveVar.product?.id || `gid://shopify/Product/${cleanId}`,
+              variantId: targetVarGid,
+              price: Number(liveVar.compareAtPrice),
+              compareAtPrice: null,
+            });
+          }
         }
       } catch (err) {
         console.warn("[ProgressiveMarkdown] Fallback variant check skipped:", err.message);
       }
-      return { success: true, message: "Progressive markdown stopped and price restored." };
-    }
+    } else {
+      for (const rule of rules) {
+        const priceToRestore =
+          Number.isFinite(rule.originalPrice) && rule.originalPrice > 0
+            ? rule.originalPrice
+            : null;
 
-    let restoredPrice = null;
-    let targetRule = rules.find((r) => r.status === "ACTIVE" || r.active) || rules[0];
+        if (priceToRestore) {
+          const updatedVariant = await updateShopifyVariantPrice({
+            shop,
+            accessToken: validToken,
+            productId: rule.productId,
+            variantId: rule.variantId,
+            price: priceToRestore,
+            compareAtPrice: null,
+          }).catch((err) => {
+            console.warn("[ProgressiveMarkdown] Restore variant price error:", err.message);
+            return null;
+          });
 
-    for (const rule of rules) {
-      const priceToRestore =
-        Number.isFinite(rule.originalPrice) && rule.originalPrice > 0
-          ? rule.originalPrice
-          : null;
-
-      if (priceToRestore) {
-        const updatedVariant = await updateShopifyVariantPrice({
-          shop,
-          accessToken: validToken,
-          productId: rule.productId,
-          variantId: rule.variantId,
-          price: priceToRestore,
-          compareAtPrice: null,
-        }).catch((err) => {
-          console.warn("[ProgressiveMarkdown] Restore variant price error:", err.message);
-          return null;
-        });
-
-        if (updatedVariant) {
-          restoredPrice = Number(updatedVariant.price);
+          if (updatedVariant) {
+            restoredPrice = Number(updatedVariant.price);
+          }
         }
       }
-
-      rule.currentPrice = priceToRestore || rule.currentPrice;
-      rule.status = "COMPLETED";
-      rule.active = false;
-      rule.processing = false;
-      rule.isProcessing = false;
-      rule.nextEvaluationAt = null;
-      rule.nextRunAt = null;
-      rule.lastExecutedAt = new Date();
-      rule.lastEvaluationReason = "MANUALLY_STOPPED";
-      rule.lastError = "";
-      await rule.save();
     }
 
-    // Record audit log
-    await DeadStockAction.create({
-      shop,
-      productId: targetRule.productId,
-      variantId: targetRule.variantId,
-      actionType: "PROGRESSIVE_MARKDOWN",
-      status: "COMPLETED",
-      discountPercent: 0,
-      executedAt: new Date(),
-      metadata: {
-        ruleId: targetRule._id,
-        reason: "Markdown manually stopped and original price restored.",
-        restoredPrice: restoredPrice || targetRule.originalPrice,
-        pricingMode: "DIRECT_VARIANT_PRICE",
+    // Permanently remove / deactivate all matching markdown rules in DB
+    await MarkdownRule.updateMany(
+      {
+        $and: [shopFilter, idFilter],
       },
-    }).catch(() => {});
+      {
+        $set: {
+          status: "COMPLETED",
+          active: false,
+          processing: false,
+          isProcessing: false,
+          nextEvaluationAt: null,
+          nextRunAt: null,
+          lastExecutedAt: new Date(),
+          lastEvaluationReason: "MANUALLY_STOPPED",
+          lastError: "",
+        },
+      }
+    );
+
+    // Also update any SmartBadgeAssignment if progressive markdown was applied via smart badges
+    try {
+      const SmartBadgeAssignment = require("../models/SmartBadgeAssignment");
+      await SmartBadgeAssignment.updateMany(
+        {
+          $and: [shopFilter, idFilter],
+          badgeType: "PROGRESSIVE_MARKDOWN",
+        },
+        {
+          $set: { status: "REMOVED", isActive: false },
+        }
+      );
+    } catch (assignErr) {
+      // ignore
+    }
+
+    const targetRule = rules && rules.length > 0 ? rules[0] : null;
+    const finalProdId = targetRule?.productId || (extraIds?.productId ? `gid://shopify/Product/${String(extraIds.productId).replace(/\D/g, "")}` : "");
+    const finalVarId = targetRule?.variantId || (extraIds?.variantId ? `gid://shopify/ProductVariant/${String(extraIds.variantId).replace(/\D/g, "")}` : "");
+
+    // Record audit log
+    if (finalProdId || finalVarId) {
+      await DeadStockAction.create({
+        shop,
+        productId: finalProdId,
+        variantId: finalVarId,
+        actionType: "PROGRESSIVE_MARKDOWN",
+        status: "COMPLETED",
+        discountPercent: 0,
+        executedAt: new Date(),
+        metadata: {
+          ruleId: targetRule?._id || null,
+          reason: "Markdown manually stopped and original price restored.",
+          restoredPrice: restoredPrice || targetRule?.originalPrice || null,
+          pricingMode: "DIRECT_VARIANT_PRICE",
+        },
+      }).catch(() => {});
+    }
 
     return {
       success: true,
-      message: `Progressive Markdown stopped and original price (₹${restoredPrice || targetRule.originalPrice}) restored successfully.`,
+      message: "Progressive Markdown stopped and original price restored successfully.",
       rule: targetRule,
     };
   } catch (err) {
@@ -1020,21 +1076,34 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null) {
 async function pauseMarkdownRule(shop, ruleIdOrVariantId) {
   try {
     if (!shop) throw new Error("Shop domain is required.");
-    const isObjectId =
-      String(ruleIdOrVariantId).trim().length === 24 &&
-      /^[0-9a-fA-F]{24}$/.test(String(ruleIdOrVariantId).trim());
-    const cleanVarId = cleanIdNumber(ruleIdOrVariantId);
-    const formattedVarId = ensureGid(ruleIdOrVariantId, "ProductVariant");
+    const cleanId = String(ruleIdOrVariantId).replace(/\D/g, "");
+    const formattedVarId = `gid://shopify/ProductVariant/${cleanId}`;
+    const formattedProdId = `gid://shopify/Product/${cleanId}`;
+
+    const shopFilter = {
+      $or: [
+        { shop },
+        { shop: String(shop).replace(/^https?:\/\//i, "") },
+        { shop: new RegExp(`^${shop}$`, "i") },
+      ],
+    };
+
+    const idFilter = {
+      $or: [
+        ...(isObjectId ? [{ _id: ruleIdOrVariantId }] : []),
+        { variantId: formattedVarId },
+        { variantId: cleanId },
+        { variantId: ruleIdOrVariantId },
+        { productId: formattedProdId },
+        { productId: cleanId },
+        { productId: ruleIdOrVariantId },
+        ...(cleanId ? [{ variantId: { $regex: cleanId } }, { productId: { $regex: cleanId } }] : []),
+      ],
+    };
 
     const rule = await MarkdownRule.findOneAndUpdate(
       {
-        shop,
-        $or: [
-          ...(isObjectId ? [{ _id: ruleIdOrVariantId }] : []),
-          { variantId: formattedVarId },
-          { variantId: cleanVarId },
-          { variantId: ruleIdOrVariantId },
-        ],
+        $and: [shopFilter, idFilter],
       },
       {
         $set: {
@@ -1069,7 +1138,14 @@ async function pauseMarkdownRule(shop, ruleIdOrVariantId) {
  * List all markdown rules for a shop.
  */
 async function getMarkdownRules(shop) {
-  return await MarkdownRule.find({ shop }).sort({ createdAt: -1 }).lean();
+  const shopFilter = {
+    $or: [
+      { shop },
+      { shop: String(shop).replace(/^https?:\/\//i, "") },
+      { shop: new RegExp(`^${shop}$`, "i") },
+    ],
+  };
+  return await MarkdownRule.find(shopFilter).sort({ createdAt: -1 }).lean();
 }
 
 /**
@@ -1079,12 +1155,24 @@ async function getMarkdownRuleByVariant(shop, variantId) {
   const cleanVarNum = cleanIdNumber(variantId);
   const formattedVariantId = ensureGid(variantId, "ProductVariant");
 
-  return await MarkdownRule.findOne({
-    shop,
+  const shopFilter = {
     $or: [
-      { variantId: formattedVariantId },
-      { variantId: cleanVarNum },
-      { variantId: String(variantId) },
+      { shop },
+      { shop: String(shop).replace(/^https?:\/\//i, "") },
+      { shop: new RegExp(`^${shop}$`, "i") },
+    ],
+  };
+
+  return await MarkdownRule.findOne({
+    $and: [
+      shopFilter,
+      {
+        $or: [
+          { variantId: formattedVariantId },
+          { variantId: cleanVarNum },
+          { variantId: String(variantId) },
+        ],
+      },
     ],
   }).lean();
 }
@@ -1096,7 +1184,15 @@ async function getStorefrontMarkdownData(shop, productId, variantId) {
   if (!shop) return { enabled: false };
 
   const MarkdownConfig = require("../models/MarkdownConfig");
-  const markdownConfig = (await MarkdownConfig.findOne({ shop }).lean().catch(() => null)) || {
+  const shopFilter = {
+    $or: [
+      { shop },
+      { shop: String(shop).replace(/^https?:\/\//i, "") },
+      { shop: new RegExp(`^${shop}$`, "i") },
+    ],
+  };
+
+  const markdownConfig = (await MarkdownConfig.findOne(shopFilter).lean().catch(() => null)) || {
     enabled: true,
     badgeText: "{discount}% OFF",
     showStrikethroughPrice: true,
@@ -1131,8 +1227,8 @@ async function getStorefrontMarkdownData(shop, productId, variantId) {
   }
 
   const query = {
-    shop,
     $and: [
+      shopFilter,
       { $or: [{ status: "ACTIVE" }, { active: true }] },
       ...(orConditions.length > 0 ? [{ $or: orConditions }] : []),
     ],

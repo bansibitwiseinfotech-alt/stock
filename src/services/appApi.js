@@ -1505,3 +1505,31 @@ export async function removeProductBadgeAssignmentApi(shop = "", productId = "")
   }
   return data;
 }
+
+// ==================================================
+// MONDAY MORNING SMART BADGE DIGEST
+// ==================================================
+
+export async function fetchWeeklyDigestStatusApi(shop = "") {
+  const res = await fetch(`/api/smart-badges/weekly-digest-status?shop=${encodeURIComponent(shop)}`, {
+    headers: { "x-shopify-shop-domain": shop },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to load weekly digest status.");
+  }
+  return data;
+}
+
+export async function sendWeeklyDigestApi(shop = "", force = true) {
+  const res = await fetch(`/api/smart-badges/send-weekly-digest?shop=${encodeURIComponent(shop)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
+    body: JSON.stringify({ shop, force }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || "Failed to send weekly digest.");
+  }
+  return data;
+}

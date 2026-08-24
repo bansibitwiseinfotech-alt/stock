@@ -500,6 +500,14 @@ app.listen(
       );
     }
 
+    // Monday Morning Smart Badge Digest Scheduler
+    try {
+      const { startMondayBadgeDigestScheduler } = require("./jobs/mondayBadgeDigest.job");
+      startMondayBadgeDigestScheduler();
+    } catch (digestJobErr) {
+      console.error("Failed to start Monday Badge Digest scheduler:", digestJobErr.message);
+    }
+
     // Auto-sync real Shopify Pre-Orders & send confirmation emails on Pay Now
     try {
       const Store = require("./models/Store");

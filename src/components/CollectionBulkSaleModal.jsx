@@ -574,6 +574,7 @@ function SaleForm({
   <TextField
     label="Start date"
     type="date"
+    min={getTodayDate()}
     value={startDate}
     onChange={setStartDate}
     autoComplete="off"

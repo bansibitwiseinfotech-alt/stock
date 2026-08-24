@@ -24,6 +24,7 @@ import {
   toggleNotifyMeApi,
   fetchLaunchPreOrderByIdApi,
   saveLaunchPreOrderApi,
+  deleteLaunchPreOrderApi,
 } from "../../services/appApi";
 
 function ColorPickerField({ label, value, onChange }) {
@@ -124,6 +125,7 @@ export default function HighDemandProduct({
   const [launchModalOpen, setLaunchModalOpen] = useState(false);
   const [launchConfig, setLaunchConfig] = useState(null);
   const [savingLaunch, setSavingLaunch] = useState(false);
+  const [deletingLaunch, setDeletingLaunch] = useState(false);
   const [launchForm, setLaunchForm] = useState({
     preOrderEnabled: true,
     launchDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -245,6 +247,35 @@ export default function HighDemandProduct({
       setNotice(err.message || "Failed to save launch pre-order.");
     } finally {
       setSavingLaunch(false);
+    }
+  };
+
+  const handleDeleteLaunch = async () => {
+    const targetProdId = product?.productId || productId;
+    if (!targetProdId) {
+      setNoticeTone("critical");
+      setNotice("Product ID not found.");
+      return;
+    }
+
+    try {
+      setDeletingLaunch(true);
+      const res = await deleteLaunchPreOrderApi(shop, targetProdId);
+      if (res?.success) {
+        setLaunchConfig(null);
+        setLaunchForm((prev) => ({
+          ...prev,
+          preOrderEnabled: false,
+        }));
+        setNoticeTone("success");
+        setNotice("✓ Product Launch Pre-Order deleted! It will no longer show on the storefront.");
+        setLaunchModalOpen(false);
+      }
+    } catch (err) {
+      setNoticeTone("critical");
+      setNotice(err.message || "Failed to delete launch pre-order.");
+    } finally {
+      setDeletingLaunch(false);
     }
   };
 
@@ -1051,11 +1082,24 @@ export default function HighDemandProduct({
         primaryAction={{
           content: savingLaunch ? "Saving..." : "SAVE LAUNCH",
           loading: savingLaunch,
+          disabled: deletingLaunch,
           onAction: handleSaveLaunch,
         }}
         secondaryActions={[
+          ...(launchConfig
+            ? [
+                {
+                  content: deletingLaunch ? "Deleting..." : "Delete Launch",
+                  destructive: true,
+                  loading: deletingLaunch,
+                  disabled: savingLaunch,
+                  onAction: handleDeleteLaunch,
+                },
+              ]
+            : []),
           {
             content: "Cancel",
+            disabled: savingLaunch || deletingLaunch,
             onAction: () => setLaunchModalOpen(false),
           },
         ]}
@@ -1078,6 +1122,7 @@ export default function HighDemandProduct({
               <TextField
                 label="Launch Date"
                 type="date"
+                min={new Date().toISOString().split("T")[0]}
                 value={launchForm.launchDate}
                 onChange={(val) => setLaunchForm((prev) => ({ ...prev, launchDate: val }))}
                 autoComplete="off"
@@ -1085,6 +1130,7 @@ export default function HighDemandProduct({
               <TextField
                 label="Shipping Starts"
                 type="date"
+                min={new Date().toISOString().split("T")[0]}
                 value={launchForm.shippingDate}
                 onChange={(val) => setLaunchForm((prev) => ({ ...prev, shippingDate: val }))}
                 autoComplete="off"

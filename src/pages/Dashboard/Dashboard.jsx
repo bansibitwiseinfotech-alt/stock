@@ -6,217 +6,397 @@ import {
   Text,
   BlockStack,
   InlineStack,
-  Badge,
   Button,
-  ProgressBar,
+  Badge,
+  Divider,
+  Spinner,
   Box,
-  Banner,
 } from "@shopify/polaris";
+import { useNavigate } from "react-router";
 import { fetchDashboardData } from "../../services/appApi";
 
 export default function Dashboard({ shopDomain = "" }) {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
-    totalCashRecovered: 14250,
-    growthPercentage: 12.5,
-    cashAtRisk: 4500,
-    deadStockSkuCount: 3,
-    stockoutRiskCount: 2,
-    lowStockCount: 5,
-    totalProducts: 320,
-    inventoryOverview: {
-      healthy: { count: 280, percentage: 81 },
-      atRisk: { count: 25, percentage: 11 },
-      deadStock: { count: 3, percentage: 5 },
-      outOfStock: { count: 10, percentage: 3 },
-    },
+    totalCashRecovered: 0,
+    growthPercentage: 14.8,
+    badgeBreakdown: [
+      {
+        key: "clearance",
+        icon: "🏷️",
+        title: "Clearance Sale",
+        badgesUsed: 0,
+        cashRecovered: 0,
+        link: "/app/dead-stock",
+      },
+      {
+        key: "bundle",
+        icon: "📦",
+        title: "Bundle Offer",
+        badgesUsed: 0,
+        cashRecovered: 0,
+        link: "/app/bundles",
+      },
+      {
+        key: "markdown",
+        icon: "📉",
+        title: "Progressive Markdown",
+        badgesUsed: 0,
+        cashRecovered: 0,
+        link: "/app/dead-stock",
+      },
+      {
+        key: "urgency",
+        icon: "🛡️",
+        title: "Urgency Badge",
+        badgesUsed: 0,
+        cashRecovered: 0,
+        link: "/app/high-demand",
+      },
+    ],
+    smartRecipes: [
+      {
+        id: "recipe-clear-summer",
+        title: "Clear Summer Inventory",
+        description: "Identify slow-moving summer products and recommend the best recovery strategy.",
+        productsDetected: 0,
+        potentialRecovery: 0,
+        recommendedAction: "Clearance Sale",
+        recommendedBadge: "🏷️",
+        link: "/app/dead-stock",
+      },
+      {
+        id: "recipe-bfcm-urgency",
+        title: "BFCM Low-Stock Urgency Badges",
+        description: "Identify high-demand products that may run out of stock during BFCM and recommend urgency badges.",
+        productsAtRisk: 0,
+        potentialRevenueProtected: 0,
+        recommendedAction: "Low-Stock Urgency Badge",
+        recommendedBadge: "🛡️",
+        link: "/app/high-demand",
+      },
+    ],
   });
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetchDashboardData(shopDomain);
-        if (res) setData(res);
-      } catch (err) {
-        console.error("Dashboard Load Error:", err);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const res = await fetchDashboardData(shopDomain);
+      if (res && res.totalCashRecovered !== undefined) {
+        setData(res);
       }
+    } catch (err) {
+      console.error("Dashboard Load Error:", err);
+    } finally {
+      setLoading(false);
     }
-    load();
+  };
+
+  useEffect(() => {
+    loadData();
   }, [shopDomain]);
 
-  const formattedRecovered = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(data.totalCashRecovered);
-  const formattedAtRisk = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(data.cashAtRisk);
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(amount || 0);
+  };
+
+  const totalFormatted = formatCurrency(data.totalCashRecovered);
 
   return (
     <Page
+      fullWidth
       title="Dashboard"
-      subtitle="Monday, 6 May 2026"
+      subtitle="Overview of your inventory recovery, sales performance, and active automations."
       primaryAction={{
         content: "Refresh Data",
-        onAction: () => window.location.reload(),
+        loading: loading,
+        onAction: loadData,
       }}
     >
       <Layout>
-        {/* 1. Cash Unlocked ROI Scoreboard Card */}
+        {/* ==================================================
+            1. CASH UNLOCKED ROI SCOREBOARD
+            ================================================== */}
         <Layout.Section>
-          <Card>
-            <BlockStack gap="300">
-              <Text variant="headingMd" as="h2">Enable Smart Stock storefront intelligence</Text>
-              <Text as="p" tone="subdued">
-                Turn on the Smart Stock app embed in your Shopify theme to activate live dead-stock promotions, stock alerts, urgency badges, and conversion messaging.
-              </Text>
-              <InlineStack>
-                <Button
-                  url={`https://${shopDomain}/admin/themes/current/editor?context=apps`}
-                  target="_top"
-                  variant="primary"
-                >
-                  Enable Smart Stock
-                </Button>
-              </InlineStack>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-
-        <Layout.Section>
-          <Card>
+          <Card padding="500">
             <BlockStack gap="400">
-              <InlineStack align="space-between" blockAlign="center">
-                <BlockStack gap="200">
-                  <Text variant="headingSm" as="h3" tone="subdued">
-                    Total Cash Recovered by this App
+              {/* Header Hero Area */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "16px",
+                  paddingBottom: "4px",
+                }}
+              >
+                <BlockStack gap="100">
+                  <Text
+                    variant="bodySm"
+                    fontWeight="semibold"
+                    tone="subdued"
+                    style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
+                  >
+                    💰 Total Cash Recovered by this App
                   </Text>
-                  <Text variant="heading2xl" as="h1">
-                    {formattedRecovered}
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
+                    <span
+                      style={{
+                        fontSize: "36px",
+                        fontWeight: "800",
+                        color: "#1A1A1A",
+                        lineHeight: 1.15,
+                        letterSpacing: "-0.5px",
+                      }}
+                    >
+                      {totalFormatted}
+                    </span>
+                    {loading && <Spinner size="small" />}
+                  </div>
+                  <Text variant="bodySm" tone="subdued">
+                    Recovered through Smart Stock
                   </Text>
-                  <InlineStack gap="200" blockAlign="center">
-                    <Badge tone="success">+{data.growthPercentage}% vs last 30 days</Badge>
-                  </InlineStack>
                 </BlockStack>
-                <Box
-                  padding="400"
-                  borderRadius="full"
-                  background="bg-surface-success-subdued"
+
+                <div
+                  style={{
+                    backgroundColor: "#F0FDF4",
+                    border: "1px solid #BBF7D0",
+                    padding: "8px 16px",
+                    borderRadius: "20px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
                 >
-                  <Text variant="headingXl" as="span">💲</Text>
-                </Box>
-              </InlineStack>
+                  <span style={{ fontSize: "14px" }}>📈</span>
+                  <Text variant="bodySm" fontWeight="semibold" tone="success">
+                    +{data.growthPercentage || 14.8}% vs last 30 days
+                  </Text>
+                </div>
+              </div>
+
+              <Divider />
+
+              {/* Badge-Wise Recovery Breakdown Section */}
+              <BlockStack gap="300">
+                <Text variant="headingSm" as="h4" fontWeight="semibold">
+                  Badge-Wise Recovery Breakdown
+                </Text>
+
+                {/* 4-Card Equal Grid */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  {(data.badgeBreakdown || []).map((badge) => (
+                    <div
+                      key={badge.key || badge.title}
+                      style={{
+                        backgroundColor: "#FAFAFA",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "10px",
+                        padding: "16px",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: "14px",
+                        minHeight: "120px",
+                      }}
+                    >
+                      {/* Badge Top Header */}
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="150" blockAlign="center">
+                          <span style={{ fontSize: "18px" }}>{badge.icon}</span>
+                          <Text variant="bodySm" fontWeight="semibold">
+                            {badge.title}
+                          </Text>
+                        </InlineStack>
+                        <Badge tone="info">{`Badges Used: ${badge.badgesUsed || 0}`}</Badge>
+                      </InlineStack>
+
+                      {/* Cash Recovered & Action */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-end",
+                        }}
+                      >
+                        <BlockStack gap="050">
+                          <Text variant="bodyXs" tone="subdued">
+                            Cash Recovered
+                          </Text>
+                          <span
+                            style={{
+                              fontSize: "20px",
+                              fontWeight: "700",
+                              color: "#111827",
+                            }}
+                          >
+                            {formatCurrency(badge.cashRecovered)}
+                          </span>
+                        </BlockStack>
+
+                        <Button
+                          size="slim"
+                          variant="plain"
+                          onClick={() => badge.link && navigate(badge.link)}
+                        >
+                          Manage →
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Summary Total Row */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    backgroundColor: "#F9FAFB",
+                    padding: "14px 20px",
+                    borderRadius: "8px",
+                    border: "1px solid #E5E7EB",
+                    marginTop: "6px",
+                  }}
+                >
+                  <Text variant="bodyMd" fontWeight="semibold" tone="subdued">
+                    Total Cash Recovered:
+                  </Text>
+                  <span
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "800",
+                      color: "#111827",
+                    }}
+                  >
+                    {totalFormatted}
+                  </span>
+                </div>
+              </BlockStack>
             </BlockStack>
           </Card>
         </Layout.Section>
 
-        {/* 2. Metric Cards Grid */}
+        {/* ==================================================
+            2. SMART RECIPES
+            ================================================== */}
         <Layout.Section>
-          <InlineStack gap="400" wrap={false}>
-            <Box flex="1">
-              <Card>
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="critical" fontWeight="bold">Cash-At-Risk</Text>
-                  <Text variant="headingLg" as="h2">{formattedAtRisk}</Text>
-                  <Text variant="bodySm" tone="subdued">{data.deadStockSkuCount} SKUs</Text>
-                </BlockStack>
-              </Card>
-            </Box>
-
-            <Box flex="1">
-              <Card>
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="warning" fontWeight="bold">Stockout Risk</Text>
-                  <Text variant="headingLg" as="h2">{data.stockoutRiskCount} SKUs</Text>
-                  <Text variant="bodySm" tone="subdued">Will run out soon</Text>
-                </BlockStack>
-              </Card>
-            </Box>
-
-            <Box flex="1">
-              <Card>
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued" fontWeight="bold">Low Stock</Text>
-                  <Text variant="headingLg" as="h2">{data.lowStockCount} SKUs</Text>
-                  <Text variant="bodySm" tone="subdued">Below threshold</Text>
-                </BlockStack>
-              </Card>
-            </Box>
-
-            <Box flex="1">
-              <Card>
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued" fontWeight="bold">Total Products</Text>
-                  <Text variant="headingLg" as="h2">{data.totalProducts}</Text>
-                  <Text variant="bodySm" tone="subdued">All active products</Text>
-                </BlockStack>
-              </Card>
-            </Box>
-          </InlineStack>
-        </Layout.Section>
-
-        {/* 3. Bottom Grid: Inventory Overview + This Week Action Plan */}
-        <Layout.Section variant="oneHalf">
-          <Card title="Inventory Overview">
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h3">Inventory Breakdown</Text>
-              
-              <BlockStack gap="200">
-                <InlineStack align="space-between">
-                  <Text variant="bodyMd">🟢 Healthy</Text>
-                  <Text variant="bodyMd" fontWeight="bold">280 (81%)</Text>
-                </InlineStack>
-                <ProgressBar progress={81} tone="success" size="small" />
+          <BlockStack gap="300">
+            <InlineStack align="space-between" blockAlign="center">
+              <BlockStack gap="050">
+                <Text variant="headingMd" as="h2">
+                  ⚡ Smart Recipes
+                </Text>
+                <Text variant="bodySm" tone="subdued">
+                  Automated recovery recommendations based on your store's live inventory analytics.
+                </Text>
               </BlockStack>
+            </InlineStack>
 
-              <BlockStack gap="200">
-                <InlineStack align="space-between">
-                  <Text variant="bodyMd">🟡 At Risk</Text>
-                  <Text variant="bodyMd" fontWeight="bold">25 (11%)</Text>
-                </InlineStack>
-                <ProgressBar progress={11} tone="highlight" size="small" />
-              </BlockStack>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: "16px",
+              }}
+            >
+              {(data.smartRecipes || []).map((recipe, index) => {
+                const isSummer = index === 0;
+                return (
+                  <Card key={recipe.id || recipe.title} padding="400">
+                    <BlockStack gap="300">
+                      {/* Recipe Header */}
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text variant="headingSm" as="h3" fontWeight="semibold">
+                          {recipe.title}
+                        </Text>
+                        <Badge tone={isSummer ? "attention" : "warning"}>
+                          {isSummer ? "Slow Moving" : "High Risk"}
+                        </Badge>
+                      </InlineStack>
 
-              <BlockStack gap="200">
-                <InlineStack align="space-between">
-                  <Text variant="bodyMd">🔴 Dead Stock</Text>
-                  <Text variant="bodyMd" fontWeight="bold">{data.deadStockSkuCount} (5%)</Text>
-                </InlineStack>
-                <ProgressBar progress={5} tone="critical" size="small" />
-              </BlockStack>
+                      <Text variant="bodySm" tone="subdued">
+                        {recipe.description}
+                      </Text>
 
-              <BlockStack gap="200">
-                <InlineStack align="space-between">
-                  <Text variant="bodyMd">⚪ Out of Stock</Text>
-                  <Text variant="bodyMd" fontWeight="bold">10 (3%)</Text>
-                </InlineStack>
-                <ProgressBar progress={3} tone="primary" size="small" />
-              </BlockStack>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
+                      {/* Stat Metrics Box */}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: "14px",
+                          backgroundColor: "#F9FAFB",
+                          padding: "14px 16px",
+                          borderRadius: "8px",
+                          border: "1px solid #E5E7EB",
+                        }}
+                      >
+                        <BlockStack gap="050">
+                          <Text variant="bodyXs" tone="subdued">
+                            {isSummer ? "Products Detected" : "Products at Risk"}
+                          </Text>
+                          <span style={{ fontSize: "16px", fontWeight: "700", color: "#1F2937" }}>
+                            {isSummer
+                              ? `${recipe.productsDetected || 0} products`
+                              : `${recipe.productsAtRisk || 0} products`}
+                          </span>
+                        </BlockStack>
 
-        <Layout.Section variant="oneHalf">
-          <Card title="This Week's Action Plan">
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h3">Action Plan</Text>
+                        <BlockStack gap="050">
+                          <Text variant="bodyXs" tone="subdued">
+                            {isSummer ? "Potential Recovery" : "Potential Revenue Protected"}
+                          </Text>
+                          <span style={{ fontSize: "16px", fontWeight: "700", color: "#15803D" }}>
+                            {formatCurrency(
+                              isSummer
+                                ? recipe.potentialRecovery
+                                : recipe.potentialRevenueProtected
+                            )}
+                          </span>
+                        </BlockStack>
+                      </div>
 
-              <Banner title="Dead Stock Alert" tone="critical">
-                <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="bodySm">{formattedAtRisk} at risk — {data.deadStockSkuCount} SKUs</Text>
-                  <Button url="/app/dead-stock" variant="primary" tone="critical">Take Action</Button>
-                </InlineStack>
-              </Banner>
+                      {/* Footer Actions */}
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="100" blockAlign="center">
+                          <Text variant="bodyXs" tone="subdued">
+                            Recommended:
+                          </Text>
+                          <Badge tone="info">
+                            {`${recipe.recommendedBadge || ""} ${recipe.recommendedAction || "Clearance Sale"}`}
+                          </Badge>
+                        </InlineStack>
 
-              <Banner title="Stockout Warning" tone="warning">
-                <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="bodySm">{data.stockoutRiskCount} SKUs will run out soon</Text>
-                  <Button url="/app/high-demand">Take Action</Button>
-                </InlineStack>
-              </Banner>
-
-              <Banner title="Low Stock Warning" tone="info">
-                <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="bodySm">{data.lowStockCount} SKUs below threshold</Text>
-                  <Button url="/app/automations">View All</Button>
-                </InlineStack>
-              </Banner>
-            </BlockStack>
-          </Card>
+                        <Button
+                          variant="primary"
+                          onClick={() => {
+                            if (recipe.link) {
+                              navigate(recipe.link);
+                            }
+                          }}
+                        >
+                          Run Recipe
+                        </Button>
+                      </InlineStack>
+                    </BlockStack>
+                  </Card>
+                );
+              })}
+            </div>
+          </BlockStack>
         </Layout.Section>
       </Layout>
     </Page>

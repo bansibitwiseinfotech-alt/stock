@@ -1207,6 +1207,7 @@ export default function PreOrders({ shopDomain } = {}) {
                   <TextField
                     label="Launch Date (Required)"
                     type="date"
+                    min={new Date().toISOString().split("T")[0]}
                     value={configForm.launchDate}
                     onChange={(val) => setConfigForm((prev) => ({ ...prev, launchDate: val }))}
                     helpText="Pre-order UI automatically expires when this date arrives."
@@ -1216,6 +1217,7 @@ export default function PreOrders({ shopDomain } = {}) {
                   <TextField
                     label="Shipping Starts (Optional)"
                     type="date"
+                    min={new Date().toISOString().split("T")[0]}
                     value={configForm.shippingDate}
                     onChange={(val) => setConfigForm((prev) => ({ ...prev, shippingDate: val }))}
                     autoComplete="off"
@@ -1225,6 +1227,7 @@ export default function PreOrders({ shopDomain } = {}) {
                 <TextField
                   label="Pre-Order Opens From (Optional)"
                   type="date"
+                  min={new Date().toISOString().split("T")[0]}
                   value={configForm.preOrderOpensAt}
                   onChange={(val) => setConfigForm((prev) => ({ ...prev, preOrderOpensAt: val }))}
                   helpText="Leave empty to make pre-orders available immediately."

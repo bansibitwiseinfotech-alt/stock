@@ -173,6 +173,14 @@
         renderNormalBundle(bundle, currency, moneyFormat, currentVariantId, container);
       }
     });
+
+    if (container.children.length === 0) {
+      var parentSection = container.closest(".smart-stock-bundle-widget, .smart-stock-bundles-section, section");
+      if (parentSection) {
+        parentSection.style.display = "none";
+        try { parentSection.remove(); } catch(e) {}
+      }
+    }
   }
 
   function renderBOGOBundle(bundle, currency, moneyFormat, currentVariantId, container) {
@@ -184,13 +192,17 @@
       (!isPlaceholderText(bundle.deadStockTitle) ? bundle.deadStockTitle : "") ||
       pageTitle ||
       bundle.deadStockVariantTitle ||
-      "Product unavailable";
+      "";
 
     var freeProductTitle =
       (!isPlaceholderText(bundle.freeProductTitle) ? bundle.freeProductTitle : "") ||
       (!isPlaceholderText(bundle.companionTitle) ? bundle.companionTitle : "") ||
       bundle.companionVariantTitle ||
-      "Free Gift";
+      "";
+
+    if (!deadStockTitle || deadStockTitle === "Product unavailable" || !freeProductTitle || freeProductTitle === "Product unavailable") {
+      return;
+    }
 
     var deadStockImgHtml = renderProductImageHtml(bundle.deadStockImage, deadStockTitle);
     var freeImgHtml = renderProductImageHtml(bundle.freeProductImage || bundle.companionImage, freeProductTitle);
@@ -271,7 +283,7 @@
     var errorText = card.querySelector(".ss-error-text");
 
     btn.addEventListener("click", function () {
-      handleBuyBundle(btn, bundle, errorBanner, errorText, currentVariantId);
+      handleBuyBundle(btn, bundle, currentVariantId, errorBanner, errorText);
     });
 
     container.appendChild(card);
@@ -286,12 +298,16 @@
       (!isPlaceholderText(bundle.deadStockTitle) ? bundle.deadStockTitle : "") ||
       pageTitle ||
       bundle.deadStockVariantTitle ||
-      "Product unavailable";
+      "";
 
     var companionTitle =
       (!isPlaceholderText(bundle.companionTitle) ? bundle.companionTitle : "") ||
       bundle.companionVariantTitle ||
-      "Product unavailable";
+      "";
+
+    if (!deadStockTitle || deadStockTitle === "Product unavailable" || !companionTitle || companionTitle === "Product unavailable") {
+      return;
+    }
 
     var deadStockImgHtml = renderProductImageHtml(bundle.deadStockImage, deadStockTitle);
     var companionImgHtml = renderProductImageHtml(bundle.companionImage, companionTitle);

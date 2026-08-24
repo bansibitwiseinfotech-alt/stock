@@ -516,8 +516,12 @@
     var card = document.createElement("div");
     card.className = "ss-bundle-card ss-bogo-card";
 
-    var deadStockTitle = (!isPlaceholderText(bundle.deadStockTitle) ? bundle.deadStockTitle : "") || pageLiquidTitle || bundle.deadStockVariantTitle || "Product unavailable";
-    var freeProductTitle = (!isPlaceholderText(bundle.freeProductTitle) ? bundle.freeProductTitle : "") || (!isPlaceholderText(bundle.companionTitle) ? bundle.companionTitle : "") || bundle.companionVariantTitle || "Free Gift";
+    var deadStockTitle = (!isPlaceholderText(bundle.deadStockTitle) ? bundle.deadStockTitle : "") || pageLiquidTitle || bundle.deadStockVariantTitle || "";
+    var freeProductTitle = (!isPlaceholderText(bundle.freeProductTitle) ? bundle.freeProductTitle : "") || (!isPlaceholderText(bundle.companionTitle) ? bundle.companionTitle : "") || bundle.companionVariantTitle || "";
+
+    if (!deadStockTitle || deadStockTitle === "Product unavailable" || !freeProductTitle || freeProductTitle === "Product unavailable") {
+      return;
+    }
 
     var deadStockImgHtml = renderProductImageHtml(bundle.deadStockImage, deadStockTitle);
     var freeImgHtml = renderProductImageHtml(bundle.freeProductImage || bundle.companionImage, freeProductTitle);
@@ -629,12 +633,16 @@
       (!isPlaceholderText(bundle.deadStockTitle) ? bundle.deadStockTitle : "") ||
       pageLiquidTitle ||
       bundle.deadStockVariantTitle ||
-      "Product unavailable";
+      "";
 
     var companionTitle =
       (!isPlaceholderText(bundle.companionTitle) ? bundle.companionTitle : "") ||
       bundle.companionVariantTitle ||
-      "Product unavailable";
+      "";
+
+    if (!deadStockTitle || deadStockTitle === "Product unavailable" || !companionTitle || companionTitle === "Product unavailable") {
+      return;
+    }
 
     var deadStockImgHtml = renderProductImageHtml(bundle.deadStockImage, deadStockTitle);
     var companionImgHtml = renderProductImageHtml(bundle.companionImage, companionTitle);

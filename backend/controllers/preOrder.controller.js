@@ -927,7 +927,14 @@ async function deleteLaunchConfig(req, res) {
       return res.status(400).json({ success: false, message: "shop and productId are required" });
     }
 
-    const deleted = await LaunchPreOrder.findOneAndDelete({ shop, productId: cleanId });
+    const deleted = await LaunchPreOrder.findOneAndDelete({
+      shop,
+      $or: [
+        { productId: cleanId },
+        { productId: req.params.productId },
+        { productId: `gid://shopify/Product/${cleanId}` },
+      ],
+    });
 
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Launch configuration not found." });

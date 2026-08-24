@@ -1,5 +1,9 @@
 const SmartBadgeAssignment = require("../models/SmartBadgeAssignment");
 const SmartBadgeApplication = require("../models/SmartBadgeApplication");
+const LaunchPreOrder = require("../models/LaunchPreOrder");
+const Bundle = require("../models/Bundle");
+const ClearanceSale = require("../models/ClearanceSale");
+const HighDemandStorefront = require("../models/HighDemandStorefront");
 const { normalizeShop } = require("./badgeConfiguration.service");
 
 /**
@@ -13,40 +17,106 @@ function normalizeProductId(productId) {
 }
 
 /**
- * Fetch map of active assignments for all products in a shop
+ * Fetch map of active assignments for all products in a shop across all active feature sources
  */
 async function getAppliedBadgesMap(shop) {
   const cleanShop = normalizeShop(shop);
   if (!cleanShop) return {};
 
-  const assignments = await SmartBadgeAssignment.find({
-    shop: cleanShop,
-    status: "ACTIVE",
-  }).lean();
-
   const map = {};
-  for (const item of assignments) {
-    const { rawId, cleanId, gid } = normalizeProductId(item.productId);
-    const badgeType = item.badgeType;
-    map[rawId] = badgeType;
-    map[cleanId] = badgeType;
-    map[gid] = badgeType;
-  }
 
-  // Also fallback to SmartBadgeApplication for existing data
-  const legacyApps = await SmartBadgeApplication.find({
-    shop: cleanShop,
-    enabled: true,
-  }).lean();
+  // 1. Real Storefront Pre-Orders (LaunchPreOrder)
+  try {
+    const launchPreOrders = await LaunchPreOrder.find({
+      $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+      preOrderEnabled: true,
+      status: { $nin: ["CANCELLED", "DISABLED"] },
+    }).lean();
 
-  for (const app of legacyApps) {
-    const { rawId, cleanId, gid } = normalizeProductId(app.productId);
-    if (!map[gid]) {
-      map[rawId] = app.badgeType;
-      map[cleanId] = app.badgeType;
-      map[gid] = app.badgeType;
+    for (const lpo of launchPreOrders) {
+      if (lpo.productId) {
+        const { rawId, cleanId, gid } = normalizeProductId(lpo.productId);
+        map[rawId] = "PRE_ORDER";
+        map[cleanId] = "PRE_ORDER";
+        map[gid] = "PRE_ORDER";
+      }
     }
-  }
+  } catch (_) {}
+
+  // 2. Active Bundles (Only on primary deadStockProductId)
+  try {
+    const activeBundles = await Bundle.find({
+      $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+      status: "ACTIVE",
+    }).lean();
+
+    for (const b of activeBundles) {
+      const primaryId = b.deadStockProductId || b.shopifyProductId || b.buyProductId;
+      if (primaryId) {
+        const { rawId, cleanId, gid } = normalizeProductId(primaryId);
+        map[rawId] = "BUNDLE";
+        map[cleanId] = "BUNDLE";
+        map[gid] = "BUNDLE";
+      }
+    }
+  } catch (_) {}
+
+  // 3. Active Clearance Sales
+  try {
+    const now = new Date();
+    const activeClearances = await ClearanceSale.find({
+      $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+      $or: [{ status: "ACTIVE" }, { active: true }],
+      $and: [
+        { $or: [{ startDate: { $exists: false } }, { startDate: { $lte: now } }] },
+        { $or: [{ endDate: { $exists: false } }, { endDate: { $gt: now } }] },
+      ],
+    }).lean();
+
+    for (const c of activeClearances) {
+      if (c.productId) {
+        const { rawId, cleanId, gid } = normalizeProductId(c.productId);
+        map[rawId] = "CLEARANCE";
+        map[cleanId] = "CLEARANCE";
+        map[gid] = "CLEARANCE";
+      }
+    }
+  } catch (_) {}
+
+  // 4. Active HighDemandStorefront Urgency/Low Stock badges
+  try {
+    const hdsRecords = await HighDemandStorefront.find({
+      $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+      $or: [
+        { "lowStockBadge.enabled": true },
+        { urgencyBadgeEnabled: true },
+      ],
+    }).lean();
+
+    for (const hds of hdsRecords) {
+      if (hds.productId) {
+        const { rawId, cleanId, gid } = normalizeProductId(hds.productId);
+        map[rawId] = "LOW_STOCK";
+        map[cleanId] = "LOW_STOCK";
+        map[gid] = "LOW_STOCK";
+      }
+    }
+  } catch (_) {}
+
+  // 5. Explicit SmartBadgeAssignments
+  try {
+    const assignments = await SmartBadgeAssignment.find({
+      $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+      status: "ACTIVE",
+    }).lean();
+
+    for (const item of assignments) {
+      const { rawId, cleanId, gid } = normalizeProductId(item.productId);
+      map[rawId] = item.badgeType;
+      map[cleanId] = item.badgeType;
+      map[gid] = item.badgeType;
+    }
+  } catch (_) {}
 
   return map;
 }
@@ -59,23 +129,38 @@ async function getBadgeAssignment(shop, productId) {
   const { cleanId, gid } = normalizeProductId(productId);
 
   const assignment = await SmartBadgeAssignment.findOne({
-    shop: cleanShop,
+    $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
     productId: { $in: [gid, cleanId] },
     status: "ACTIVE",
   }).lean();
 
-  return assignment;
+  if (assignment) return assignment;
+
+  // Check fallback from full map
+  const map = await getAppliedBadgesMap(cleanShop);
+  const badgeType = map[gid] || map[cleanId];
+  if (badgeType) {
+    return {
+      shop: cleanShop,
+      productId: gid,
+      badgeType,
+      status: "ACTIVE",
+      appliedAt: new Date(),
+    };
+  }
+
+  return null;
 }
 
 /**
- * Get total count of actively applied badges
+ * Get total count of actively applied badges across all features
  */
 async function getActiveAssignmentsCount(shop) {
-  const cleanShop = normalizeShop(shop);
-  return await SmartBadgeAssignment.countDocuments({
-    shop: cleanShop,
-    status: "ACTIVE",
-  });
+  const map = await getAppliedBadgesMap(shop);
+  const uniqueProductGids = new Set(
+    Object.keys(map).filter((k) => k.startsWith("gid://shopify/Product/"))
+  );
+  return uniqueProductGids.size;
 }
 
 /**

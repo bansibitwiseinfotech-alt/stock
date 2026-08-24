@@ -153,6 +153,19 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
     setModalError("");
     if (type === "clearance") {
       setClearanceErrors({});
+      if (product?.activeClearanceSale) {
+        setClearanceDiscount(String(product.activeClearanceSale.discountValue || product.activeClearanceSale.discountPercent || "20"));
+        if (product.activeClearanceSale.startDate && product.activeClearanceSale.endDate) {
+          const start = new Date(product.activeClearanceSale.startDate);
+          const end = new Date(product.activeClearanceSale.endDate);
+          const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+          if (diffDays > 0) {
+            setClearanceDuration(String(diffDays));
+          }
+          const sStr = start.toISOString().split("T")[0];
+          setClearanceStartDate(sStr >= todayDateValue() ? sStr : todayDateValue());
+        }
+      }
     }
     if (type === "markdown" && product?.activeMarkdownRule) {
       setStartingDiscount(String(product.activeMarkdownRule.startingDiscount ?? 10));
@@ -241,16 +254,13 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
     if (isSubmitting || isDeleting) return;
     const validationErrors = validateClearanceForm();
     if (Object.values(validationErrors).some(Boolean)) return;
-    if (product.activeClearanceSale) {
-      setModalError("An active clearance sale already exists for this product.");
-      return;
-    }
     try {
       setIsSubmitting(true);
       setModalError("");
 
       const discount = Number(clearanceDiscount);
       const duration = Number(clearanceDuration);
+      const isEdit = Boolean(product.activeClearanceSale);
 
       const result = await executeClearanceSale(activeShop, product?.id || variantId, {
         variantId: product?.shopifyVariantId || variantId,
@@ -260,11 +270,11 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
         title: `Clearance ${clearanceDiscount}% Off - ${product?.title}`,
       });
 
-      setActionSuccess(`✓ Clearance Sale Created! ${result.discountPercent}% automatic discount has been created in Shopify.`);
+      setActionSuccess(`✓ Clearance Sale ${isEdit ? "Updated" : "Created"}! ${result.discountPercent || discount}% automatic discount has been created in Shopify.`);
       closeModal();
       await loadDetail();
     } catch (err) {
-      setModalError(err.message || "Failed to create clearance sale.");
+      setModalError(err.message || "Failed to save clearance sale.");
     } finally {
       setIsSubmitting(false);
     }
@@ -438,10 +448,12 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
     try {
       setIsDeletingMarkdown(true);
       setModalError("");
-      await executeStopProgressiveMarkdown(activeShop, product?.id || variantId);
-      setActionSuccess("✓ Progressive Markdown stopped! Original price restored on Shopify & storefront.");
+      const targetId = product?.shopifyVariantId || product?.variantId || product?.shopifyProductId || product?.productId || product?.id || variantId;
+      await executeStopProgressiveMarkdown(activeShop, targetId);
+      setActionSuccess("✓ Progressive Markdown deleted! Original price restored on Shopify & storefront.");
       setDeleteMarkdownConfirmOpen(false);
       closeModal();
+      setProduct((prev) => (prev ? { ...prev, activeMarkdownRule: null } : prev));
       await loadDetail();
     } catch (err) {
       setModalError(err.message || "Failed to stop progressive markdown.");
@@ -885,26 +897,28 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
         <Modal
           open
           onClose={closeModal}
-          title="Create Clearance Sale"
+          title={product.activeClearanceSale ? "Edit Clearance Sale" : "Create Clearance Sale"}
           footer={(
             <InlineStack align="end" gap="200">
               <Button onClick={closeModal} disabled={isSubmitting || isDeleting}>
                 Cancel
               </Button>
-              <Button
-                tone="critical"
-                onClick={() => setDeleteConfirmOpen(true)}
-                disabled={isSubmitting || isDeleting}
-              >
-                Delete Sale
-              </Button>
+              {product.activeClearanceSale && (
+                <Button
+                  tone="critical"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  disabled={isSubmitting || isDeleting}
+                >
+                  Delete Sale
+                </Button>
+              )}
               <Button
                 variant="primary"
                 onClick={handleClearanceSubmit}
                 loading={isSubmitting}
-                disabled={isSubmitting || isDeleting || clearanceFormInvalid || Boolean(product.activeClearanceSale)}
+                disabled={isSubmitting || isDeleting || clearanceFormInvalid}
               >
-                Create Sale
+                {product.activeClearanceSale ? "Update Sale" : "Create Sale"}
               </Button>
             </InlineStack>
           )}
@@ -914,11 +928,6 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
               {modalError && (
                 <Banner tone="critical">
                   <p>{modalError}</p>
-                </Banner>
-              )}
-              {product.activeClearanceSale && (
-                <Banner tone="warning">
-                  <p>An active clearance sale already exists for this product. Delete it before creating another one.</p>
                 </Banner>
               )}
               <TextField label="Product" value={product.title} disabled autocomplete="off" />
@@ -994,6 +1003,7 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
               <TextField
                 label="Start date"
                 type="date"
+                min={todayDateValue()}
                 value={clearanceStartDate}
                 onChange={(value) => {
                   setClearanceStartDate(value);

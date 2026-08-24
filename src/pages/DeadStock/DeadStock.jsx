@@ -681,6 +681,7 @@ export default function DeadStock({
               <TextField
                 label="Start date"
                 type="date"
+                min={todayDateValue()}
                 value={bulkStartDate}
                 onChange={(val) => {
                   setBulkStartDate(val);

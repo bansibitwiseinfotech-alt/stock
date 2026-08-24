@@ -206,13 +206,13 @@ export async function executeProgressiveMarkdown(shop = "", productId = "", payl
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/dead-stock/:variantId/markdown
 // ─────────────────────────────────────────────────────────────────────────────
-export async function executeStopProgressiveMarkdown(shop = "", productId = "") {
+export async function executeStopProgressiveMarkdown(shop = "", productId = "", payload = {}) {
   const targetShop = shop || new URLSearchParams(window.location.search).get("shop") || "";
   const cleanId = getDeadStockId(productId, "stop progressive markdown");
   const res = await fetch(`/api/dead-stock/${cleanId}/markdown?shop=${encodeURIComponent(targetShop)}`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shop: targetShop }),
+    body: JSON.stringify({ shop: targetShop, ...payload }),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.success) throw new Error(json.message || "Failed to stop progressive markdown");

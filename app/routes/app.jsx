@@ -47,6 +47,9 @@ export default function App() {
             SHOPIFY NATIVE APP NAVIGATION (LEFT SIDEBAR)
         ================================================== */}
         <s-app-nav>
+          <s-link href="/app">
+            Dashboard
+          </s-link>
           <s-link href="/app/dead-stock">
             Dead Stock
           </s-link>

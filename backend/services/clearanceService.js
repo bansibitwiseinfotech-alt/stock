@@ -252,19 +252,17 @@ async function createClearanceSale(
     }
 
     const now = new Date();
-    const duplicate = await ClearanceSale.findOne({
+    const existingSale = await ClearanceSale.findOne({
       shop,
       $or: [
         { productId: formattedProductId },
         { variantId: formattedVariantId },
       ],
       status: { $in: ["SCHEDULED", "ACTIVE"] },
-      startDate: { $lt: new Date(endIso) },
-      endDate: { $gt: new Date(startIso) },
-    }).lean();
+    });
 
-    if (duplicate) {
-      throw new Error("An active clearance sale already exists for this product.");
+    if (existingSale?.shopifyDiscountId) {
+      await deleteClearanceDiscount(shop, accessToken, existingSale.shopifyDiscountId);
     }
 
     const result = await createClearanceDiscount(shop, accessToken, {
@@ -284,7 +282,17 @@ async function createClearanceSale(
 
     const status = new Date(startIso) > now ? "SCHEDULED" : "ACTIVE";
     let sale;
-    try {
+    if (existingSale) {
+      existingSale.shopifyDiscountId = result.discountId;
+      existingSale.discountType = "PERCENTAGE";
+      existingSale.discountValue = discount;
+      existingSale.originalPrice = variant.price == null ? null : Number(variant.price);
+      existingSale.startDate = new Date(startIso);
+      existingSale.endDate = new Date(endIso);
+      existingSale.status = status;
+      existingSale.active = true;
+      sale = await existingSale.save();
+    } else {
       sale = await ClearanceSale.create({
         shop,
         productId: formattedProductId,
@@ -296,16 +304,8 @@ async function createClearanceSale(
         startDate: new Date(startIso),
         endDate: new Date(endIso),
         status,
+        active: true,
       });
-    } catch (error) {
-      if (error?.code === 11000) {
-        await deleteClearanceDiscount(shop, accessToken, createdDiscountId);
-        return {
-          success: false,
-          message: "An active clearance sale already exists for this product.",
-        };
-      }
-      throw error;
     }
 
     await DeadStockAction.create({
@@ -325,6 +325,7 @@ async function createClearanceSale(
         shopifyDiscountId: result.discountId,
         startDate: startIso,
         endDate: endIso,
+        isUpdate: Boolean(existingSale),
       },
     });
 

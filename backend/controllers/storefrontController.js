@@ -504,40 +504,57 @@ async function getStorefrontBundles(req, res) {
     const store = await Store.findOne({ shop }).lean().catch(() => null);
     const accessToken = store?.accessToken || req.headers["x-shopify-access-token"];
 
-    const query = {
-      shop,
-      status: "ACTIVE",
-    };
-
-    if (productId || variantId) {
-      const cleanProdId = productId ? String(productId).replace("gid://shopify/Product/", "") : "";
-      const cleanVarId = variantId ? String(variantId).replace("gid://shopify/ProductVariant/", "") : "";
-
-      const matchConditions = [];
-      if (cleanProdId) {
-        matchConditions.push(
-          { deadStockProductId: cleanProdId },
-          { deadStockProductId: `gid://shopify/Product/${cleanProdId}` },
-          { buyProductId: cleanProdId },
-          { "products.0.productId": cleanProdId }
-        );
-      }
-      if (cleanVarId) {
-        matchConditions.push(
-          { deadStockVariantId: cleanVarId },
-          { deadStockVariantId: `gid://shopify/ProductVariant/${cleanVarId}` },
-          { buyProductVariantId: cleanVarId },
-          { "products.0.variantId": cleanVarId }
-        );
-      }
-      if (matchConditions.length > 0) {
-        query.$or = matchConditions;
-      }
+    if (!productId && !variantId) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+      });
     }
+
+    const cleanProdId = productId ? String(productId).replace("gid://shopify/Product/", "").trim() : "";
+    const cleanVarId = variantId ? String(variantId).replace("gid://shopify/ProductVariant/", "").trim() : "";
+
+    const matchConditions = [];
+    if (cleanProdId) {
+      matchConditions.push(
+        { deadStockProductId: cleanProdId },
+        { deadStockProductId: `gid://shopify/Product/${cleanProdId}` },
+        { buyProductId: cleanProdId },
+        { "products.0.productId": cleanProdId }
+      );
+    }
+    if (cleanVarId) {
+      matchConditions.push(
+        { deadStockVariantId: cleanVarId },
+        { deadStockVariantId: `gid://shopify/ProductVariant/${cleanVarId}` },
+        { buyProductVariantId: cleanVarId },
+        { "products.0.variantId": cleanVarId }
+      );
+    }
+
+    if (matchConditions.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+      });
+    }
+
+    const query = {
+      $or: [{ shop }, { shop: new RegExp(`^${shop}$`, "i") }, { shopId: shop }],
+      status: "ACTIVE",
+      $and: [{ $or: matchConditions }],
+    };
 
     const { resolveProductDetails, isPlaceholderText } = require("../services/bundleService");
 
     const bundles = await Bundle.find(query).sort({ createdAt: -1 }).lean();
+
+    if (!bundles || bundles.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+      });
+    }
 
     const safeBundles = await Promise.all(
       bundles.map(async (b) => {
@@ -643,9 +660,17 @@ async function getStorefrontBundles(req, res) {
       })
     );
 
+    const validBundles = safeBundles.filter((b) => {
+      if (!b) return false;
+      if (b.deadStockTitle === "Product unavailable" || b.companionTitle === "Product unavailable") {
+        return false;
+      }
+      return true;
+    });
+
     return res.status(200).json({
       success: true,
-      data: safeBundles,
+      data: validBundles,
     });
   } catch (error) {
     console.error("[StorefrontBundles] Error:", error.message);

@@ -62,6 +62,70 @@ mutation discountAutomaticDelete($id: ID!) {
 }
 `;
 
+const CREATE_BASIC_DISCOUNT_MUTATION = `
+mutation discountAutomaticBasicCreate($automaticBasicDiscount: DiscountAutomaticBasicInput!) {
+  discountAutomaticBasicCreate(automaticBasicDiscount: $automaticBasicDiscount) {
+    automaticDiscountNode {
+      id
+      automaticDiscount {
+        ... on DiscountAutomaticBasic {
+          title
+          status
+        }
+      }
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+`;
+
+/**
+ * Creates a native Shopify Automatic Basic Discount for percentage-off bundles.
+ */
+async function createShopifyBundleDiscount(shop, accessToken, deadStockProductId, companionProductId, bundleName, discountPercent) {
+  if (!shop || !accessToken) return "";
+  const pct = Number(discountPercent);
+  if (!pct || pct <= 0) return "";
+
+  const buyProdGid = normalizeShopifyId(deadStockProductId, "Product");
+  const compProdGid = normalizeShopifyId(companionProductId, "Product");
+
+  const variables = {
+    automaticBasicDiscount: {
+      title: `Bundle: ${discountPercent}% OFF (${bundleName || "Frequently Bought Together"})`,
+      startsAt: new Date().toISOString(),
+      customerGets: {
+        value: {
+          percentage: pct / 100,
+        },
+        items: {
+          products: {
+            productsToAdd: [buyProdGid, compProdGid].filter(Boolean),
+          },
+        },
+      },
+    },
+  };
+
+  try {
+    const res = await shopifyGraphQL(shop, accessToken, CREATE_BASIC_DISCOUNT_MUTATION, variables);
+    const node = res?.discountAutomaticBasicCreate?.automaticDiscountNode;
+    if (node?.id) {
+      return node.id;
+    }
+    if (res?.discountAutomaticBasicCreate?.userErrors?.length) {
+      console.warn("[BundleService] Basic discount userErrors:", res.discountAutomaticBasicCreate.userErrors);
+    }
+  } catch (err) {
+    console.error("[BundleService] Error creating Shopify bundle discount:", err.message);
+  }
+  return "";
+}
+
 /**
  * Creates a native Shopify Automatic Buy X Get Y (BXGY) Discount.
  */
@@ -718,10 +782,23 @@ async function createNormalBundle(
       ],
     });
 
-    // If switching from BOGO to Normal, delete any previous Shopify BXGY discount
+    // If updating or switching offers, delete any previous Shopify discount
     const oldDiscountId = existing?.shopifyDiscountId || existing?.metadata?.shopifyDiscountId;
     if (oldDiscountId && validToken) {
       await deleteShopifyDiscount(cleanShopDomain, validToken, oldDiscountId);
+    }
+
+    // 2. Create native Shopify Automatic Basic Discount for the bundled items
+    let newShopifyDiscountId = "";
+    if (validToken && pct > 0) {
+      newShopifyDiscountId = await createShopifyBundleDiscount(
+        cleanShopDomain,
+        validToken,
+        finalDeadStockProductId,
+        finalCompanionProductId,
+        trimmedName,
+        pct
+      );
     }
 
     let shopifyBundleResult = null;
@@ -775,6 +852,7 @@ async function createNormalBundle(
       freeProductVariantId: "",
       freeProductTitle: "",
       freeProductImage: "",
+      shopifyDiscountId: newShopifyDiscountId,
     };
 
     let bundle;
@@ -790,6 +868,7 @@ async function createNormalBundle(
       existing.freeProductVariantId = "";
       existing.type = "Dead Stock Bundle";
       existing.status = "ACTIVE";
+      existing.shopifyDiscountId = newShopifyDiscountId || existing.shopifyDiscountId || "";
       if (shopifyBundleResult?.productId) {
         existing.shopifyBundleId = shopifyBundleResult.productId;
         existing.shopifyProductId = shopifyBundleResult.productId;
@@ -813,6 +892,7 @@ async function createNormalBundle(
         shopifyBundleId: shopifyBundleResult?.productId || "",
         shopifyProductId: shopifyBundleResult?.productId || "",
         shopifyVariantId: shopifyBundleResult?.variantId || "",
+        shopifyDiscountId: newShopifyDiscountId,
         type: "Dead Stock Bundle",
         productsCount: 2,
         performance: "$0",
