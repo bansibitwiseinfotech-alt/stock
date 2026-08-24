@@ -1,0 +1,51 @@
+{
+  "payload": {
+    "export": "cart-payment-methods-transform-run",
+    "target": "cart.payment-methods.transform.run",
+    "input": {
+      "cart": {
+        "lines": [
+          {
+            "id": "gid://shopify/CartLine/1",
+            "attribute": {
+              "value": "true"
+            },
+            "isPreorder": {
+              "value": "true"
+            },
+            "preorderText": {
+              "value": "$100.00"
+            },
+            "merchandise": {
+              "id": "gid://shopify/ProductVariant/202",
+              "product": {
+                "id": "gid://shopify/Product/202",
+                "title": "Apple iPhone 17 Pro Pre-Order",
+                "hasAnyTag": true
+              }
+            }
+          }
+        ]
+      },
+      "paymentMethods": [
+        {
+          "id": "gid://shopify/PaymentCustomizationPaymentMethod/cc",
+          "name": "Credit card"
+        },
+        {
+          "id": "gid://shopify/PaymentCustomizationPaymentMethod/cod",
+          "name": "Cash on Delivery (COD)"
+        }
+      ]
+    },
+    "output": {
+      "operations": [
+        {
+          "paymentMethodHide": {
+            "paymentMethodId": "gid://shopify/PaymentCustomizationPaymentMethod/cod"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,30 @@
+query CartPaymentMethodsTransformRunInput {
+  cart {
+    lines {
+      id
+      attribute(key: "_preorder") {
+        value
+      }
+      isPreorder: attribute(key: "_is_preorder") {
+        value
+      }
+      preorderText: attribute(key: "Pre-Order Total") {
+        value
+      }
+      merchandise {
+        ... on ProductVariant {
+          id
+          product {
+            id
+            title
+            hasAnyTag(tags: ["Pre-Order", "pre-order", "preorder", "Preorder", "Launch Pre-Order"])
+          }
+        }
+      }
+    }
+  }
+  paymentMethods {
+    id
+    name
+  }
+}

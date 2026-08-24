@@ -1,0 +1,24 @@
+<div
+  id="smart-stock-high-demand"
+  class="smart-stock-high-demand-embed"
+  data-product-id="{{ product.id }}"
+  data-variant-id="{{ product.selected_or_first_available_variant.id }}"
+  data-shop="{{ shop.permanent_domain }}"
+  data-stock="{{ product.selected_or_first_available_variant.inventory_quantity | default: 0 }}"
+  style="display: none;"
+></div>
+
+{{ 'high-demand-stockout.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'high-demand-stockout.js' | asset_url }}" defer></script>
+
+<!-- Launch Pre-Order Assets -->
+{{ 'launch-preorder.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'launch-preorder.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Stockout Shield",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

@@ -1,0 +1,47 @@
+{% if block.settings.enabled %}
+
+  <script>
+    window.SmartStockEmbedActive = true;
+    window.SmartStockContext = {
+      shop: {{ shop.permanent_domain | json }},
+      productId: {{ product.id | json }},
+      variantId: {{ product.selected_or_first_available_variant.id | json }}
+    };
+    window.SmartStockEmbedConfig = {
+      shop: {{ shop.permanent_domain | json }},
+      productId: {{ product.id | json }},
+      variantId: {{ product.selected_or_first_available_variant.id | json }},
+      moneyFormat: {{ shop.money_format | json }},
+      currency: {{ shop.currency | json }}
+    };
+    {% if product %}
+      window.SmartStockProduct = {{ product | json }};
+    {% endif %}
+  </script>
+
+  <script src="{{ 'smart-stock-embed.js' | asset_url }}" defer></script>
+  <link rel="stylesheet" href="{{ 'smart-stock-embed.css' | asset_url }}">
+
+  <!-- Stockout Shield Assets -->
+  <link rel="stylesheet" href="{{ 'high-demand-stockout.css' | asset_url }}">
+  <script src="{{ 'high-demand-stockout.js' | asset_url }}" defer></script>
+
+  <!-- Launch Pre-Order Assets -->
+  <link rel="stylesheet" href="{{ 'launch-preorder.css' | asset_url }}">
+  <script src="{{ 'launch-preorder.js' | asset_url }}" defer></script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Smart Stock",
+  "target": "head",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Smart Stock — Enable storefront intelligence",
+      "default": true
+    }
+  ]
+}
+{% endschema %}

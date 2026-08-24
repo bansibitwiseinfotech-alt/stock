@@ -1,0 +1,32 @@
+   {% assign variant = product.selected_or_first_available_variant %}
+
+{{ 'smart-stock-progressive-markdown.css' | asset_url | stylesheet_tag }}
+
+<div
+  id="smart-stock-progressive-markdown-{{ block.id }}"
+  class="smart-stock-progressive-markdown-wrapper"
+  data-progressive-markdown-root
+  data-product-id="{{ product.id }}"
+  data-variant-id="{{ variant.id }}"
+  style="display: none !important;"
+>
+  <script type="application/json" class="smart-stock-markdown-variants-json">
+    {
+      "shop": {{ shop.permanent_domain | json }},
+      "productId": {{ product.id | json }},
+      "selectedVariantId": {{ variant.id | json }},
+      "moneyFormat": {{ shop.money_format | json }},
+      "variants": {{ product.variants | json }}
+    }
+  </script>
+</div>
+
+<script src="{{ 'smart-stock-progressive-markdown.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Progressive Markdown",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

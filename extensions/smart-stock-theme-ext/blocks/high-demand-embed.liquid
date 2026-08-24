@@ -1,0 +1,34 @@
+{% if request.page_type == 'product' %}
+
+<div
+  id="smart-stock-high-demand"
+  data-product-id="{{ product.id }}"
+  data-variant-id="{{ product.selected_or_first_available_variant.id }}"
+  data-shop="{{ shop.permanent_domain }}"
+  hidden
+>
+</div>
+
+<link rel="stylesheet" href="{{ 'high-demand.css' | asset_url }}">
+<script src="{{ 'high-demand.js' | asset_url }}" defer></script>
+
+<!-- Launch Pre-Order Assets -->
+<link rel="stylesheet" href="{{ 'launch-preorder.css' | asset_url }}">
+<script src="{{ 'launch-preorder.js' | asset_url }}" defer></script>
+
+{% endif %}
+
+{% schema %}
+{
+  "name": "Stockout Shield",
+  "target": "head",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable Stockout Shield",
+      "default": true
+    }
+  ]
+}
+{% endschema %}

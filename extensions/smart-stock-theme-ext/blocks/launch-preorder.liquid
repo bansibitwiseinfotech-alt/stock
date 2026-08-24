@@ -1,0 +1,41 @@
+{% comment %}
+  ============================================================
+  SMART STOCK — NEW PRODUCT LAUNCH PRE-ORDER BLOCK
+  ============================================================
+{% endcomment %}
+
+{% if product %}
+  <div
+    id="smart-stock-launch-preorder-{{ block.id }}"
+    class="smart-stock-launch-preorder-root"
+    data-smart-stock-launch-preorder
+    data-shop="{{ shop.permanent_domain }}"
+    data-product-id="{{ product.id }}"
+    data-selected-variant-id="{{ product.selected_or_first_available_variant.id }}"
+    data-selected-variant-price="{{ product.selected_or_first_available_variant.price }}"
+    data-currency="{{ shop.currency }}"
+    data-money-format="{{ shop.money_format | escape }}"
+    style="min-height: 0;"
+  >
+    <script type="application/json" class="smart-stock-product-json">
+      {{ product | json }}
+    </script>
+  </div>
+
+  {{ 'launch-preorder.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'launch-preorder.js' | asset_url }}" defer="defer"></script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Launch Pre-Order",
+  "target": "section",
+  "templates": ["product"],
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Displays the dynamic New Product Launch Pre-Order badge, launch schedule card, and Pre-Order button when configured in the Smart Stock app."
+    }
+  ]
+}
+{% endschema %}

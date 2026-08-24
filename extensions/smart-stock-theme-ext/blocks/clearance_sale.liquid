@@ -1,0 +1,1475 @@
+{% comment %}
+  ============================================================
+  SMART STOCK - CLEARANCE SALE
+  ============================================================
+
+  Theme Editor block = hidden placeholder only.
+
+  Actual Clearance Sale is dynamically inserted directly
+  below the Shopify "Buy it now" button.
+{% endcomment %}
+
+<div
+  id="smart-stock-clearance-sale-{{ block.id }}"
+  class="smart-stock-clearance-sale-placeholder"
+  data-smart-stock-clearance-sale-root
+  data-product-id="{{ product.id }}"
+  data-variant-id="{{ product.selected_or_first_available_variant.id }}"
+  style="display: none !important;"
+></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var root = document.getElementById(
+    "smart-stock-clearance-sale-{{ block.id }}"
+  );
+
+  if (!root) {
+    return;
+  }
+
+  var shopDomain = {{ shop.permanent_domain | json }};
+  var productId = root.getAttribute("data-product-id");
+  var initialVariantId = root.getAttribute("data-variant-id");
+
+  var currency = {{ shop.currency | default: "USD" | json }};
+
+  var moneyFormat = {{ shop.money_format | json }};
+
+  if (!moneyFormat) {
+    moneyFormat = "$" + "{% raw %}{{amount}}{% endraw %}";
+  }
+
+
+  /* ============================================================
+     HELPERS
+     ============================================================ */
+
+  function getConfigValue(config, key, fallback) {
+    if (
+      config &&
+      typeof config[key] !== "undefined" &&
+      config[key] !== null &&
+      config[key] !== ""
+    ) {
+      return config[key];
+    }
+
+    return fallback;
+  }
+
+
+  function formatMoney(value) {
+    var numberValue = Number(value);
+
+    if (isNaN(numberValue)) {
+      return "";
+    }
+
+    if (
+      window.Shopify &&
+      typeof window.Shopify.formatMoney === "function"
+    ) {
+      return window.Shopify.formatMoney(
+        Math.round(numberValue * 100),
+        moneyFormat
+      );
+    }
+
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: currency
+      }).format(numberValue);
+    } catch (error) {
+      return numberValue.toFixed(2);
+    }
+  }
+
+
+  /* ============================================================
+     REMOVE OLD CLEARANCE ELEMENTS
+     ============================================================ */
+
+  function removeRenderedClearance() {
+    var oldElements = document.querySelectorAll(
+      "[data-smart-stock-rendered-clearance]"
+    );
+
+    oldElements.forEach(function (element) {
+      element.remove();
+    });
+  }
+
+
+  /* ============================================================
+     FIND PRODUCT FORM
+     ============================================================ */
+
+  function getProductForm() {
+
+    var form =
+      document.querySelector(
+        'form[action*="/cart/add"]'
+      );
+
+    if (form) {
+      return form;
+    }
+
+    var productForm =
+      document.querySelector("product-form");
+
+    if (productForm) {
+      return productForm;
+    }
+
+    return document.querySelector(".product-form");
+  }
+
+
+  /* ============================================================
+     FIND BUY IT NOW BUTTON
+     ============================================================ */
+
+  function getBuyItNowButton() {
+
+    var productForm = getProductForm();
+
+    var selectors = [
+      ".shopify-payment-button__button",
+      ".shopify-payment-button button",
+      ".shopify-payment-button",
+      "button[name='checkout']",
+      "input[name='checkout']",
+      ".dynamic-checkout__content",
+      ".product-form__buttons .shopify-payment-button",
+      ".product-form__buttons [name='checkout']"
+    ];
+
+
+    /*
+     * First search inside product form
+     */
+
+    if (productForm) {
+
+      for (var i = 0; i < selectors.length; i++) {
+
+        var insideElement =
+          productForm.querySelector(selectors[i]);
+
+        if (insideElement) {
+          return insideElement;
+        }
+      }
+    }
+
+
+    /*
+     * Then search globally
+     */
+
+    for (var j = 0; j < selectors.length; j++) {
+
+      var globalElement =
+        document.querySelector(selectors[j]);
+
+      if (globalElement) {
+        return globalElement;
+      }
+    }
+
+
+    /*
+     * Last fallback:
+     * search button text
+     */
+
+    var buttons = document.querySelectorAll(
+      "button, a, input[type='submit'], input[type='button']"
+    );
+
+    for (var k = 0; k < buttons.length; k++) {
+
+      var button = buttons[k];
+
+      var text = (
+        button.textContent ||
+        button.value ||
+        button.getAttribute("aria-label") ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (
+        text.indexOf("buy it now") !== -1 ||
+        text.indexOf("buy now") !== -1
+      ) {
+        return button;
+      }
+    }
+
+    return null;
+  }
+
+
+  /* ============================================================
+     FIND INSERT TARGET (BELOW BUY IT NOW / BUY BUTTONS)
+     ============================================================ */
+
+  function getInsertTarget(button) {
+    var productForm = getProductForm();
+
+    // 1. If explicit button provided, resolve its wrapper
+    if (button) {
+      var paymentWrapper = button.closest(".shopify-payment-button");
+      if (paymentWrapper && paymentWrapper.parentNode) {
+        return paymentWrapper;
+      }
+
+      var parentButtons = button.closest(
+        ".product-form__buttons, .product__buy-buttons, .product-form__payment-container"
+      );
+      if (parentButtons && parentButtons.parentNode) {
+        return parentButtons;
+      }
+
+      if (button.parentNode) {
+        return button;
+      }
+    }
+
+    // 2. Search for Shopify dynamic checkout wrapper ("Buy it now")
+    var globalPaymentWrapper =
+      (productForm && productForm.querySelector(".shopify-payment-button")) ||
+      document.querySelector(".shopify-payment-button");
+
+    if (globalPaymentWrapper && globalPaymentWrapper.parentNode) {
+      return globalPaymentWrapper;
+    }
+
+    // 3. Search for product form buttons wrapper (wraps Add to cart + Buy it now)
+    var globalButtonsWrapper =
+      (productForm &&
+        productForm.querySelector(
+          ".product-form__buttons, .product__buy-buttons, .product-form__payment-container"
+        )) ||
+      document.querySelector(
+        ".product-form__buttons, .product__buy-buttons, .product-form__payment-container"
+      );
+
+    if (globalButtonsWrapper && globalButtonsWrapper.parentNode) {
+      return globalButtonsWrapper;
+    }
+
+    // 4. Search for Add to Cart button container
+    var addButton =
+      (productForm &&
+        productForm.querySelector('button[name="add"], .product-form__submit')) ||
+      document.querySelector('button[name="add"], .product-form__submit');
+
+    if (addButton && addButton.parentNode) {
+      var addWrapper = addButton.closest(
+        ".product-form__buttons, .product__buy-buttons"
+      );
+      return addWrapper || addButton;
+    }
+
+    // 5. Fallback: Product Form
+    if (productForm && productForm.parentNode) {
+      return productForm;
+    }
+
+    return null;
+  }
+
+
+  /* ============================================================
+     CREATE CLEARANCE ELEMENT
+     ============================================================ */
+
+  function createClearanceElement() {
+
+    var element =
+      document.createElement("div");
+
+    element.className =
+      "smart-stock-clearance-sale";
+
+    element.setAttribute(
+      "data-smart-stock-rendered-clearance",
+      "true"
+    );
+
+    return element;
+  }
+
+
+  /* ============================================================
+     INSERT BELOW BUY IT NOW
+     ============================================================ */
+
+  function insertClearance(element) {
+    if (!element) {
+      return false;
+    }
+
+    var button = getBuyItNowButton();
+    var target = getInsertTarget(button);
+
+    if (!target || !target.parentNode) {
+      return false;
+    }
+
+    /*
+     * Remove existing clearance
+     */
+    removeRenderedClearance();
+
+    /*
+     * Insert directly after Buy It Now / Payment Buttons
+     */
+    target.parentNode.insertBefore(
+      element,
+      target.nextSibling
+    );
+
+    return true;
+  }
+
+
+  /* ============================================================
+     CREATE HTML
+     ============================================================ */
+
+  function buildClearanceHTML(data) {
+
+    var config =
+      data && data.clearanceConfig
+        ? data.clearanceConfig
+        : {};
+
+    var sale =
+      data && data.deadStockOffer
+        ? data.deadStockOffer
+        : null;
+
+
+    if (!sale || !sale.hasClearance) {
+      return null;
+    }
+
+
+    /*
+     * Configuration
+     */
+
+    var title =
+      getConfigValue(
+        config,
+        "badgeTitle",
+        "Clearance Sale"
+      );
+
+    var supportingText =
+      getConfigValue(
+        config,
+        "supportingText",
+        "Limited time offer"
+      );
+
+    var backgroundColor =
+      getConfigValue(
+        config,
+        "backgroundColor",
+        "#FFF1F2"
+      );
+
+    var textColor =
+      getConfigValue(
+        config,
+        "textColor",
+        "#991B1B"
+      );
+
+    var accentColor =
+      getConfigValue(
+        config,
+        "accentColor",
+        "#DC2626"
+      );
+
+    var borderColor =
+      getConfigValue(
+        config,
+        "borderColor",
+        "#FECACA"
+      );
+
+    var borderRadius =
+      getConfigValue(
+        config,
+        "borderRadius",
+        6
+      );
+
+    var fontFamily =
+      getConfigValue(
+        config,
+        "fontFamily",
+        "Arial"
+      );
+
+    var fontSize =
+      getConfigValue(
+        config,
+        "fontSize",
+        "12px"
+      );
+
+    var fontWeight =
+      getConfigValue(
+        config,
+        "fontWeight",
+        "600"
+      );
+
+    var paddingTop =
+      getConfigValue(
+        config,
+        "paddingTop",
+        7
+      );
+
+    var paddingRight =
+      getConfigValue(
+        config,
+        "paddingRight",
+        10
+      );
+
+    var paddingBottom =
+      getConfigValue(
+        config,
+        "paddingBottom",
+        7
+      );
+
+    var paddingLeft =
+      getConfigValue(
+        config,
+        "paddingLeft",
+        10
+      );
+
+    var layout =
+      getConfigValue(
+        config,
+        "layout",
+        "horizontal"
+      );
+
+    var alignment =
+      getConfigValue(
+        config,
+        "alignment",
+        "left"
+      );
+
+    var showIcon =
+      config &&
+      typeof config.showIcon !== "undefined"
+        ? Boolean(config.showIcon)
+        : true;
+
+    var showSupportingText =
+      config &&
+      typeof config.showSupportingText !== "undefined"
+        ? Boolean(config.showSupportingText)
+        : true;
+
+    var showPrice =
+      config &&
+      typeof config.showPrice !== "undefined"
+        ? Boolean(config.showPrice)
+        : true;
+
+    var showSavings =
+      config &&
+      typeof config.showSavings !== "undefined"
+        ? Boolean(config.showSavings)
+        : true;
+
+
+    /*
+     * Discount
+     */
+
+    var discountPercent =
+      Number(sale.discountPercent);
+
+    if (isNaN(discountPercent)) {
+      discountPercent = 10;
+    }
+
+
+    /*
+     * Layout
+     */
+
+    var isStacked =
+      layout === "stacked";
+
+
+    /*
+     * Alignment
+     */
+
+    var horizontalAlignment =
+      "flex-start";
+
+    if (alignment === "center") {
+      horizontalAlignment = "center";
+    }
+
+    if (alignment === "right") {
+      horizontalAlignment = "flex-end";
+    }
+
+
+    /*
+     * Price HTML
+     */
+
+    var priceHTML = "";
+
+    if (
+      showPrice &&
+      sale.originalPrice !== null &&
+      sale.originalPrice !== undefined &&
+      sale.salePrice !== null &&
+      sale.salePrice !== undefined
+    ) {
+
+      priceHTML =
+        '<div class="smart-stock-clearance-sale__price">' +
+
+          '<span class="smart-stock-clearance-sale__original">' +
+            formatMoney(sale.originalPrice) +
+          '</span>' +
+
+          '<strong class="smart-stock-clearance-sale__sale-price">' +
+            formatMoney(sale.salePrice) +
+          '</strong>' +
+
+        '</div>';
+    }
+
+
+    /*
+     * Savings HTML
+     */
+
+    var savingsHTML = "";
+
+    if (
+      showSavings &&
+      sale.savings !== null &&
+      sale.savings !== undefined
+    ) {
+
+      savingsHTML =
+        '<span class="smart-stock-clearance-sale__savings">' +
+          "Save " +
+          formatMoney(sale.savings) +
+        "</span>";
+    }
+
+
+    /*
+     * Supporting text
+     */
+
+    var supportingHTML = "";
+
+    if (showSupportingText) {
+
+      supportingHTML =
+        '<span class="smart-stock-clearance-sale__supporting">' +
+          supportingText +
+        "</span>";
+    }
+
+
+    /*
+     * Icon
+     */
+
+    var iconHTML = "";
+
+    if (showIcon) {
+
+      iconHTML =
+        '<span class="smart-stock-clearance-sale__icon" aria-hidden="true">' +
+          "🏷️" +
+        "</span>";
+    }
+
+
+    /*
+     * Main HTML
+     */
+
+    var mainHTML =
+      '<div class="smart-stock-clearance-sale__main">' +
+
+        iconHTML +
+
+        '<div class="smart-stock-clearance-sale__content">' +
+
+          '<span class="smart-stock-clearance-sale__title">' +
+            title +
+          "</span>" +
+
+          (
+            isStacked
+              ? supportingHTML
+              : ""
+          ) +
+
+        "</div>" +
+
+      "</div>";
+
+
+    /*
+     * Offer HTML
+     */
+
+    var offerHTML =
+      '<div class="smart-stock-clearance-sale__offer">' +
+
+        '<span class="smart-stock-clearance-sale__discount">' +
+          "🔥 " +
+          discountPercent +
+          "% OFF" +
+        "</span>" +
+
+        (
+          !isStacked
+            ? supportingHTML
+            : ""
+        ) +
+
+        priceHTML +
+
+        savingsHTML +
+
+      "</div>";
+
+
+    /*
+     * Final HTML
+     */
+
+    return (
+      mainHTML +
+      offerHTML
+    );
+  }
+
+
+  /* ============================================================
+     RENDER
+     ============================================================ */
+
+  function renderSale(data) {
+
+    var config =
+      data && data.clearanceConfig
+        ? data.clearanceConfig
+        : null;
+
+    var sale =
+      data && data.deadStockOffer
+        ? data.deadStockOffer
+        : null;
+
+
+    /*
+     * Feature disabled
+     */
+
+    if (
+      config &&
+      config.enabled === false
+    ) {
+      removeRenderedClearance();
+      return;
+    }
+
+
+    /*
+     * No clearance
+     */
+
+    if (
+      !sale ||
+      !sale.hasClearance
+    ) {
+      removeRenderedClearance();
+      return;
+    }
+
+
+    /*
+     * Remove previous
+     */
+
+    removeRenderedClearance();
+
+
+    /*
+     * Create element
+     */
+
+    var element =
+      createClearanceElement();
+
+
+    /*
+     * Build HTML
+     */
+
+    var html =
+      buildClearanceHTML(data);
+
+    if (!html) {
+      return;
+    }
+
+    element.innerHTML = html;
+
+
+    /*
+     * CSS variables
+     */
+
+    var backgroundColor =
+      getConfigValue(
+        config,
+        "backgroundColor",
+        "#FFF1F2"
+      );
+
+    var textColor =
+      getConfigValue(
+        config,
+        "textColor",
+        "#991B1B"
+      );
+
+    var accentColor =
+      getConfigValue(
+        config,
+        "accentColor",
+        "#DC2626"
+      );
+
+    var borderColor =
+      getConfigValue(
+        config,
+        "borderColor",
+        "#FECACA"
+      );
+
+    var borderRadius =
+      getConfigValue(
+        config,
+        "borderRadius",
+        6
+      );
+
+    var fontFamily =
+      getConfigValue(
+        config,
+        "fontFamily",
+        "Arial"
+      );
+
+    var fontSize =
+      getConfigValue(
+        config,
+        "fontSize",
+        "12px"
+      );
+
+    var fontWeight =
+      getConfigValue(
+        config,
+        "fontWeight",
+        "600"
+      );
+
+    var paddingTop =
+      getConfigValue(
+        config,
+        "paddingTop",
+        7
+      );
+
+    var paddingRight =
+      getConfigValue(
+        config,
+        "paddingRight",
+        10
+      );
+
+    var paddingBottom =
+      getConfigValue(
+        config,
+        "paddingBottom",
+        7
+      );
+
+    var paddingLeft =
+      getConfigValue(
+        config,
+        "paddingLeft",
+        10
+      );
+
+
+    element.style.setProperty(
+      "--clearance-bg",
+      backgroundColor
+    );
+
+    element.style.setProperty(
+      "--clearance-text",
+      textColor
+    );
+
+    element.style.setProperty(
+      "--clearance-accent",
+      accentColor
+    );
+
+    element.style.setProperty(
+      "--clearance-border",
+      borderColor
+    );
+
+    element.style.setProperty(
+      "--clearance-radius",
+      String(borderRadius) + "px"
+    );
+
+    element.style.setProperty(
+      "--clearance-font-family",
+      fontFamily
+    );
+
+    element.style.setProperty(
+      "--clearance-font-size",
+      fontSize
+    );
+
+    element.style.setProperty(
+      "--clearance-font-weight",
+      fontWeight
+    );
+
+    element.style.setProperty(
+      "--clearance-padding-top",
+      String(paddingTop) + "px"
+    );
+
+    element.style.setProperty(
+      "--clearance-padding-right",
+      String(paddingRight) + "px"
+    );
+
+    element.style.setProperty(
+      "--clearance-padding-bottom",
+      String(paddingBottom) + "px"
+    );
+
+    element.style.setProperty(
+      "--clearance-padding-left",
+      String(paddingLeft) + "px"
+    );
+
+
+    /*
+     * Insert
+     */
+
+    return insertClearance(element);
+  }
+
+
+  /* ============================================================
+     LOAD API
+     ============================================================ */
+
+  function loadSale(variantId) {
+
+    if (
+      !variantId ||
+      !shopDomain ||
+      !productId
+    ) {
+      return;
+    }
+
+
+    /*
+     * Remove old sale immediately
+     */
+
+    removeRenderedClearance();
+
+
+    var params =
+      new URLSearchParams();
+
+    params.set(
+      "shop",
+      shopDomain
+    );
+
+    params.set(
+      "productId",
+      String(productId)
+    );
+
+    params.set(
+      "variantId",
+      String(variantId)
+    );
+
+
+    fetch(
+      "/apps/smart-stock/product-widget?" +
+      params.toString(),
+      {
+        credentials: "same-origin",
+        cache: "no-store"
+      }
+    )
+      .then(function (response) {
+
+        if (!response.ok) {
+
+          throw new Error(
+            "Clearance sale request failed: " +
+            response.status
+          );
+        }
+
+        return response.json();
+      })
+
+      .then(function (data) {
+
+        /*
+         * Shopify can render dynamic checkout
+         * slightly after page load.
+         *
+         * Therefore try several times.
+         */
+
+        var attempts = 0;
+
+        function tryRender() {
+
+          attempts++;
+
+          var rendered = renderSale(data);
+
+          if (!rendered && attempts < 20) {
+
+            setTimeout(
+              tryRender,
+              250
+            );
+          }
+        }
+
+        tryRender();
+      })
+
+      .catch(function (error) {
+
+        removeRenderedClearance();
+
+        console.warn(
+          "Smart Stock Clearance Sale:",
+          error.message
+        );
+      });
+  }
+
+
+  /* ============================================================
+     VARIANT CHANGE - SHOPIFY EVENT
+     ============================================================ */
+
+  document.addEventListener(
+    "variant:change",
+    function (event) {
+
+      var variantId =
+        event.detail &&
+        event.detail.variant &&
+        event.detail.variant.id;
+
+      if (variantId) {
+
+        loadSale(
+          String(variantId)
+        );
+      }
+    }
+  );
+
+
+  /* ============================================================
+     VARIANT CHANGE - SELECT
+     ============================================================ */
+
+  document.addEventListener(
+    "change",
+    function (event) {
+
+      var target =
+        event.target;
+
+      if (!target) {
+        return;
+      }
+
+
+      /*
+       * Shopify variant ID select
+       */
+
+      if (
+        target.name === "id" &&
+        target.value
+      ) {
+
+        loadSale(
+          String(target.value)
+        );
+      }
+    }
+  );
+
+
+  /* ============================================================
+     SHOPIFY PRODUCT FORM EVENTS
+     ============================================================ */
+
+  document.addEventListener(
+    "change",
+    function (event) {
+
+      var target =
+        event.target;
+
+      if (!target) {
+        return;
+      }
+
+
+      if (
+        target.matches &&
+        target.matches(
+          "select[name='id'], input[name='id']"
+        )
+      ) {
+
+        if (target.value) {
+
+          loadSale(
+            String(target.value)
+          );
+        }
+      }
+    }
+  );
+
+
+  /* ============================================================
+     INITIALIZATION
+     ============================================================ */
+
+  function init() {
+
+    /*
+     * Wait for Shopify buttons
+     */
+
+    var attempts = 0;
+
+    function waitForButton() {
+
+      attempts++;
+
+      var button =
+        getBuyItNowButton();
+
+      if (button) {
+
+        loadSale(
+          initialVariantId
+        );
+
+        return;
+      }
+
+
+      if (attempts < 20) {
+
+        setTimeout(
+          waitForButton,
+          300
+        );
+      }
+    }
+
+    waitForButton();
+  }
+
+
+  if (
+    document.readyState === "loading"
+  ) {
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      init
+    );
+
+  } else {
+
+    init();
+  }
+
+})();
+</script>
+
+
+<style>
+
+  /* ============================================================
+     HIDDEN THEME EDITOR PLACEHOLDER
+     ============================================================ */
+
+  .smart-stock-clearance-sale-placeholder {
+    display: none !important;
+
+    width: 0 !important;
+    height: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    overflow: hidden !important;
+  }
+
+
+  /* ============================================================
+     CLEARANCE SALE
+     ============================================================ */
+
+  .smart-stock-clearance-sale {
+    box-sizing: border-box !important;
+
+    display: flex !important;
+
+    align-items: center !important;
+    justify-content: space-between !important;
+
+    gap: 8px !important;
+
+    width: 100% !important;
+    max-width: 100% !important;
+
+    margin-top: 8px !important;
+    margin-bottom: 0 !important;
+
+    padding:
+      var(--clearance-padding-top)
+      var(--clearance-padding-right)
+      var(--clearance-padding-bottom)
+      var(--clearance-padding-left) !important;
+
+    background:
+      var(--clearance-bg) !important;
+
+    color:
+      var(--clearance-text) !important;
+
+    border:
+      1px solid var(--clearance-border) !important;
+
+    border-radius:
+      var(--clearance-radius) !important;
+
+    font-family:
+      var(--clearance-font-family) !important;
+
+    font-size:
+      var(--clearance-font-size) !important;
+
+    font-weight:
+      var(--clearance-font-weight) !important;
+
+    line-height: 1.25 !important;
+
+    box-sizing: border-box !important;
+
+    clear: both !important;
+
+    float: none !important;
+  }
+
+
+  /* ============================================================
+     MAIN
+     ============================================================ */
+
+  .smart-stock-clearance-sale__main {
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    min-width: 0;
+  }
+
+
+  .smart-stock-clearance-sale__icon {
+    flex: 0 0 auto;
+
+    font-size: 13px;
+
+    line-height: 1;
+  }
+
+
+  .smart-stock-clearance-sale__content {
+    display: flex;
+
+    flex-direction: column;
+
+    min-width: 0;
+  }
+
+
+  .smart-stock-clearance-sale__title {
+    color:
+      var(--clearance-text);
+
+    font-size:
+      var(--clearance-font-size);
+
+    font-weight:
+      var(--clearance-font-weight);
+
+    line-height: 1.25;
+  }
+
+
+  .smart-stock-clearance-sale__supporting {
+    margin-top: 2px;
+
+    color:
+      var(--clearance-text);
+
+    font-size: 10px;
+
+    line-height: 1.25;
+
+    opacity: 0.75;
+  }
+
+
+  /* ============================================================
+     OFFER
+     ============================================================ */
+
+  .smart-stock-clearance-sale__offer {
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-end;
+
+    justify-content: center;
+
+    gap: 2px;
+
+    min-width: 0;
+
+    text-align: right;
+  }
+
+
+  .smart-stock-clearance-sale__discount {
+    color:
+      var(--clearance-accent);
+
+    font-size:
+      var(--clearance-font-size);
+
+    font-weight: 700;
+
+    line-height: 1.25;
+
+    white-space: nowrap;
+  }
+
+
+  /* ============================================================
+     PRICE
+     ============================================================ */
+
+  .smart-stock-clearance-sale__price {
+    display: flex;
+
+    align-items: center;
+
+    gap: 5px;
+
+    font-size: 10px;
+
+    line-height: 1.25;
+
+    white-space: nowrap;
+  }
+
+
+  .smart-stock-clearance-sale__original {
+    text-decoration: line-through;
+
+    opacity: 0.6;
+  }
+
+
+  .smart-stock-clearance-sale__sale-price {
+    color:
+      var(--clearance-accent);
+
+    font-weight: 700;
+  }
+
+
+  /* ============================================================
+     SAVINGS
+     ============================================================ */
+
+  .smart-stock-clearance-sale__savings {
+    color:
+      var(--clearance-accent);
+
+    font-size: 10px;
+
+    font-weight: 700;
+
+    line-height: 1.25;
+
+    white-space: nowrap;
+  }
+
+
+  /* ============================================================
+     STACKED LAYOUT
+     ============================================================ */
+
+  .smart-stock-clearance-sale--stacked {
+    flex-direction: column !important;
+
+    align-items: flex-start !important;
+
+    justify-content: flex-start !important;
+  }
+
+
+  .smart-stock-clearance-sale--stacked
+  .smart-stock-clearance-sale__main,
+
+  .smart-stock-clearance-sale--stacked
+  .smart-stock-clearance-sale__offer {
+    width: 100%;
+
+    box-sizing: border-box;
+  }
+
+
+  /* ============================================================
+     MOBILE
+     ============================================================ */
+
+  @media screen and (max-width: 600px) {
+
+    .smart-stock-clearance-sale {
+      flex-direction: column !important;
+
+      align-items: flex-start !important;
+
+      justify-content: flex-start !important;
+
+      gap: 6px !important;
+
+      width: 100% !important;
+
+      margin-top: 7px !important;
+    }
+
+
+    .smart-stock-clearance-sale__main {
+      width: 100%;
+
+      justify-content: flex-start;
+    }
+
+
+    .smart-stock-clearance-sale__offer {
+      width: 100%;
+
+      align-items: flex-start;
+
+      text-align: left;
+    }
+
+
+    .smart-stock-clearance-sale__price {
+      justify-content: flex-start;
+    }
+
+  }
+
+</style>
+
+
+{% schema %}
+{
+  "name": "🏷️ Clearance Sale",
+  "target": "section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Clearance Sale is managed by Smart Stock. The sale automatically appears below the Buy It Now button."
+    }
+  ]
+}
+{% endschema %}

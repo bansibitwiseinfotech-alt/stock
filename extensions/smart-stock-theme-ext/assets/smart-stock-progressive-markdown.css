@@ -1,0 +1,63 @@
+/* ==========================================================================
+   SMART STOCK - PROGRESSIVE MARKDOWN STOREFRONT STYLES
+   ========================================================================== */
+
+.smart-stock-progressive-markdown-wrapper {
+  display: none !important;
+}
+
+.smart-stock-progressive-markdown {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* Discount Badge */
+.smart-stock-markdown-badge {
+  display: inline-block;
+  background-color: var(--ss-markdown-badge-bg, #E53935);
+  color: var(--ss-markdown-badge-color, #FFFFFF);
+  padding: 4px 10px;
+  border-radius: var(--ss-markdown-badge-radius, 4px);
+  font-size: 13px;
+  font-weight: 700;
+  width: fit-content;
+  text-transform: uppercase;
+  line-height: 1.2;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.smart-stock-markdown-badge.is-hidden {
+  display: none !important;
+}
+
+/* Prices Container */
+.smart-stock-markdown-prices {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Original (Strikethrough) Price */
+.smart-stock-markdown-original {
+  color: var(--ss-markdown-strike-color, #757575);
+  font-size: 16px;
+  font-weight: 400;
+  text-decoration: line-through;
+  line-height: 1.2;
+  transition: opacity 0.2s ease;
+}
+
+.smart-stock-markdown-original.is-hidden {
+  display: none !important;
+}
+
+/* Current (Discounted / Actual) Price */
+.smart-stock-markdown-current {
+  color: var(--ss-markdown-price-color, #111111);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
