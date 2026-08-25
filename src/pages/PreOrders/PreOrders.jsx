@@ -100,6 +100,7 @@ const DEFAULT_CONFIG_FORM = {
   launchDetails: "",
   buttonText: "PRE-ORDER NOW",
   depositPercentage: 50,
+  depositAmount: 0,
   depositEnabled: true,
   cardBackgroundColor: "#FFFFFF",
   textColor: "#111827",
@@ -294,6 +295,7 @@ export default function PreOrders({ shopDomain } = {}) {
       launchDetails: item.launchDetails || "",
       buttonText: item.buttonText || "PRE-ORDER NOW",
       depositPercentage: typeof item.depositPercentage === "number" ? item.depositPercentage : 50,
+      depositAmount: typeof item.depositAmount === "number" ? item.depositAmount : 0,
       depositEnabled: item.depositEnabled !== false,
       cardBackgroundColor: item.cardBackgroundColor || "#FFFFFF",
       textColor: item.textColor || "#111827",
@@ -505,24 +507,7 @@ export default function PreOrders({ shopDomain } = {}) {
       fullWidth
       title="Pre-Orders"
       subtitle="Manage new upcoming product launches and track customer pre-orders placed through Shopify Checkout."
-      primaryAction={
-        mainView === 0
-          ? {
-              content: "+ Configure New Launch",
-              onAction: handleOpenCreateModal,
-            }
-          : {
-              content: syncing ? "Syncing..." : "Sync Shopify Orders",
-              onAction: handleSyncShopify,
-              loading: syncing,
-            }
-      }
-      secondaryActions={[
-        {
-          content: "Refresh",
-          onAction: () => (mainView === 0 ? loadLaunchConfigs() : loadPreOrders(pagination.page)),
-        },
-      ]}
+     
     >
       <BlockStack gap="500">
         {notice && (
@@ -1238,13 +1223,24 @@ export default function PreOrders({ shopDomain } = {}) {
                   <TextField
                     label="Deposit Percentage (%)"
                     type="number"
-                    value={String(configForm.depositPercentage ?? 50)}
+                    value={configForm.depositPercentage === "" ? "" : String(configForm.depositPercentage ?? 50)}
                     onChange={(val) => {
-                      const num = val === "" ? "" : parseInt(val, 10);
-                      const pct = num === "" ? "" : Math.max(1, Math.min(100, isNaN(num) ? 50 : num));
-                      setConfigForm((prev) => ({ ...prev, depositPercentage: pct }));
+                      if (val === "") {
+                        setConfigForm((prev) => ({ ...prev, depositPercentage: "" }));
+                        return;
+                      }
+                      const num = parseInt(val, 10);
+                      const pct = isNaN(num) ? 0 : Math.max(0, Math.min(100, num));
+                      const selP = storeProducts.find((p) => p.id === configForm.productId);
+                      const pPrice = Number(configForm.productPrice || configForm.price || selP?.price || 0);
+                      const calcAmt = pPrice > 0 ? Number(((pPrice * pct) / 100).toFixed(2)) : 0;
+                      setConfigForm((prev) => ({
+                        ...prev,
+                        depositPercentage: pct,
+                        depositAmount: pct === 0 ? (prev.depositAmount || 0) : calcAmt,
+                      }));
                     }}
-                    helpText="Percentage of total price (1% - 100%)"
+                    helpText="Percentage of total price (0% - 100%). Set 0% for custom fixed dollar deposit."
                     autoComplete="off"
                   />
                   <TextField
@@ -1261,31 +1257,52 @@ export default function PreOrders({ shopDomain } = {}) {
                       (() => {
                         const selP = storeProducts.find((p) => p.id === configForm.productId);
                         const pPrice = Number(configForm.productPrice || configForm.price || selP?.price || (configForm.productId ? 126790 : 0));
-                        return pPrice > 0 && configForm.depositPercentage !== "" && configForm.depositPercentage != null
-                          ? ((pPrice * Number(configForm.depositPercentage || 50)) / 100).toFixed(2)
-                          : "";
+                        if (configForm.depositPercentage === 0 || configForm.depositPercentage === "0") {
+                          return configForm.depositAmount != null && configForm.depositAmount !== "" ? String(configForm.depositAmount) : "0";
+                        }
+                        if (pPrice > 0 && configForm.depositPercentage !== "" && configForm.depositPercentage != null) {
+                          return ((pPrice * Number(configForm.depositPercentage)) / 100).toFixed(2);
+                        }
+                        return configForm.depositAmount != null && configForm.depositAmount !== "" ? String(configForm.depositAmount) : "";
                       })()
                     }
                     onChange={(val) => {
-                      const amt = parseFloat(val);
                       const selP = storeProducts.find((p) => p.id === configForm.productId);
                       const pPrice = Number(configForm.productPrice || configForm.price || selP?.price || (configForm.productId ? 126790 : 0));
+                      if (val === "") {
+                        setConfigForm((prev) => ({
+                          ...prev,
+                          depositAmount: "",
+                          depositPercentage: prev.depositPercentage === 0 ? 0 : "",
+                        }));
+                        return;
+                      }
+                      const amt = parseFloat(val);
+                      const safeAmt = isNaN(amt) ? 0 : Math.max(0, amt);
                       if (pPrice > 0) {
-                        if (isNaN(amt) || amt <= 0) {
-                          setConfigForm((prev) => ({ ...prev, depositPercentage: "" }));
+                        if (configForm.depositPercentage === 0 || configForm.depositPercentage === "0") {
+                          setConfigForm((prev) => ({ ...prev, depositAmount: safeAmt, depositPercentage: 0 }));
                         } else {
-                          const calculatedPct = Math.max(1, Math.min(100, Math.round((amt / pPrice) * 100)));
-                          setConfigForm((prev) => ({ ...prev, depositPercentage: calculatedPct }));
+                          const calculatedPct = Math.max(0, Math.min(100, Math.round((safeAmt / pPrice) * 100)));
+                          setConfigForm((prev) => ({ ...prev, depositAmount: safeAmt, depositPercentage: calculatedPct }));
                         }
+                      } else {
+                        setConfigForm((prev) => ({ ...prev, depositAmount: safeAmt }));
                       }
                     }}
                     helpText={
                       (() => {
                         const selP = storeProducts.find((p) => p.id === configForm.productId);
                         const pPrice = Number(configForm.productPrice || configForm.price || selP?.price || (configForm.productId ? 126790 : 0));
-                        return pPrice > 0 && configForm.depositPercentage !== "" && configForm.depositPercentage != null
-                          ? `Remaining Balance: $${(pPrice - (pPrice * Number(configForm.depositPercentage || 50)) / 100).toFixed(2)}`
-                          : "Calculates deposit amount from price";
+                        const isZeroPct = configForm.depositPercentage === 0 || configForm.depositPercentage === "0";
+                        const currentDepositAmt = isZeroPct
+                          ? Number(configForm.depositAmount || 0)
+                          : (pPrice > 0 && configForm.depositPercentage !== "" ? (pPrice * Number(configForm.depositPercentage || 0)) / 100 : Number(configForm.depositAmount || 0));
+                        if (pPrice > 0) {
+                          const remaining = Math.max(0, pPrice - currentDepositAmt);
+                          return `Remaining Balance: $${remaining.toFixed(2)} (Deposit: $${currentDepositAmt.toFixed(2)})`;
+                        }
+                        return "Calculates or sets deposit amount from price";
                       })()
                     }
                     autoComplete="off"
@@ -1606,7 +1623,9 @@ export default function PreOrders({ shopDomain } = {}) {
                               textTransform: "uppercase",
                             }}
                           >
-                            {configForm.depositPercentage || 50}% DEPOSIT
+                            {(configForm.depositPercentage === 0 || configForm.depositPercentage === "0")
+                              ? `$${Number(configForm.depositAmount || 0).toFixed(2)} DEPOSIT`
+                              : `${configForm.depositPercentage || 50}% DEPOSIT`}
                           </span>
                         </div>
 
@@ -1622,29 +1641,34 @@ export default function PreOrders({ shopDomain } = {}) {
                         </div>
 
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "14px", fontWeight: "800", color: configForm.textColor || "#0F172A", padding: "8px 0 6px 0", borderBottom: `1px dashed ${configForm.borderColor || "#E2E8F0"}` }}>
-                          <span>Pay Now ({configForm.depositPercentage || 50}%)</span>
+                          <span>Pay Now {(configForm.depositPercentage === 0 || configForm.depositPercentage === "0") ? "(Fixed Deposit)" : `(${configForm.depositPercentage || 50}%)`}</span>
                           <strong style={{ color: configForm.textColor || "#0F172A" }}>
                             ${(() => {
                               const selP = storeProducts.find((p) => p.id === configForm.productId);
                               const pPrice = Number(configForm.productPrice || configForm.price || selP?.price || (configForm.productId ? 126790 : 126790));
-                              return ((pPrice * Number(configForm.depositPercentage || 50)) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                              const isZeroPct = configForm.depositPercentage === 0 || configForm.depositPercentage === "0";
+                              const depAmt = isZeroPct ? Number(configForm.depositAmount || 0) : ((pPrice * Number(configForm.depositPercentage || 50)) / 100);
+                              return depAmt.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                             })()}
                           </strong>
                         </div>
 
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "13px", padding: "6px 0", color: "#475569" }}>
-                          <span>Remaining Balance ({100 - Number(configForm.depositPercentage || 50)}%)</span>
+                          <span>Remaining Balance</span>
                           <strong>
                             ${(() => {
                               const selP = storeProducts.find((p) => p.id === configForm.productId);
                               const pPrice = Number(configForm.productPrice || configForm.price || selP?.price || (configForm.productId ? 126790 : 126790));
-                              return ((pPrice * (100 - Number(configForm.depositPercentage || 50))) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                              const isZeroPct = configForm.depositPercentage === 0 || configForm.depositPercentage === "0";
+                              const depAmt = isZeroPct ? Number(configForm.depositAmount || 0) : ((pPrice * Number(configForm.depositPercentage || 50)) / 100);
+                              const rem = Math.max(0, pPrice - depAmt);
+                              return rem.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                             })()}
                           </strong>
                         </div>
 
                         <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: `1px solid ${configForm.borderColor || "#F1F5F9"}`, fontSize: "11.5px", color: "#64748B", lineHeight: "1.45" }}>
-                          💡 Pay {configForm.depositPercentage || 50}% now to secure your pre-order. Remaining {100 - Number(configForm.depositPercentage || 50)}% will be due before shipping.
+                          💡 Pay { (configForm.depositPercentage === 0 || configForm.depositPercentage === "0") ? `$${Number(configForm.depositAmount || 0).toFixed(2)}` : `${configForm.depositPercentage || 50}%` } now to secure your pre-order. Remaining balance will be due before shipping.
                         </div>
                       </div>
                     )}
@@ -1673,7 +1697,9 @@ export default function PreOrders({ shopDomain } = {}) {
                       {(() => {
                         const selP = storeProducts.find((p) => p.id === configForm.productId);
                         const pPrice = Number(configForm.productPrice || configForm.price || selP?.price || (configForm.productId ? 126790 : 126790));
-                        return ((pPrice * Number(configForm.depositPercentage || 50)) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const isZeroPct = configForm.depositPercentage === 0 || configForm.depositPercentage === "0";
+                        const depAmt = isZeroPct ? Number(configForm.depositAmount || 0) : ((pPrice * Number(configForm.depositPercentage || 50)) / 100);
+                        return depAmt.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                       })()}
                     </button>
                     </div>

@@ -255,15 +255,23 @@
     var unitPriceCents = getVariantPriceCents(variantId);
 
     var depositPct =
-      typeof currentConfig.depositPercentage === "number" && currentConfig.depositPercentage > 0
+      typeof currentConfig.depositPercentage === "number" && currentConfig.depositPercentage >= 0
         ? currentConfig.depositPercentage
         : 50;
-
-    var isDepositEnabled = currentConfig.depositEnabled !== false && depositPct < 100;
+    var depositAmountCents = Number(currentConfig.depositAmount) > 0 ? Math.round(Number(currentConfig.depositAmount) * 100) : 0;
 
     var totalCents = unitPriceCents * quantity;
-    var depositCents = isDepositEnabled ? Math.round(totalCents * (depositPct / 100)) : totalCents;
-    var remainingCents = totalCents - depositCents;
+    var isDepositEnabled = currentConfig.depositEnabled !== false;
+    var depositCents = totalCents;
+
+    if (isDepositEnabled) {
+      if (depositPct > 0) {
+        depositCents = Math.round(totalCents * (depositPct / 100));
+      } else if (depositAmountCents > 0) {
+        depositCents = Math.min(totalCents, depositAmountCents * quantity);
+      }
+    }
+    var remainingCents = Math.max(0, totalCents - depositCents);
 
     var totalEl = document.querySelector("[data-smart-stock-total-price]");
     var depositEl = document.querySelector("[data-smart-stock-deposit-price]");
@@ -313,19 +321,27 @@
     var launchDetails = config.launchDetails || "";
 
     var depositPct =
-      typeof config.depositPercentage === "number" && config.depositPercentage > 0
+      typeof config.depositPercentage === "number" && config.depositPercentage >= 0
         ? config.depositPercentage
         : 50;
-
-    var isDepositEnabled = config.depositEnabled !== false && depositPct < 100;
+    var depositAmountCents = Number(config.depositAmount) > 0 ? Math.round(Number(config.depositAmount) * 100) : 0;
 
     var form = document.querySelector('form[action*="/cart/add"], product-form form, .product-form form, .product-form');
     var variantId = resolveCurrentVariantId(form, initialVariantId);
     var quantity = getSelectedQuantity(form);
     var unitPriceCents = getVariantPriceCents(variantId);
     var totalCents = unitPriceCents * quantity;
-    var depositCents = isDepositEnabled ? Math.round(totalCents * (depositPct / 100)) : totalCents;
-    var remainingCents = totalCents - depositCents;
+
+    var isDepositEnabled = config.depositEnabled !== false;
+    var depositCents = totalCents;
+    if (isDepositEnabled) {
+      if (depositPct > 0) {
+        depositCents = Math.round(totalCents * (depositPct / 100));
+      } else if (depositAmountCents > 0) {
+        depositCents = Math.min(totalCents, depositAmountCents * quantity);
+      }
+    }
+    var remainingCents = Math.max(0, totalCents - depositCents);
 
     // ----------------------------------------------------
     // BUILD ONE SINGLE UNIFIED NEW PRODUCT LAUNCH CARD
@@ -416,26 +432,33 @@
     // Pre-Order Payment Breakdown Section
     var pctBadgeStyle = config.accentColor ? ' style="background-color:' + config.accentColor + ' !important; background:' + config.accentColor + ' !important; color:#ffffff !important;"' : "";
     var payNowRowStyle = config.accentColor ? ' style="color:' + config.accentColor + ' !important;"' : "";
+    var depositBadgeLabel = depositPct > 0 ? depositPct + '% DEPOSIT' : (depositAmountCents > 0 ? formatMoney(depositAmountCents) + ' DEPOSIT' : 'DEPOSIT');
+    var payNowLabel = depositPct > 0 ? 'Pay Now (' + depositPct + '%)' : 'Pay Now (Deposit)';
+    var remainingLabel = depositPct > 0 ? 'Remaining Balance (' + (100 - depositPct) + '%)' : 'Remaining Balance';
+    var helperText = depositPct > 0
+      ? '💡 Pay ' + depositPct + '% now to secure your pre-order. Remaining ' + (100 - depositPct) + '% will be due before shipping.'
+      : '💡 Pay ' + formatMoney(depositCents) + ' now to secure your pre-order. Remaining balance will be due before shipping.';
+
     var paymentSectionHtml =
       '<div class="smart-stock-payment-section">' +
       '<div class="smart-stock-payment-header">' +
       '<span class="smart-stock-payment-title">PRE-ORDER PAYMENT</span>' +
-      '<span class="smart-stock-payment-pct-badge"' + pctBadgeStyle + '>' + depositPct + '% DEPOSIT</span>' +
+      '<span class="smart-stock-payment-pct-badge"' + pctBadgeStyle + '>' + depositBadgeLabel + '</span>' +
       '</div>' +
       '<div class="smart-stock-payment-row">' +
       '<span>Total Product Price</span>' +
       '<strong data-smart-stock-total-price>' + formatMoney(totalCents) + '</strong>' +
       '</div>' +
       '<div class="smart-stock-payment-row smart-stock-pay-now-row"' + payNowRowStyle + '>' +
-      '<span>Pay Now (' + depositPct + '%)</span>' +
+      '<span>' + payNowLabel + '</span>' +
       '<strong data-smart-stock-deposit-price>' + formatMoney(depositCents) + '</strong>' +
       '</div>' +
       '<div class="smart-stock-payment-row">' +
-      '<span>Remaining Balance (' + (100 - depositPct) + '%)</span>' +
+      '<span>' + remainingLabel + '</span>' +
       '<strong data-smart-stock-remaining-price>' + formatMoney(remainingCents) + '</strong>' +
       '</div>' +
       '<div class="smart-stock-payment-helper">' +
-      '💡 Pay ' + depositPct + '% now to secure your pre-order. Remaining ' + (100 - depositPct) + '% will be due before shipping.' +
+      helperText +
       '</div>' +
       '</div>';
 
@@ -515,8 +538,15 @@
         var activeQty = getSelectedQuantity(activeForm);
         var activeUnitPriceCents = getVariantPriceCents(activeVariantId);
         var activeTotalCents = activeUnitPriceCents * activeQty;
-        var activeDepositCents = isDepositEnabled ? Math.round(activeTotalCents * (depositPct / 100)) : activeTotalCents;
-        var activeRemainingCents = activeTotalCents - activeDepositCents;
+        var activeDepositCents = activeTotalCents;
+        if (isDepositEnabled) {
+          if (depositPct > 0) {
+            activeDepositCents = Math.round(activeTotalCents * (depositPct / 100));
+          } else if (depositAmountCents > 0) {
+            activeDepositCents = Math.min(activeTotalCents, depositAmountCents * activeQty);
+          }
+        }
+        var activeRemainingCents = Math.max(0, activeTotalCents - activeDepositCents);
 
         if (!activeVariantId) {
           showFeedback(feedbackEl, "Please select a product option.", false);
@@ -531,7 +561,7 @@
         var cartProperties = {
           "_preorder": "true",
           "_preorder_launch": "true",
-          "_deposit_percentage": depositPct + "%",
+          "_deposit_percentage": depositPct > 0 ? depositPct + "%" : "Fixed",
           "_total_price_cents": activeTotalCents,
           "_deposit_cents": activeDepositCents,
           "_remaining_cents": activeRemainingCents,
@@ -539,7 +569,11 @@
           "Launch Date": formattedLaunchDate,
           "Estimated Shipping": formattedShippingDate || formattedLaunchDate,
         };
-        cartProperties["Deposit Paid (" + depositPct + "%)"] = formatMoney(activeDepositCents);
+        if (depositPct > 0) {
+          cartProperties["Deposit Paid (" + depositPct + "%)"] = formatMoney(activeDepositCents);
+        } else {
+          cartProperties["Deposit Paid"] = formatMoney(activeDepositCents);
+        }
         cartProperties["Remaining Balance Due"] = formatMoney(activeRemainingCents);
 
         var cartPayload = {
@@ -739,6 +773,103 @@
     } finally {
       isInitializing = false;
     }
+
+    enhanceCartDisplay();
+  }
+
+  // ==================================================
+  // CART & DRAWER PRE-ORDER DEPOSIT PRICE ENHANCEMENT
+  // ==================================================
+  var isCartEnhancing = false;
+  async function enhanceCartDisplay() {
+    if (isCartEnhancing) return;
+    isCartEnhancing = true;
+    try {
+      var cartRes = await fetch("/cart.js", { headers: { Accept: "application/json" } });
+      if (!cartRes.ok) return;
+      var cart = await cartRes.json();
+      if (!cart || !cart.items || cart.items.length === 0) return;
+
+      var hasPreOrder = false;
+      var totalPayableCents = 0;
+
+      cart.items.forEach(function (item) {
+        var props = item.properties || {};
+        var isPre = props._preorder === "true" || props._preorder_launch === "true" || props["Deposit Paid"] || props["Remaining Balance Due"] || props["Pre-Order Total"];
+        var depositCents = props._deposit_cents ? Number(props._deposit_cents) : null;
+
+        if (isPre) {
+          hasPreOrder = true;
+          if (depositCents == null) {
+            var depStr = props["Deposit Paid"] || props["Deposit Paid (0%)"] || "";
+            var num = parseFloat(String(depStr).replace(/[^0-9.]/g, ""));
+            depositCents = !isNaN(num) && num > 0 ? Math.round(num * 100) : item.final_line_price;
+          }
+          totalPayableCents += depositCents * (props._deposit_cents ? 1 : item.quantity);
+        } else {
+          totalPayableCents += item.final_line_price;
+        }
+      });
+
+      if (!hasPreOrder) return;
+
+      // 1. Update line item price rows in Cart & Drawer
+      var cartItems = document.querySelectorAll("cart-items .cart-item, .cart-item, .cart__items tr, tr.cart-item, [data-cart-item], .cart-drawer .cart-item");
+      cartItems.forEach(function (row) {
+        var rowText = row.textContent || "";
+        if (!rowText.includes("Deposit Paid") && !rowText.includes("Remaining Balance Due") && !rowText.includes("Pre-Order Total")) {
+          return;
+        }
+
+        var match = rowText.match(/Deposit Paid[^:]*:\s*\$?([\d,]+(?:\.\d{2})?)/i);
+        var depAmt = match ? match[1].replace(/,/g, "") : "";
+        if (!depAmt) {
+          var match2 = rowText.match(/Pre-Order Total[^:]*:\s*\$?([\d,]+(?:\.\d{2})?)/i);
+          if (match2) depAmt = match2[1].replace(/,/g, "");
+        }
+
+        if (depAmt) {
+          var priceContainers = row.querySelectorAll(
+            ".cart-item__price-wrapper, .cart-item__totals, .cart-item__price, .price--end, [data-cart-item-line-price], .cart-item__final-price"
+          );
+          priceContainers.forEach(function (pEl) {
+            if (pEl.getAttribute("data-smart-stock-enhanced")) return;
+            pEl.setAttribute("data-smart-stock-enhanced", "true");
+
+            var origHtml = pEl.innerHTML;
+            pEl.innerHTML =
+              '<div style="display:inline-flex; flex-direction:column; align-items:flex-end;">' +
+              '<span style="color:#0F172A; font-weight:800; font-size:15px; display:inline-flex; align-items:center; gap:6px;">$' +
+              parseFloat(depAmt).toFixed(2) +
+              ' <span style="font-size:11px; background:#EEF2FF; color:#4F46E5; padding:2px 6px; border-radius:4px; font-weight:700; text-transform:uppercase;">Deposit</span></span>' +
+              '<span style="font-size:12px; color:#94A3B8; text-decoration:line-through;">' +
+              origHtml.replace(/<[^>]*>?/gm, "").trim() +
+              '</span></div>';
+          });
+        }
+      });
+
+      // 2. Update Cart Subtotal & Estimated Total
+      var subtotalEls = document.querySelectorAll(
+        ".totals__total-value, .cart__subtotal-value, .cart-subtotal, [data-cart-subtotal], .cart__total, .cart-drawer__total, .totals__subtotal-value, .cart__footer .totals__total-value, [data-cart-total]"
+      );
+      subtotalEls.forEach(function (stEl) {
+        if (stEl.getAttribute("data-smart-stock-subtotal-enhanced")) return;
+        stEl.setAttribute("data-smart-stock-subtotal-enhanced", "true");
+        var formattedDeposit = formatMoney(totalPayableCents);
+
+        stEl.innerHTML =
+          '<div style="text-align:right;">' +
+          '<div style="font-size:18px; font-weight:800; color:#0F172A;">' +
+          formattedDeposit +
+          ' ' + currentCurrency + '</div>' +
+          '<div style="font-size:11.5px; color:#64748B; font-weight:600; margin-top:2px;">Pay Now Deposit (Remaining balance due before shipping)</div>' +
+          '</div>';
+      });
+    } catch (_) {}
+    finally {
+      isCartEnhancing = false;
+    }
   }
 
   if (document.readyState === "loading") {
@@ -749,8 +880,16 @@
 
   setTimeout(init, 300);
   setTimeout(init, 1000);
+  setTimeout(enhanceCartDisplay, 400);
+  setTimeout(enhanceCartDisplay, 1200);
 
-  document.addEventListener("shopify:section:load", init);
+  document.addEventListener("shopify:section:load", function () {
+    init();
+    enhanceCartDisplay();
+  });
   document.addEventListener("shopify:section:select", init);
+  document.addEventListener("cart:updated", enhanceCartDisplay);
+  document.addEventListener("theme:cart:update", enhanceCartDisplay);
+  document.addEventListener("cart:refresh", enhanceCartDisplay);
   window.addEventListener("popstate", init);
 })();

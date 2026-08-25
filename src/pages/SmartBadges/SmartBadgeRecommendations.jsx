@@ -324,119 +324,66 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
     const appliedCount = products.filter((p) => p.isApplied).length;
 
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
         {/* CARD 1: PRODUCTS SCANNED */}
-        <div style={{
-          background: "#FFFFFF",
-          borderRadius: "8px",
-          padding: "18px 20px",
-          border: "1px solid #E1E3E5",
-          boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between"
-        }}>
-          <div>
-            <div style={{ fontSize: "11px", fontWeight: "600", color: "#6D7175", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Products Scanned
-            </div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#202223", marginTop: "6px" }}>
+        <Card padding="400">
+          <BlockStack gap="100">
+            <Text variant="headingXs" tone="subdued" as="h3">
+              PRODUCTS SCANNED
+            </Text>
+            <Text variant="heading2xl" as="p" fontWeight="bold">
               {totalScanned}
-            </div>
-          </div>
-          <div style={{ fontSize: "12px", color: "#6D7175", marginTop: "10px" }}>
-            Real active Shopify catalog items
-          </div>
-        </div>
+            </Text>
+            <Text variant="bodySm" tone="subdued">
+              Real active Shopify catalog items
+            </Text>
+          </BlockStack>
+        </Card>
 
         {/* CARD 2: ACTIONABLE RECOMMENDATIONS */}
-        <div style={{
-          background: "#FFFFFF",
-          borderRadius: "8px",
-          padding: "18px 20px",
-          border: "1px solid #E1E3E5",
-          boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between"
-        }}>
-          <div>
-            <div style={{ fontSize: "11px", fontWeight: "600", color: "#6D7175", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Recommended Badges
-            </div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#202223", marginTop: "6px" }}>
+        <Card padding="400">
+          <BlockStack gap="100">
+            <Text variant="headingXs" tone="subdued" as="h3">
+              RECOMMENDED BADGES
+            </Text>
+            <Text variant="heading2xl" as="p" fontWeight="bold">
               {totalRecs}
-            </div>
-          </div>
-          <div style={{ fontSize: "12px", color: "#6D7175", marginTop: "10px" }}>
-            {totalScanned > 0 ? `${Math.round((totalRecs / totalScanned) * 100)}% of catalog qualifies` : "0%"}
-          </div>
-        </div>
+            </Text>
+            <Text variant="bodySm" tone="subdued">
+              {totalScanned > 0 ? `${Math.round((totalRecs / totalScanned) * 100)}% of catalog qualifies` : "0%"}
+            </Text>
+          </BlockStack>
+        </Card>
 
         {/* CARD 3: ACTIVE APPLIED BADGES */}
-        <div style={{
-          background: "#FFFFFF",
-          borderRadius: "8px",
-          padding: "18px 20px",
-          border: "1px solid #E1E3E5",
-          boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between"
-        }}>
-          <div>
-            <div style={{ fontSize: "11px", fontWeight: "600", color: "#6D7175", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Applied on Storefront
-            </div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#202223", marginTop: "6px" }}>
+        <Card padding="400">
+          <BlockStack gap="100">
+            <Text variant="headingXs" tone="subdued" as="h3">
+              APPLIED ON STOREFRONT
+            </Text>
+            <Text variant="heading2xl" as="p" fontWeight="bold">
               {appliedCount}
-            </div>
-          </div>
-          <div style={{ fontSize: "12px", color: "#6D7175", marginTop: "10px" }}>
-            Active product-specific badges
-          </div>
-        </div>
+            </Text>
+            <Text variant="bodySm" tone="subdued">
+              Active product-specific badges
+            </Text>
+          </BlockStack>
+        </Card>
 
-        {/* CARD 4: MERCHANT GUIDANCE CARD (RECOMMENDATIONS ONLY) */}
-        <div style={{
-          background: "#FFFFFF",
-          borderRadius: "8px",
-          padding: "18px 20px",
-          border: "1px solid #E1E3E5",
-          boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between"
-        }}>
-          <div>
-            <div style={{
-              fontSize: "11px",
-              fontWeight: "600",
-              color: "#6D7175",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}>
-              <span>💡 SMART RECOMMENDATIONS</span>
-            </div>
-            <div style={{ fontSize: "12px", color: "#202223", marginTop: "4px", lineHeight: "1.4" }}>
-              We suggest the badge that may work best for each product.
-            </div>
-          </div>
-          <div style={{ fontSize: "11px", color: "#6D7175", marginTop: "8px", lineHeight: "1.45" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <span>✓</span> <span>Suggested based on live product data</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <span>✓</span> <span>You have full control over final decision</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <span>✓</span> <span>Choose any badge you prefer per product</span>
-            </div>
-          </div>
-        </div>
+        {/* CARD 4: MERCHANT GUIDANCE */}
+        <Card padding="400">
+          <BlockStack gap="100">
+            <Text variant="headingXs" tone="subdued" as="h3">
+              SMART RECOMMENDATIONS
+            </Text>
+            <Text variant="bodyMd" as="p" fontWeight="semibold">
+              Live automated suggestions
+            </Text>
+            <Text variant="bodySm" tone="subdued">
+              Recommendations based on real velocity & stock
+            </Text>
+          </BlockStack>
+        </Card>
       </div>
     );
   };
@@ -458,12 +405,12 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
 
   const tabItems = [
     { key: "ALL", label: "All", count: tabCounts.ALL },
-    { key: "PRE_ORDER", label: "🛒 Pre-Order", count: tabCounts.PRE_ORDER },
-    { key: "PROGRESSIVE_MARKDOWN", label: "📉 Markdown", count: tabCounts.PROGRESSIVE_MARKDOWN },
-    { key: "CLEARANCE", label: "🏷️ Clearance", count: tabCounts.CLEARANCE },
-    { key: "BUNDLE", label: "📦 Bundle", count: tabCounts.BUNDLE },
-    { key: "LOW_STOCK", label: "🔥 Low Stock", count: tabCounts.LOW_STOCK },
-    { key: "NONE", label: "⚪ No Badge", count: tabCounts.NONE },
+    { key: "PRE_ORDER", label: "Pre-Order", count: tabCounts.PRE_ORDER },
+    { key: "PROGRESSIVE_MARKDOWN", label: "Markdown", count: tabCounts.PROGRESSIVE_MARKDOWN },
+    { key: "CLEARANCE", label: "Clearance", count: tabCounts.CLEARANCE },
+    { key: "BUNDLE", label: "Bundle", count: tabCounts.BUNDLE },
+    { key: "LOW_STOCK", label: "Low Stock", count: tabCounts.LOW_STOCK },
+    { key: "NONE", label: "No Badge", count: tabCounts.NONE },
   ];
 
   // ----------------------------------------------------
@@ -473,23 +420,9 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
     <Frame>
       <Page
         fullWidth
-        title="Smart Badge Recommendations"
-        subtitle="Scan your products and automatically find the best badge for each product."
-        primaryAction={{
-          content: scanning ? "Scanning products..." : "Scan All Products",
-          onAction: handleScanProducts,
-          loading: scanning,
-          disabled: loading,
-        }}
-        secondaryActions={[
-          {
-            content: "Refresh",
-            icon: RefreshIcon,
-            onAction: loadInitialData,
-            loading,
-            disabled: scanning,
-          },
-        ]}
+        title="Smart Badges"
+        subtitle="Automated badge recommendations to boost sales velocity."
+      
       >
         <BlockStack gap="400">
           {/* ERROR BANNER */}
@@ -526,24 +459,6 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
 
           {/* SUMMARY METRIC CARDS */}
           {!scanning && renderSummaryCards()}
-
-          {/* MERCHANT GUIDANCE HELPER BANNER */}
-          {!scanning && products.length > 0 && (
-            <div style={{
-              background: "#F7F8F9",
-              border: "1px solid #E1E3E5",
-              borderRadius: "8px",
-              padding: "12px 16px",
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-            }}>
-              <span style={{ fontSize: "15px" }}>💡</span>
-              <div style={{ fontSize: "13px", color: "#303030", lineHeight: "1.4" }}>
-                <strong>Smart Stock analyzes your product data and suggests the badge that may work best.</strong> These recommendations are for guidance only — we suggest the badge that may work best based on inventory and velocity, but the final decision is yours.
-              </div>
-            </div>
-          )}
 
           {/* MAIN PRODUCT TABLE CONTAINER */}
           {!scanning && products.length > 0 && (
@@ -663,14 +578,12 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                       background: "#F7F8F9",
                       borderBottom: "1px solid #E1E3E5",
                       color: "#6D7175",
-                      fontSize: "11px",
+                      fontSize: "12px",
                       fontWeight: "600",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px"
                     }}>
-                      <th style={{ padding: "12px 16px", width: "30%" }}>Product</th>
-                      <th style={{ padding: "12px 12px", width: "10%" }}>Inventory</th>
-                      <th style={{ padding: "12px 12px", width: "10%" }}>Velocity</th>
+                      <th style={{ padding: "12px 16px", width: "28%" }}>Product / SKU</th>
+                      <th style={{ padding: "12px 12px", width: "11%" }}>Inventory</th>
+                      <th style={{ padding: "12px 12px", width: "11%" }}>Sales Velocity</th>
                       <th style={{ padding: "12px 12px", width: "10%" }}>Stock Risk</th>
                       <th style={{ padding: "12px 12px", width: "14%" }}>Suggested Badge</th>
                       <th style={{ padding: "12px 12px", width: "8%" }}>Score</th>
@@ -690,6 +603,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                           productId,
                           title,
                           handle,
+                          sku,
                           image,
                           inventory,
                           salesVelocity,
@@ -703,19 +617,6 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
 
                         const rawInv = Number(inventory) || 0;
                         const displayInv = Math.max(0, rawInv);
-
-                        let riskColor = "#303030";
-                        let riskBg = "#F1F2F4";
-                        let riskBorder = "#D2D5D8";
-                        if (stockRisk === "CRITICAL" || stockRisk === "HIGH") {
-                          riskColor = "#D82C0D";
-                          riskBg = "#FFF4F2";
-                          riskBorder = "#FED3D1";
-                        } else if (stockRisk === "MEDIUM") {
-                          riskColor = "#916A00";
-                          riskBg = "#FFF8DB";
-                          riskBorder = "#FFECA1";
-                        }
 
                         return (
                           <tr
@@ -747,44 +648,26 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                                   >
                                     {title}
                                   </div>
-                                  {handle && (
-                                    <div style={{ fontSize: "11px", color: "#6D7175", marginTop: "2px" }}>
-                                      /{handle}
-                                    </div>
-                                  )}
+                                  <div style={{ fontSize: "11px", color: "#6D7175", marginTop: "2px" }}>
+                                    SKU: {sku && sku.trim() ? sku : "N/A"}
+                                  </div>
                                 </div>
                               </div>
                             </td>
 
                             {/* INVENTORY */}
-                            <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
-                              <span style={{
-                                fontWeight: displayInv === 0 ? "600" : "400",
-                                color: displayInv === 0 ? "#D82C0D" : "#202223"
-                              }}>
-                                {displayInv} {displayInv === 1 ? "unit" : "units"}
-                              </span>
+                            <td style={{ padding: "12px 12px", whiteSpace: "nowrap", color: "#202223" }}>
+                              {displayInv} units
                             </td>
 
                             {/* SALES VELOCITY */}
                             <td style={{ padding: "12px 12px", whiteSpace: "nowrap", color: "#5C5F62" }}>
-                              {salesVelocity != null ? `${Number(salesVelocity).toFixed(2)}/d` : "0.00/d"}
+                              {salesVelocity != null ? `${Number(salesVelocity).toFixed(2)} / day` : "0.00 / day"}
                             </td>
 
                             {/* STOCK RISK */}
-                            <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
-                              <span style={{
-                                display: "inline-block",
-                                padding: "2px 8px",
-                                borderRadius: "4px",
-                                fontSize: "11px",
-                                fontWeight: "600",
-                                background: riskBg,
-                                color: riskColor,
-                                border: `1px solid ${riskBorder}`,
-                              }}>
-                                {stockRisk || "SAFE"}
-                              </span>
+                            <td style={{ padding: "12px 12px", whiteSpace: "nowrap", color: "#202223" }}>
+                              {stockRisk || "SAFE"}
                             </td>
 
                             {/* BEST BADGE (SUGGESTED) */}
@@ -803,7 +686,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                                     color: badgeInfo.color,
                                     border: `1px solid ${badgeInfo.border}`,
                                   }}>
-                                    {badgeInfo.badgeLabel}
+                                    {badgeInfo.label}
                                   </span>
                                   {isApplied && (
                                     <span style={{
@@ -815,37 +698,16 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                                       borderRadius: "4px",
                                       border: "1px solid #C8E6C9",
                                     }}>
-                                      ✓ Active
+                                      Active
                                     </span>
                                   )}
                                 </div>
                               )}
                             </td>
 
-                            {/* SCORE & CONFIDENCE */}
-                            <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
-                              {isNone ? (
-                                <span style={{ color: "#6D7175" }}>—</span>
-                              ) : (
-                                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                                  <strong style={{ color: "#202223", fontSize: "13px" }}>
-                                    {recommendation?.score ?? 0}
-                                  </strong>
-                                  {recommendation?.confidence && (
-                                    <span style={{
-                                      fontSize: "10px",
-                                      fontWeight: "600",
-                                      padding: "1px 6px",
-                                      borderRadius: "4px",
-                                      background: recommendation.confidence === "HIGH" ? "#F1F8F5" : "#FFF8DB",
-                                      color: recommendation.confidence === "HIGH" ? "#1B5E20" : "#916A00",
-                                      border: recommendation.confidence === "HIGH" ? "1px solid #C8E6C9" : "1px solid #FFECA1",
-                                    }}>
-                                      {recommendation.confidence}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                            {/* SCORE */}
+                            <td style={{ padding: "12px 12px", whiteSpace: "nowrap", color: "#202223" }}>
+                              {isNone ? <span style={{ color: "#6D7175" }}>—</span> : (recommendation?.score ?? 0)}
                             </td>
 
                             {/* REASON */}

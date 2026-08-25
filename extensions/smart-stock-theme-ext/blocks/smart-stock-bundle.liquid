@@ -75,8 +75,6 @@
   }
 
   #smart-stock-bundles-{{ block.id }} .ss-save-badge {
-    background: #E8F7EE;
-    color: #15803D;
     font-size: 11px;
     font-weight: 800;
     padding: 4px 12px;
@@ -434,6 +432,7 @@
     ];
 
     var bundles = [];
+    var bundleConfig = null;
 
     for (var i = 0; i < candidateUrls.length; i++) {
       try {
@@ -446,16 +445,29 @@
         if (res.ok) {
           var json = await res.json();
           if (json.success) {
+            if (json.bundleConfig) {
+              bundleConfig = json.bundleConfig;
+            }
             if (Array.isArray(json.data) && json.data.length > 0) {
               bundles = json.data;
               break;
             } else if (json.deadStockOffer && json.deadStockOffer.hasBundle && json.deadStockOffer.bundle) {
               bundles = [json.deadStockOffer.bundle];
+              if (json.bundleConfig) bundleConfig = json.bundleConfig;
               break;
             }
           }
         }
       } catch (err) {}
+    }
+
+    if (bundleConfig && bundleConfig.enabled === false) {
+      rootContainer.innerHTML = "";
+      if (section) {
+        section.style.display = "none";
+        try { section.remove(); } catch(e) {}
+      }
+      return;
     }
 
     if (!bundles || bundles.length === 0) {
@@ -468,7 +480,7 @@
     }
 
     section.style.display = "block";
-    renderBundleWidgets(bundles);
+    renderBundleWidgets(bundles, bundleConfig);
   }
 
   function isPlaceholderText(str) {
@@ -497,24 +509,28 @@
     return '<div class="ss-item-img ss-item-img-placeholder" style="display:flex;align-items:center;justify-content:center;font-size:18px;background:#f3f4f6;border-radius:8px;border:1px solid #e5e7eb;">📦</div>';
   }
 
-  function renderBundleWidgets(bundles) {
+  function renderBundleWidgets(bundles, config) {
     rootContainer.innerHTML = "";
 
     bundles.forEach(function (bundle) {
       var isBOGO = String(bundle.offerType || "").trim().toUpperCase() === "BOGO";
 
       if (isBOGO) {
-        renderBOGOBundle(bundle);
+        renderBOGOBundle(bundle, config);
       } else {
-        renderNormalBundle(bundle);
+        renderNormalBundle(bundle, config);
       }
     });
   }
 
-  function renderBOGOBundle(bundle) {
+  function renderBOGOBundle(bundle, config) {
+    config = config || {};
     var pageLiquidTitle = {{ product.title | json }} || "";
     var card = document.createElement("div");
     card.className = "ss-bundle-card ss-bogo-card";
+
+    var borderRadius = Number(config.borderRadius) || 12;
+    card.style.borderRadius = borderRadius + "px";
 
     var deadStockTitle = (!isPlaceholderText(bundle.deadStockTitle) ? bundle.deadStockTitle : "") || pageLiquidTitle || bundle.deadStockVariantTitle || "";
     var freeProductTitle = (!isPlaceholderText(bundle.freeProductTitle) ? bundle.freeProductTitle : "") || (!isPlaceholderText(bundle.companionTitle) ? bundle.companionTitle : "") || bundle.companionVariantTitle || "";
@@ -536,13 +552,25 @@
     var formattedFreeOrigPrice = freePrice > 0 ? formatMoney(freePrice) : "";
     var formattedSavings = savings > 0 ? formatMoney(savings) : formattedFreeOrigPrice;
 
+    var headerTitle = config.headerTitle || "Buy One Get One Free";
+    var buttonText = config.buttonText || "Claim BOGO Offer";
+    var buttonColor = config.buttonColor || "#111827";
+    var buttonTextColor = config.buttonTextColor || "#FFFFFF";
+    var badgeColor = config.badgeColor || "#ECFDF5";
+    var badgeTextColor = config.badgeTextColor || "#059669";
+    var showDiscountBadge = config.showDiscountBadge !== false;
+
+    var badgeHtml = showDiscountBadge
+      ? '<span class="ss-save-badge" style="background:' + badgeColor + ';color:' + badgeTextColor + ';border:1px solid rgba(5,150,105,0.2);">SAVE 100% OFF</span>'
+      : '';
+
     card.innerHTML =
       '<div class="ss-bundle-header">' +
         '<div class="ss-bundle-title-wrap">' +
           '<span class="ss-box-icon">🎁</span>' +
-          '<span class="ss-main-title">Buy One Get One Free</span>' +
+          '<span class="ss-main-title">' + escapeHtml(headerTitle) + '</span>' +
         '</div>' +
-        '<span class="ss-save-badge" style="background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;">SAVE 100% OFF</span>' +
+        badgeHtml +
       '</div>' +
 
       '<div class="ss-bundle-subtitle">' + escapeHtml(bundleName) + '</div>' +
@@ -588,8 +616,8 @@
         '</div>' +
       '</div>' +
 
-      '<button type="button" class="ss-add-btn ss-bogo-btn">' +
-        '<span>⚡ Claim BOGO Offer · ' + formattedDeadStockPrice + '</span>' +
+      '<button type="button" class="ss-add-btn ss-bogo-btn" style="background:' + buttonColor + ';color:' + buttonTextColor + ';border-radius:' + Math.min(borderRadius, 8) + 'px;">' +
+        '<span>⚡ ' + escapeHtml(buttonText) + ' · ' + formattedDeadStockPrice + '</span>' +
       '</button>' +
 
       '<div class="ss-error-banner" style="display:none;">' +
@@ -618,16 +646,20 @@
       btn.innerHTML = '<span class="ss-spinner"></span> Claiming Offer...';
       errBanner.style.display = "none";
 
-      handleBuyBundle(v1, v2, btn, "⚡ Claim BOGO Offer · " + formattedDeadStockPrice, errBanner, errMsg);
+      handleBuyBundle(v1, v2, btn, "⚡ " + buttonText + " · " + formattedDeadStockPrice, errBanner, errMsg);
     });
 
     rootContainer.appendChild(card);
   }
 
-  function renderNormalBundle(bundle) {
+  function renderNormalBundle(bundle, config) {
+    config = config || {};
     var pageLiquidTitle = {{ product.title | json }} || "";
     var card = document.createElement("div");
     card.className = "ss-bundle-card";
+
+    var borderRadius = Number(config.borderRadius) || 12;
+    card.style.borderRadius = borderRadius + "px";
 
     var deadStockTitle =
       (!isPlaceholderText(bundle.deadStockTitle) ? bundle.deadStockTitle : "") ||
@@ -658,13 +690,25 @@
     var formattedOrigPrice = origPrice > 0 ? formatMoney(origPrice) : "";
     var formattedSavings = savings > 0 ? formatMoney(savings) : "";
 
+    var headerTitle = config.headerTitle || "{{ block.settings.heading | default: 'Frequently Bought Together' }}";
+    var buttonText = config.buttonText || "Add Both to Cart";
+    var buttonColor = config.buttonColor || "#111827";
+    var buttonTextColor = config.buttonTextColor || "#FFFFFF";
+    var badgeColor = config.badgeColor || "#DCFCE7";
+    var badgeTextColor = config.badgeTextColor || "#15803D";
+    var showDiscountBadge = config.showDiscountBadge !== false;
+
+    var badgeHtml = showDiscountBadge
+      ? '<span class="ss-save-badge" style="background:' + badgeColor + ' !important;color:' + badgeTextColor + ' !important;border:1px solid ' + badgeColor + ' !important;">SAVE ' + discountPercent + '% OFF</span>'
+      : '';
+
     card.innerHTML = 
       '<div class="ss-bundle-header">' +
         '<div class="ss-bundle-title-wrap">' +
           '<span class="ss-box-icon">📦</span>' +
-          '<span class="ss-main-title">{{ block.settings.heading | default: "Frequently Bought Together" }}</span>' +
+          '<span class="ss-main-title">' + escapeHtml(headerTitle) + '</span>' +
         '</div>' +
-        '<span class="ss-save-badge">SAVE ' + discountPercent + '% OFF</span>' +
+        badgeHtml +
       '</div>' +
 
       '<div class="ss-bundle-subtitle">' + escapeHtml(bundleName) + '</div>' +
@@ -709,8 +753,8 @@
         '</div>' +
       '</div>' +
 
-      '<button type="button" class="ss-add-btn">' +
-        '<span>⚡ Add Both to Cart · ' + formattedFinalPrice + '</span>' +
+      '<button type="button" class="ss-add-btn" style="background:' + buttonColor + ' !important;color:' + buttonTextColor + ' !important;border-radius:' + Math.min(borderRadius, 8) + 'px !important;">' +
+        '<span>⚡ ' + escapeHtml(buttonText) + ' · ' + formattedFinalPrice + '</span>' +
       '</button>' +
 
       '<div class="ss-error-banner" style="display:none;">' +

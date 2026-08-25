@@ -23,11 +23,11 @@ async function runMondayDigestIteration() {
 }
 
 /**
- * Start the background scheduler for Monday Morning Smart Badge Digests.
- * Runs every 15 minutes to check which stores in their respective local timezones
- * have reached Monday 9:00 AM.
+ * Start the background scheduler for Monday (9:00 AM) & Tuesday (12:00 PM) Smart Badge Digests.
+ * Runs every 60 seconds to check which stores in their respective local timezones
+ * have reached Monday 9:00 AM or Tuesday 12:00 PM.
  */
-function startMondayBadgeDigestScheduler(intervalMs = 15 * 60 * 1000) {
+function startMondayBadgeDigestScheduler(intervalMs = 60 * 1000) {
   if (jobInterval) {
     console.log("[MondayDigest Scheduler] Scheduler is already active.");
     return;

@@ -34,6 +34,7 @@ export default function Reports({ shopDomain = "" }) {
 
   return (
     <Page
+      fullWidth
       title="Reports"
       subtitle="Track performance and the financial impact of your inventory actions."
     >

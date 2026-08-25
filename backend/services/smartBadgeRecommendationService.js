@@ -189,13 +189,11 @@ function scoreBundle(product, bundleData, settings) {
  * Identifies configured launches AND out-of-stock products (0 units) that should accept pre-orders.
  */
 function scorePreOrder(product, settings) {
-  const rawId = String(product.id);
-  const numId = rawId.replace(/^gid:\/\/shopify\/Product\//, "");
-
-  const isConfigured =
-    settings?.preOrder?.configuredProductIds?.has(rawId) ||
-    settings?.preOrder?.configuredProductIds?.has(numId) ||
-    settings?.preOrder?.configuredProductIds?.has(`gid://shopify/Product/${numId}`);
+  const cleanId = String(product.id || "").replace(/^gid:\/\/shopify\/Product\//, "");
+  const isConfigured = Boolean(
+    settings?.preOrderConfig?.enabled &&
+    (settings?.preOrderConfig?.productIds?.includes(cleanId) || settings?.preOrderConfig?.productIds?.includes(product.id))
+  );
 
   if (isConfigured) {
     return {
@@ -204,17 +202,17 @@ function scorePreOrder(product, settings) {
     };
   }
 
-  const inventory = Number(product.totalInventory) || 0;
+  const tags = String(product.tags || "").toLowerCase();
+  const isTaggedPreOrder = tags.includes("preorder") || tags.includes("pre-order") || tags.includes("upcoming") || tags.includes("launch");
 
-  // Real out-of-stock products (0 units) are prime pre-order candidates to capture advance orders
-  if (inventory <= 0) {
+  if (isTaggedPreOrder) {
     return {
       score: 85,
-      reason: "Product is currently out of stock (0 units). Pre-Order badge captures customer demand and advance sales.",
+      reason: "Product tagged for pre-order launch.",
     };
   }
 
-  return { score: 0, reason: "Product has inventory available (> 0 units)" };
+  return { score: 0, reason: "Product not configured for pre-order" };
 }
 
 function getConfidence(score) {

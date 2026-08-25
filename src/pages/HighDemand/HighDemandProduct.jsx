@@ -138,6 +138,7 @@ export default function HighDemandProduct({
     launchDetails: "",
     buttonText: "PRE-ORDER NOW",
     depositPercentage: 50,
+    depositAmount: 0,
     depositEnabled: true,
     cardBackgroundColor: "#FFFFFF",
     textColor: "#111827",
@@ -189,6 +190,7 @@ export default function HighDemandProduct({
                 launchDetails: d.launchDetails || "",
                 buttonText: d.buttonText || "PRE-ORDER NOW",
                 depositPercentage: typeof d.depositPercentage === "number" ? d.depositPercentage : 50,
+                depositAmount: typeof d.depositAmount === "number" ? d.depositAmount : 0,
                 depositEnabled: d.depositEnabled !== false,
                 cardBackgroundColor: d.cardBackgroundColor || "#FFFFFF",
                 textColor: d.textColor || "#111827",
@@ -1186,13 +1188,23 @@ export default function HighDemandProduct({
               <TextField
                 label="Deposit Percentage (%)"
                 type="number"
-                value={String(launchForm.depositPercentage ?? 50)}
+                value={launchForm.depositPercentage === "" ? "" : String(launchForm.depositPercentage ?? 50)}
                 onChange={(val) => {
-                  const num = val === "" ? "" : parseInt(val, 10);
-                  const pct = num === "" ? "" : Math.max(1, Math.min(100, isNaN(num) ? 50 : num));
-                  setLaunchForm((prev) => ({ ...prev, depositPercentage: pct }));
+                  if (val === "") {
+                    setLaunchForm((prev) => ({ ...prev, depositPercentage: "" }));
+                    return;
+                  }
+                  const num = parseInt(val, 10);
+                  const pct = isNaN(num) ? 0 : Math.max(0, Math.min(100, num));
+                  const prodPrice = Number(item.price || item.currentPrice || 0);
+                  const calcAmt = prodPrice > 0 ? Number(((prodPrice * pct) / 100).toFixed(2)) : 0;
+                  setLaunchForm((prev) => ({
+                    ...prev,
+                    depositPercentage: pct,
+                    depositAmount: pct === 0 ? (prev.depositAmount || 0) : calcAmt,
+                  }));
                 }}
-                helpText="Percentage of total price (1% - 100%)"
+                helpText="Percentage of total price (0% - 100%). Set 0% for custom fixed dollar deposit."
                 autoComplete="off"
               />
               <TextField
@@ -1204,26 +1216,54 @@ export default function HighDemandProduct({
                 type="number"
                 prefix="$"
                 value={
-                  Number(item.price || item.currentPrice || 0) > 0 && (launchForm.depositPercentage !== "" && launchForm.depositPercentage != null)
-                    ? ((Number(item.price || item.currentPrice) * Number(launchForm.depositPercentage || 50)) / 100).toFixed(2)
-                    : ""
+                  (() => {
+                    const prodPrice = Number(item.price || item.currentPrice || 0);
+                    if (launchForm.depositPercentage === 0 || launchForm.depositPercentage === "0") {
+                      return launchForm.depositAmount != null && launchForm.depositAmount !== "" ? String(launchForm.depositAmount) : "0";
+                    }
+                    if (prodPrice > 0 && launchForm.depositPercentage !== "" && launchForm.depositPercentage != null) {
+                      return ((prodPrice * Number(launchForm.depositPercentage)) / 100).toFixed(2);
+                    }
+                    return launchForm.depositAmount != null && launchForm.depositAmount !== "" ? String(launchForm.depositAmount) : "";
+                  })()
                 }
                 onChange={(val) => {
-                  const amt = parseFloat(val);
                   const prodPrice = Number(item.price || item.currentPrice || 0);
+                  if (val === "") {
+                    setLaunchForm((prev) => ({
+                      ...prev,
+                      depositAmount: "",
+                      depositPercentage: prev.depositPercentage === 0 ? 0 : "",
+                    }));
+                    return;
+                  }
+                  const amt = parseFloat(val);
+                  const safeAmt = isNaN(amt) ? 0 : Math.max(0, amt);
                   if (prodPrice > 0) {
-                    if (isNaN(amt) || amt <= 0) {
-                      setLaunchForm((prev) => ({ ...prev, depositPercentage: "" }));
+                    if (launchForm.depositPercentage === 0 || launchForm.depositPercentage === "0") {
+                      // Preserve 0% if merchant chose fixed dollar amount
+                      setLaunchForm((prev) => ({ ...prev, depositAmount: safeAmt, depositPercentage: 0 }));
                     } else {
-                      const calculatedPct = Math.max(1, Math.min(100, Math.round((amt / prodPrice) * 100)));
-                      setLaunchForm((prev) => ({ ...prev, depositPercentage: calculatedPct }));
+                      const calculatedPct = Math.max(0, Math.min(100, Math.round((safeAmt / prodPrice) * 100)));
+                      setLaunchForm((prev) => ({ ...prev, depositAmount: safeAmt, depositPercentage: calculatedPct }));
                     }
+                  } else {
+                    setLaunchForm((prev) => ({ ...prev, depositAmount: safeAmt }));
                   }
                 }}
                 helpText={
-                  Number(item.price || item.currentPrice || 0) > 0 && (launchForm.depositPercentage !== "" && launchForm.depositPercentage != null)
-                    ? `Remaining Balance: $${(Number(item.price || item.currentPrice) - (Number(item.price || item.currentPrice) * Number(launchForm.depositPercentage || 50)) / 100).toFixed(2)}`
-                    : "Calculates deposit amount from price"
+                  (() => {
+                    const prodPrice = Number(item.price || item.currentPrice || 0);
+                    const isZeroPct = launchForm.depositPercentage === 0 || launchForm.depositPercentage === "0";
+                    const currentDepositAmt = isZeroPct
+                      ? Number(launchForm.depositAmount || 0)
+                      : (prodPrice > 0 && launchForm.depositPercentage !== "" ? (prodPrice * Number(launchForm.depositPercentage || 0)) / 100 : Number(launchForm.depositAmount || 0));
+                    if (prodPrice > 0) {
+                      const remaining = Math.max(0, prodPrice - currentDepositAmt);
+                      return `Remaining Balance: $${remaining.toFixed(2)} (Deposit: $${currentDepositAmt.toFixed(2)})`;
+                    }
+                    return "Calculates or sets deposit amount from price";
+                  })()
                 }
                 autoComplete="off"
               />

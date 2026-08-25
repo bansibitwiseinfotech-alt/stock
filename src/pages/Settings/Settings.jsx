@@ -48,6 +48,7 @@ export default function Settings({ shopDomain = "" }) {
 
   return (
     <Page
+      fullWidth
       title="Settings"
       subtitle="Manage your inventory threshold rules and automation preferences."
     >

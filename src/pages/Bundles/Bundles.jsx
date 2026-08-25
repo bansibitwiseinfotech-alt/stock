@@ -65,8 +65,9 @@ export default function Bundles({ shopDomain = "" }) {
 
   return (
     <Page
-      title="Bundles & Discounts"
-      subtitle="Create bundles and discounts to boost sales and clear stagnant stock."
+      fullWidth
+      title="Bundles"
+      subtitle="Create bundles and discounts to boost sales and clear stock."
     >
       <Layout>
         {/* ================================================================ */}

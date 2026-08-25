@@ -270,40 +270,40 @@ export default function HighDemand({
       >
         {/* PRODUCT */}
         <IndexTable.Cell>
-          <InlineStack gap="300" blockAlign="center">
-            {item.image ? (
-              <Thumbnail source={item.image} alt={title} size="small" />
-            ) : null}
+          <div style={{ maxWidth: "340px", padding: "6px 0" }}>
+            <InlineStack gap="300" blockAlign="center" wrap={false}>
+              <div style={{ flexShrink: 0 }}>
+                <Thumbnail
+                  source={item.image || ""}
+                  alt={title}
+                  size="small"
+                />
+              </div>
 
-            <BlockStack gap="050">
-              <Text variant="bodyMd" fontWeight="semibold" as="span">
-                {title}
-                {variantTitle}
-              </Text>
-
-              {item.sku ? (
-                <Text variant="bodySm" tone="subdued" as="span">
-                  SKU: {item.sku}
+              <div style={{ minWidth: 0, overflow: "hidden" }}>
+                <Text variant="bodyMd" fontWeight="bold" as="p" truncate>
+                  {title}{variantTitle}
                 </Text>
-              ) : null}
-            </BlockStack>
-          </InlineStack>
+
+                <Text variant="bodySm" tone="subdued" as="p" truncate>
+                  SKU: {item.sku && item.sku.trim() ? item.sku : "N/A"}
+                </Text>
+              </div>
+            </InlineStack>
+          </div>
         </IndexTable.Cell>
 
-        {/* CURRENT STOCK */}
+        {/* STOCK UNITS */}
         <IndexTable.Cell>
-          <span style={{
-            fontWeight: stock <= 0 ? "600" : "400",
-            color: stock <= 0 ? "#D82C0D" : "#202223",
-          }}>
-            {stock}
-          </span>
+          <Text variant="bodyMd" as="span">
+            {stock} units
+          </Text>
         </IndexTable.Cell>
 
         {/* SOLD 30 DAYS */}
         <IndexTable.Cell>
-          <Text variant="bodyMd" as="span" tone="subdued">
-            {sold30Days}
+          <Text variant="bodyMd" as="span">
+            {sold30Days} units
           </Text>
         </IndexTable.Cell>
 
@@ -316,68 +316,16 @@ export default function HighDemand({
 
         {/* DAYS LEFT */}
         <IndexTable.Cell>
-          <span style={{
-            fontWeight: typeof daysLeft === "number" && daysLeft <= 0 ? "600" : "400",
-            color: typeof daysLeft === "number" && daysLeft <= 0 ? "#D82C0D" : "#202223",
-          }}>
+          <Text variant="bodyMd" as="span">
             {typeof daysLeft === "number" ? `${daysLeft} days` : "N/A"}
-          </span>
+          </Text>
         </IndexTable.Cell>
 
-        {/* RISK */}
+        {/* RISK LEVEL */}
         <IndexTable.Cell>
-          <span style={{
-            display: "inline-block",
-            padding: "2px 8px",
-            borderRadius: "4px",
-            fontSize: "11px",
-            fontWeight: "600",
-            background: riskStyle.bg,
-            color: riskStyle.color,
-            border: `1px solid ${riskStyle.border}`,
-          }}>
+          <Text variant="bodyMd" as="span">
             {riskStyle.label}
-          </span>
-        </IndexTable.Cell>
-
-        {/* REORDER */}
-        <IndexTable.Cell>
-          {reorderStatus === "REORDER_REQUIRED" ? (
-            <BlockStack gap="050">
-              <Text variant="bodyMd" fontWeight="semibold" as="span">
-                📦 {reorderQuantity} units
-              </Text>
-              <Text variant="bodySm" tone="subdued" as="span">
-                30-day coverage
-              </Text>
-            </BlockStack>
-          ) : reorderStatus === "INSUFFICIENT_DATA" ? (
-            <span style={{
-              display: "inline-block",
-              padding: "2px 8px",
-              borderRadius: "4px",
-              fontSize: "11px",
-              fontWeight: "500",
-              background: "#F1F2F4",
-              color: "#5C5F62",
-              border: "1px solid #D2D5D8",
-            }}>
-              Insufficient Data
-            </span>
-          ) : (
-            <span style={{
-              display: "inline-block",
-              padding: "2px 8px",
-              borderRadius: "4px",
-              fontSize: "11px",
-              fontWeight: "600",
-              background: "#F1F8F5",
-              color: "#1B5E20",
-              border: "1px solid #C8E6C9",
-            }}>
-              Stock Sufficient
-            </span>
-          )}
+          </Text>
         </IndexTable.Cell>
 
         {/* ACTION */}
@@ -389,7 +337,7 @@ export default function HighDemand({
               setSelectedVariantId(item.variantId);
             }}
           >
-            Manage
+            Take Action
           </Button>
         </IndexTable.Cell>
       </IndexTable.Row>
@@ -403,13 +351,9 @@ export default function HighDemand({
   return (
     <Page
       fullWidth
-      title="High-Demand Stockout Shield"
-      subtitle="Protect high-demand products from running out of stock."
-      primaryAction={{
-        content: loading ? "Refreshing..." : "Refresh",
-        onAction: loadData,
-        loading,
-      }}
+      title="High Demand"
+      subtitle="Protect fast-selling products from running out of stock."
+      
     >
       <BlockStack gap="400">
         {/* ERROR BANNER */}
@@ -423,104 +367,68 @@ export default function HighDemand({
           </Banner>
         )}
 
-        {/* 4 SUMMARY METRIC CARDS (SIMPLE POLARIS DESIGN) */}
+        {/* 4 SUMMARY METRIC CARDS */}
         {!loading && products.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
             {/* CARD 1: PRODUCTS ANALYZED */}
-            <div style={{
-              background: "#FFFFFF",
-              borderRadius: "8px",
-              padding: "18px 20px",
-              border: "1px solid #E1E3E5",
-              boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between"
-            }}>
-              <div>
-                <div style={{ fontSize: "11px", fontWeight: "600", color: "#6D7175", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Products Analyzed
-                </div>
-                <div style={{ fontSize: "28px", fontWeight: "700", color: "#202223", marginTop: "6px" }}>
+            <Card padding="400">
+              <BlockStack gap="100">
+                <Text variant="headingXs" tone="subdued" as="h3">
+                  PRODUCTS ANALYZED
+                </Text>
+                <Text variant="heading2xl" as="p" fontWeight="bold">
                   {products.length}
-                </div>
-              </div>
-              <div style={{ fontSize: "12px", color: "#6D7175", marginTop: "10px" }}>
-                Active catalog variants evaluated
-              </div>
-            </div>
+                </Text>
+                <Text variant="bodySm" tone="subdued">
+                  Active catalog variants evaluated
+                </Text>
+              </BlockStack>
+            </Card>
 
             {/* CARD 2: AT STOCKOUT RISK */}
-            <div style={{
-              background: "#FFFFFF",
-              borderRadius: "8px",
-              padding: "18px 20px",
-              border: "1px solid #E1E3E5",
-              boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between"
-            }}>
-              <div>
-                <div style={{ fontSize: "11px", fontWeight: "600", color: "#6D7175", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Stockout Risk
-                </div>
-                <div style={{ fontSize: "28px", fontWeight: "700", color: highRiskCount > 0 ? "#D82C0D" : "#202223", marginTop: "6px" }}>
+            <Card padding="400">
+              <BlockStack gap="100">
+                <Text variant="headingXs" tone="subdued" as="h3">
+                  STOCKOUT RISK
+                </Text>
+                <Text variant="heading2xl" as="p" fontWeight="bold">
                   {highRiskCount}
-                </div>
-              </div>
-              <div style={{ fontSize: "12px", color: "#6D7175", marginTop: "10px" }}>
-                {criticalCount} critical, {highCount} high risk
-              </div>
-            </div>
+                </Text>
+                <Text variant="bodySm" tone="subdued">
+                  {criticalCount} critical, {highCount} high risk
+                </Text>
+              </BlockStack>
+            </Card>
 
             {/* CARD 3: DEMAND WATCH */}
-            <div style={{
-              background: "#FFFFFF",
-              borderRadius: "8px",
-              padding: "18px 20px",
-              border: "1px solid #E1E3E5",
-              boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between"
-            }}>
-              <div>
-                <div style={{ fontSize: "11px", fontWeight: "600", color: "#6D7175", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Demand Watch
-                </div>
-                <div style={{ fontSize: "28px", fontWeight: "700", color: "#202223", marginTop: "6px" }}>
+            <Card padding="400">
+              <BlockStack gap="100">
+                <Text variant="headingXs" tone="subdued" as="h3">
+                  DEMAND WATCH
+                </Text>
+                <Text variant="heading2xl" as="p" fontWeight="bold">
                   {mediumCount}
-                </div>
-              </div>
-              <div style={{ fontSize: "12px", color: "#6D7175", marginTop: "10px" }}>
-                Moderate sales velocity items
-              </div>
-            </div>
+                </Text>
+                <Text variant="bodySm" tone="subdued">
+                  Moderate sales velocity items
+                </Text>
+              </BlockStack>
+            </Card>
 
             {/* CARD 4: STOCK STABLE */}
-            <div style={{
-              background: "#FFFFFF",
-              borderRadius: "8px",
-              padding: "18px 20px",
-              border: "1px solid #E1E3E5",
-              boxShadow: "0 1px 0 rgba(0,0,0,0.05)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between"
-            }}>
-              <div>
-                <div style={{ fontSize: "11px", fontWeight: "600", color: "#6D7175", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Stock Stable
-                </div>
-                <div style={{ fontSize: "28px", fontWeight: "700", color: "#202223", marginTop: "6px" }}>
+            <Card padding="400">
+              <BlockStack gap="100">
+                <Text variant="headingXs" tone="subdued" as="h3">
+                  STOCK STABLE
+                </Text>
+                <Text variant="heading2xl" as="p" fontWeight="bold">
                   {safeCount}
-                </div>
-              </div>
-              <div style={{ fontSize: "12px", color: "#6D7175", marginTop: "10px" }}>
-                Sufficient inventory coverage
-              </div>
-            </div>
+                </Text>
+                <Text variant="bodySm" tone="subdued">
+                  Sufficient inventory coverage
+                </Text>
+              </BlockStack>
+            </Card>
           </div>
         )}
 
@@ -577,14 +485,13 @@ export default function HighDemand({
               resourceName={resourceName}
               itemCount={filteredProducts.length}
               headings={[
-                { title: "PRODUCT" },
-                { title: "STOCK" },
-                { title: "SOLD (30D)" },
-                { title: "VELOCITY" },
-                { title: "DAYS LEFT" },
-                { title: "RISK LEVEL" },
-                { title: "REORDER" },
-                { title: "ACTION" },
+                { title: "Product / SKU" },
+                { title: "Stock Units" },
+                { title: "Sold (30D)" },
+                { title: "Sales Velocity" },
+                { title: "Days Left" },
+                { title: "Risk Level" },
+                { title: "Action" },
               ]}
               selectable={false}
             >

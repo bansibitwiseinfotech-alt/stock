@@ -449,7 +449,11 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
       setIsDeletingMarkdown(true);
       setModalError("");
       const targetId = product?.shopifyVariantId || product?.variantId || product?.shopifyProductId || product?.productId || product?.id || variantId;
-      await executeStopProgressiveMarkdown(activeShop, targetId);
+      await executeStopProgressiveMarkdown(activeShop, targetId, {
+        productId: product?.shopifyProductId || product?.productId || product?.id,
+        variantId: product?.shopifyVariantId || product?.variantId || variantId,
+        ruleId: product?.activeMarkdownRule?._id,
+      });
       setActionSuccess("✓ Progressive Markdown deleted! Original price restored on Shopify & storefront.");
       setDeleteMarkdownConfirmOpen(false);
       closeModal();

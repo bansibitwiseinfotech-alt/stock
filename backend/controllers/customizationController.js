@@ -218,15 +218,19 @@ const DEFAULT_BUNDLE_CONFIG = {
 async function getBundleConfig(req, res) {
   try {
     await ensureConnected();
-    const shopId = req.shopId || req.query.shop || req.body?.shop;
-    if (!shopId) {
+    const rawShop = req.shopId || req.query.shop || req.body?.shop;
+    if (!rawShop) {
       return res.status(400).json({ success: false, message: "Missing shop parameter." });
     }
+    const cleanShop = String(rawShop).replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
 
-    const config = await BundleConfig.findOne({ shop: shopId }).lean();
+    const config = await BundleConfig.findOne({
+      $or: [{ shop: cleanShop }, { shop: rawShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+    }).lean();
+
     return res.status(200).json({
       success: true,
-      data: config || { shop: shopId, ...DEFAULT_BUNDLE_CONFIG },
+      data: config || { shop: cleanShop, ...DEFAULT_BUNDLE_CONFIG },
     });
   } catch (error) {
     console.error("Get Bundle Config Error:", error.message);
@@ -237,16 +241,18 @@ async function getBundleConfig(req, res) {
 async function updateBundleConfig(req, res) {
   try {
     await ensureConnected();
-    const shopId = req.shopId || req.query.shop || req.body?.shop;
-    if (!shopId) {
+    const rawShop = req.shopId || req.query.shop || req.body?.shop;
+    if (!rawShop) {
       return res.status(400).json({ success: false, message: "Missing shop parameter." });
     }
+    const cleanShop = String(rawShop).replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
 
     const payload = req.body || {};
     const updated = await BundleConfig.findOneAndUpdate(
-      { shop: shopId },
+      { $or: [{ shop: cleanShop }, { shop: rawShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }] },
       {
         $set: {
+          shop: cleanShop,
           enabled: typeof payload.enabled === "boolean" ? payload.enabled : true,
           headerTitle: payload.headerTitle || DEFAULT_BUNDLE_CONFIG.headerTitle,
           buttonText: payload.buttonText || DEFAULT_BUNDLE_CONFIG.buttonText,
@@ -275,14 +281,15 @@ async function updateBundleConfig(req, res) {
 async function resetBundleConfig(req, res) {
   try {
     await ensureConnected();
-    const shopId = req.shopId || req.query.shop || req.body?.shop;
-    if (!shopId) {
+    const rawShop = req.shopId || req.query.shop || req.body?.shop;
+    if (!rawShop) {
       return res.status(400).json({ success: false, message: "Missing shop parameter." });
     }
+    const cleanShop = String(rawShop).replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
 
     const updated = await BundleConfig.findOneAndUpdate(
-      { shop: shopId },
-      { $set: DEFAULT_BUNDLE_CONFIG },
+      { $or: [{ shop: cleanShop }, { shop: rawShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }] },
+      { $set: { shop: cleanShop, ...DEFAULT_BUNDLE_CONFIG } },
       { upsert: true, new: true }
     ).lean();
 

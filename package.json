@@ -75,16 +75,5 @@
   "overrides": {
     "p-map": "^4.0.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "core-js",
-      "@parcel/watcher",
-      "@prisma/client",
-      "@prisma/engines",
-      "esbuild",
-      "prisma",
-      "unrs-resolver"
-    ]
-  },
   "author": "admin"
 }

@@ -262,8 +262,8 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
   return (
     <Page
       fullWidth
-      title="Storefront Customization"
-      subtitle="Control how promotional badges, bundle widgets, pre-order launches, and progressive discounts appear to customers on your live store."
+      title="Customization"
+      subtitle="Customize promotional badges, bundle widgets, and discounts."
     >
       <Layout>
         {bannerMessage && (
@@ -279,42 +279,24 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
 
         {/* App Embed Status Card */}
         <Layout.Section>
-          <Card>
+          <Card padding="400">
             <InlineStack align="space-between" blockAlign="center" wrap>
-              <InlineStack gap="300" blockAlign="center">
-                <div
-                  style={{
-                    width: "42px",
-                    height: "42px",
-                    borderRadius: "10px",
-                    backgroundColor: "#EEF2FF",
-                    color: "#4F46E5",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "20px",
-                  }}
-                >
-                  ⚡
-                </div>
-                <BlockStack gap="050">
-                  <InlineStack gap="200" blockAlign="center">
-                    <Text variant="headingSm" as="h2">
-                      Storefront App Embed Status
-                    </Text>
-                    <Badge tone="success">● Connected & Active</Badge>
-                  </InlineStack>
-                  <Text variant="bodySm" tone="subdued">
-                    Smart Stock App Embed injects dynamic promotions directly into your storefront theme without touching code.
+              <BlockStack gap="050">
+                <InlineStack gap="200" blockAlign="center">
+                  <Text variant="headingSm" as="h2" fontWeight="semibold">
+                    Storefront app embed
                   </Text>
-                </BlockStack>
-              </InlineStack>
+                  <Badge tone="success">Active</Badge>
+                </InlineStack>
+                <Text variant="bodySm" tone="subdued">
+                  Controls promotional badges and widgets on your live Shopify theme.
+                </Text>
+              </BlockStack>
 
               <Button
                 url={themeEditorUrl}
                 target="_blank"
                 external
-                variant="secondary"
               >
                 Open Theme Customizer
               </Button>
@@ -325,47 +307,44 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
         {/* Storefront Feature Card Grid */}
         <Layout.Section>
           <InlineGrid columns={{ xs: 1, sm: 2, md: 3, lg: 3 }} gap="400">
-            {/* 🏷️ CLEARANCE SALE CARD */}
-            <Card>
+            {/* CLEARANCE SALE CARD */}
+            <Card padding="400">
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                   height: "100%",
-                  minHeight: "260px",
+                  minHeight: "240px",
                   gap: "16px",
                 }}
               >
-                <BlockStack gap="300">
+                <BlockStack gap="200">
                   <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="200" blockAlign="center">
-                      <span style={{ fontSize: "20px" }}>🏷️</span>
-                      <Text variant="headingSm" as="h3">
-                        Clearance Sale
-                      </Text>
-                    </InlineStack>
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Clearance sale
+                    </Text>
                     <Badge tone={config.enabled ? "success" : "subdued"}>
-                      {config.enabled ? "● Enabled" : "○ Disabled"}
+                      {config.enabled ? "Active" : "Disabled"}
                     </Badge>
                   </InlineStack>
 
                   <Text variant="bodySm" tone="subdued">
-                    Renders an eye-catching clearance badge and urgency banner on discounted excess stock items.
+                    Renders clearance badges and urgency banners on discounted inventory.
                   </Text>
 
                   <div
                     style={{
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#F8FAFC",
-                      border: "1px solid #E2E8F0",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      backgroundColor: "#F6F6F7",
                       fontSize: "12px",
                       color: "#475569",
+                      marginTop: "4px",
                     }}
                   >
-                    <strong>Title:</strong> {config.badgeTitle || "Clearance Sale"} <br />
-                    <strong>Subtext:</strong> {config.supportingText || "Limited time offer"}
+                    <div><strong>Title:</strong> {config.badgeTitle || "Clearance Sale"}</div>
+                    <div><strong>Subtext:</strong> {config.supportingText || "Limited time offer"}</div>
                   </div>
                 </BlockStack>
 
@@ -383,58 +362,54 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
                       {config.enabled ? "Disable" : "Enable"}
                     </Button>
                     <Button
-                      variant="primary"
                       size="slim"
                       onClick={() => setCustomizeSaleOpen(true)}
                     >
-                      Customize Style
+                      Customize
                     </Button>
                   </InlineStack>
                 </BlockStack>
               </div>
             </Card>
 
-            {/* 📦 BUNDLE OFFER (FREQUENTLY BOUGHT TOGETHER) CARD */}
-            <Card>
+            {/* BUNDLE OFFER CARD */}
+            <Card padding="400">
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                   height: "100%",
-                  minHeight: "260px",
+                  minHeight: "240px",
                   gap: "16px",
                 }}
               >
-                <BlockStack gap="300">
+                <BlockStack gap="200">
                   <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="200" blockAlign="center">
-                      <span style={{ fontSize: "20px" }}>📦</span>
-                      <Text variant="headingSm" as="h3">
-                        Bundle Offer (FBT)
-                      </Text>
-                    </InlineStack>
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Bundle offer
+                    </Text>
                     <Badge tone={bundleConfig.enabled ? "success" : "subdued"}>
-                      {bundleConfig.enabled ? "● Enabled" : "○ Disabled"}
+                      {bundleConfig.enabled ? "Active" : "Disabled"}
                     </Badge>
                   </InlineStack>
 
                   <Text variant="bodySm" tone="subdued">
-                    Displays a "Frequently Bought Together" combo widget with 1-click cart addition.
+                    Displays bundle offers and companion pairings with 1-click cart addition.
                   </Text>
 
                   <div
                     style={{
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#F8FAFC",
-                      border: "1px solid #E2E8F0",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      backgroundColor: "#F6F6F7",
                       fontSize: "12px",
                       color: "#475569",
+                      marginTop: "4px",
                     }}
                   >
-                    <strong>Heading:</strong> {bundleConfig.headerTitle || "Frequently Bought Together"} <br />
-                    <strong>Button:</strong> {bundleConfig.buttonText || "Add Both to Cart"}
+                    <div><strong>Heading:</strong> {bundleConfig.headerTitle || "Frequently Bought Together"}</div>
+                    <div><strong>Button:</strong> {bundleConfig.buttonText || "Add Both to Cart"}</div>
                   </div>
                 </BlockStack>
 
@@ -452,58 +427,54 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
                       {bundleConfig.enabled ? "Disable" : "Enable"}
                     </Button>
                     <Button
-                      variant="primary"
                       size="slim"
                       onClick={() => setCustomizeBundleOpen(true)}
                     >
-                      Customize Style
+                      Customize
                     </Button>
                   </InlineStack>
                 </BlockStack>
               </div>
             </Card>
 
-            {/* 📉 PROGRESSIVE MARKDOWN CARD */}
-            <Card>
+            {/* PROGRESSIVE MARKDOWN CARD */}
+            <Card padding="400">
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                   height: "100%",
-                  minHeight: "260px",
+                  minHeight: "240px",
                   gap: "16px",
                 }}
               >
-                <BlockStack gap="300">
+                <BlockStack gap="200">
                   <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="200" blockAlign="center">
-                      <span style={{ fontSize: "20px" }}>📉</span>
-                      <Text variant="headingSm" as="h3">
-                        Progressive Markdown
-                      </Text>
-                    </InlineStack>
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Progressive markdown
+                    </Text>
                     <Badge tone={markdownConfig.enabled ? "success" : "subdued"}>
-                      {markdownConfig.enabled ? "● Enabled" : "○ Disabled"}
+                      {markdownConfig.enabled ? "Active" : "Disabled"}
                     </Badge>
                   </InlineStack>
 
                   <Text variant="bodySm" tone="subdued">
-                    Displays progressive discount badges beside real pricing on active markdown products.
+                    Displays progressive discount badges beside real pricing on active markdowns.
                   </Text>
 
                   <div
                     style={{
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#F8FAFC",
-                      border: "1px solid #E2E8F0",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      backgroundColor: "#F6F6F7",
                       fontSize: "12px",
                       color: "#475569",
+                      marginTop: "4px",
                     }}
                   >
-                    <strong>Badge:</strong> {markdownConfig.badgeText || "{discount}% OFF"} <br />
-                    <strong>Strikethrough:</strong> {markdownConfig.showStrikethroughPrice !== false ? "Visible" : "Hidden"}
+                    <div><strong>Badge:</strong> {markdownConfig.badgeText || "{discount}% OFF"}</div>
+                    <div><strong>Strikethrough:</strong> {markdownConfig.showStrikethroughPrice !== false ? "Visible" : "Hidden"}</div>
                   </div>
                 </BlockStack>
 
@@ -521,58 +492,54 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
                       {markdownConfig.enabled ? "Disable" : "Enable"}
                     </Button>
                     <Button
-                      variant="primary"
                       size="slim"
                       onClick={() => setCustomizeMarkdownOpen(true)}
                     >
-                      Customize Style
+                      Customize
                     </Button>
                   </InlineStack>
                 </BlockStack>
               </div>
             </Card>
 
-            {/* 🔥 LOW STOCK BADGE CARD */}
-            <Card>
+            {/* LOW STOCK BADGE CARD */}
+            <Card padding="400">
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                   height: "100%",
-                  minHeight: "260px",
+                  minHeight: "240px",
                   gap: "16px",
                 }}
               >
-                <BlockStack gap="300">
+                <BlockStack gap="200">
                   <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="200" blockAlign="center">
-                      <span style={{ fontSize: "20px" }}>🔥</span>
-                      <Text variant="headingSm" as="h3">
-                        Low Stock Badge
-                      </Text>
-                    </InlineStack>
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Low stock badge
+                    </Text>
                     <Badge tone={lowStockConfig.enabled ? "success" : "subdued"}>
-                      {lowStockConfig.enabled ? "● Enabled" : "○ Disabled"}
+                      {lowStockConfig.enabled ? "Active" : "Disabled"}
                     </Badge>
                   </InlineStack>
 
                   <Text variant="bodySm" tone="subdued">
-                    Displays an urgency badge and remaining inventory count when stock drops below threshold.
+                    Displays an urgency badge and remaining inventory count on low-stock items.
                   </Text>
 
                   <div
                     style={{
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#F8FAFC",
-                      border: "1px solid #E2E8F0",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      backgroundColor: "#F6F6F7",
                       fontSize: "12px",
                       color: "#475569",
+                      marginTop: "4px",
                     }}
                   >
-                    <strong>Message:</strong> {lowStockConfig.badgeText || "🔥 Only {stock} left in stock!"} <br />
-                    <strong>Threshold:</strong> Stock ≤ {lowStockConfig.threshold || 5} units
+                    <div><strong>Message:</strong> {lowStockConfig.badgeText || "Only {stock} left in stock!"}</div>
+                    <div><strong>Threshold:</strong> Stock ≤ {lowStockConfig.threshold || 5} units</div>
                   </div>
                 </BlockStack>
 
@@ -590,58 +557,54 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
                       {lowStockConfig.enabled ? "Disable" : "Enable"}
                     </Button>
                     <Button
-                      variant="primary"
                       size="slim"
                       onClick={() => setCustomizeLowStockOpen(true)}
                     >
-                      Customize Style
+                      Customize
                     </Button>
                   </InlineStack>
                 </BlockStack>
               </div>
             </Card>
 
-            {/* 🛒 PRE-ORDER CARD */}
-            <Card>
+            {/* PRE-ORDER CARD */}
+            <Card padding="400">
               <div
                 style={{
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                   height: "100%",
-                  minHeight: "260px",
+                  minHeight: "240px",
                   gap: "16px",
                 }}
               >
-                <BlockStack gap="300">
+                <BlockStack gap="200">
                   <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="200" blockAlign="center">
-                      <span style={{ fontSize: "20px" }}>🛒</span>
-                      <Text variant="headingSm" as="h3">
-                        Pre-Order
-                      </Text>
-                    </InlineStack>
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Pre-orders
+                    </Text>
                     <Badge tone={preOrderConfig.enabled ? "success" : "subdued"}>
-                      {preOrderConfig.enabled ? "● Enabled" : "○ Disabled"}
+                      {preOrderConfig.enabled ? "Active" : "Disabled"}
                     </Badge>
                   </InlineStack>
 
                   <Text variant="bodySm" tone="subdued">
-                    Allows customers to pre-order new product launches with partial deposit payments and launch schedules.
+                    Allows customers to pre-order upcoming new product launches.
                   </Text>
 
                   <div
                     style={{
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      backgroundColor: "#F8FAFC",
-                      border: "1px solid #E2E8F0",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      backgroundColor: "#F6F6F7",
                       fontSize: "12px",
                       color: "#475569",
+                      marginTop: "4px",
                     }}
                   >
-                    <strong>Button:</strong> {preOrderConfig.buttonText || "PRE-ORDER NOW"} <br />
-                    <strong>Badge:</strong> {preOrderConfig.badgeText || "🛒 PRE-ORDER"}
+                    <div><strong>Button:</strong> {preOrderConfig.buttonText || "Pre-order now"}</div>
+                    <div><strong>Badge:</strong> {preOrderConfig.badgeText || "Pre-order"}</div>
                   </div>
                 </BlockStack>
 
@@ -659,11 +622,10 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
                       {preOrderConfig.enabled ? "Disable" : "Enable"}
                     </Button>
                     <Button
-                      variant="primary"
                       size="slim"
                       onClick={() => setCustomizePreOrderOpen(true)}
                     >
-                      Customize Style
+                      Customize
                     </Button>
                   </InlineStack>
                 </BlockStack>

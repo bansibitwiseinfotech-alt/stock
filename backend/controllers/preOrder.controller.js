@@ -66,10 +66,10 @@ async function syncPreOrderShopifyDiscount(shop, launchConfig) {
       }
     }
     const opensAt = launchConfig.preOrderOpensAt ? new Date(launchConfig.preOrderOpensAt) : null;
+    const isDepositEnabled = launchConfig.depositEnabled !== false;
     const isPreOrderActive =
       launchConfig.preOrderEnabled &&
-      launchConfig.depositEnabled !== false &&
-      launchConfig.depositPercentage < 100 &&
+      isDepositEnabled &&
       !isNaN(launchDate.getTime()) &&
       now <= launchDate &&
       (!opensAt || isNaN(opensAt.getTime()) || now >= opensAt);
@@ -78,21 +78,57 @@ async function syncPreOrderShopifyDiscount(shop, launchConfig) {
       return "";
     }
 
-    // Customer pays depositPercentage at checkout, so discount applied is (100 - depositPercentage)%
-    const discountPercent = (100 - Number(launchConfig.depositPercentage || 50)) / 100;
-    if (discountPercent <= 0 || discountPercent >= 1) return "";
+    const depositPct = typeof launchConfig.depositPercentage === "number" ? launchConfig.depositPercentage : 50;
+    const depositAmt = Number(launchConfig.depositAmount) > 0 ? Number(launchConfig.depositAmount) : 0;
 
     const rawProdId = String(launchConfig.productId).replace(/^gid:\/\/shopify\/Product\//, "");
     const formattedProdGid = `gid://shopify/Product/${rawProdId}`;
 
+    let customerGetsValue = null;
+    let discountTitle = `Pre-Order Deposit - ${launchConfig.productTitle || "Product"}`;
+
+    if (depositPct > 0 && depositPct < 100) {
+      const discountPercent = (100 - depositPct) / 100;
+      customerGetsValue = { percentage: discountPercent };
+      discountTitle = `Pre-Order ${depositPct}% Deposit - ${launchConfig.productTitle || "Product"}`;
+    } else if (depositAmt > 0) {
+      let productPrice = 0;
+      try {
+        const prodRes = await shopifyGraphQL(shop, store.accessToken, `
+          query getProdPrice($id: ID!) {
+            product(id: $id) {
+              variants(first: 1) {
+                nodes {
+                  price
+                }
+              }
+            }
+          }
+        `, { id: formattedProdGid });
+        const priceStr = prodRes?.product?.variants?.nodes?.[0]?.price;
+        if (priceStr) productPrice = parseFloat(priceStr);
+      } catch (_) {}
+
+      if (productPrice > depositAmt) {
+        const discountAmtValue = Number((productPrice - depositAmt).toFixed(2));
+        customerGetsValue = {
+          discountAmount: {
+            amount: discountAmtValue,
+            appliesOnEachItem: true,
+          },
+        };
+      }
+      discountTitle = `Pre-Order $${depositAmt.toFixed(2)} Deposit - ${launchConfig.productTitle || "Product"}`;
+    }
+
+    if (!customerGetsValue) return "";
+
     const automaticBasicDiscount = {
-      title: `Pre-Order ${launchConfig.depositPercentage}% Deposit - ${launchConfig.productTitle || "Product"}`,
+      title: discountTitle,
       startsAt: opensAt && !isNaN(opensAt.getTime()) ? opensAt.toISOString() : new Date().toISOString(),
       endsAt: launchDate.toISOString(),
       customerGets: {
-        value: {
-          percentage: discountPercent,
-        },
+        value: customerGetsValue,
         items: {
           products: {
             productsToAdd: [formattedProdGid],
@@ -789,6 +825,7 @@ async function saveLaunchConfig(req, res) {
       launchDetails = "",
       buttonText = "PRE-ORDER NOW",
       depositPercentage = 50,
+      depositAmount = 0,
       depositEnabled = true,
       cardBackgroundColor = "#FFFFFF",
       textColor = "#111827",
@@ -813,7 +850,9 @@ async function saveLaunchConfig(req, res) {
       return res.status(400).json({ success: false, message: "Launch Date is required." });
     }
 
-    const pct = Math.max(1, Math.min(100, Number(depositPercentage) || 50));
+    const rawPct = depositPercentage !== "" && depositPercentage != null ? Number(depositPercentage) : 50;
+    const pct = isNaN(rawPct) ? 50 : Math.max(0, Math.min(100, rawPct));
+    const safeDepositAmt = Number(depositAmount) >= 0 ? Number(depositAmount) : 0;
 
     const updatePayload = {
       shop,
@@ -832,6 +871,7 @@ async function saveLaunchConfig(req, res) {
       launchDetails: String(launchDetails || "").trim(),
       buttonText: String(buttonText || "PRE-ORDER NOW").trim(),
       depositPercentage: pct,
+      depositAmount: safeDepositAmt,
       depositEnabled: Boolean(depositEnabled),
       cardBackgroundColor: String(cardBackgroundColor || "#FFFFFF").trim(),
       textColor: String(textColor || "#111827").trim(),

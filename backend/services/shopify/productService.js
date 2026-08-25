@@ -11,8 +11,17 @@ query ProductsPage($cursor: String, $first: Int!) {
       node {
         id
         title
+        handle
+        status
+        createdAt
         featuredImage {
           url
+        }
+        collections(first: 50) {
+          nodes {
+            id
+            title
+          }
         }
         variants(first: 250) {
           nodes {
@@ -20,11 +29,24 @@ query ProductsPage($cursor: String, $first: Int!) {
             title
             sku
             price
+            createdAt
             inventoryQuantity
             inventoryItem {
               unitCost {
                 amount
                 currencyCode
+              }
+              inventoryLevels(first: 10) {
+                nodes {
+                  location {
+                    id
+                    name
+                  }
+                  quantities(names: ["available", "on_hand"]) {
+                    name
+                    quantity
+                  }
+                }
               }
             }
           }

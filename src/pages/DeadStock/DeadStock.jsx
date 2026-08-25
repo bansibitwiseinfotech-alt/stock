@@ -221,13 +221,15 @@ export default function DeadStock({
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
+      if (!initialProducts || initialProducts.length === 0) {
+        resetAndLoad(searchTerm, showStoreProducts);
+      }
       return;
     }
     resetAndLoad(searchTerm, showStoreProducts);
   }, [days, location, collection, showStoreProducts, activeShop]);
 
   useEffect(() => {
-    if (isFirstRender.current) return;
     if (!activeShop) return;
     fetchDeadStockSummary(activeShop)
       .then((data) => {
@@ -261,6 +263,7 @@ export default function DeadStock({
       await syncDeadStockData(activeShop);
       const data = await fetchDeadStockSummary(activeShop);
       if (data) setSummary(data);
+      resetAndLoad(searchTerm, showStoreProducts);
     } catch (err) {
       setError(err.message || "Failed to sync data.");
     } finally {
@@ -425,17 +428,7 @@ export default function DeadStock({
       fullWidth
       title="Dead Stock"
       subtitle="SKUs that haven't sold in 60+ days and are tying up your cash."
-      primaryAction={{
-        content: syncing ? "Syncing Shopify inventory..." : "Sync Dead Stock Data",
-        onAction: handleSync,
-        loading: syncing,
-      }}
-      secondaryActions={[
-        {
-          content: "Export",
-          onAction: () => alert("Exporting dead stock report..."),
-        },
-      ]}
+  
     >
       <Layout>
         {error && (
@@ -457,9 +450,9 @@ export default function DeadStock({
           </Layout.Section>
         )}
 
-        {/* Global dead-stock summary — sourced from MongoDB, NOT from current page */}
+        {/* Dead-stock summary */}
         <Layout.Section>
-          <DeadStockSummary summary={summary} />
+          <DeadStockSummary summary={summary} products={products} />
         </Layout.Section>
 
         {/* Bulk Action Bar when items are selected */}

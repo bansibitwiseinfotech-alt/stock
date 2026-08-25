@@ -134,7 +134,9 @@ async function runSmartBadgeAnalysis({ shop, accessToken, specificProducts = nul
     productsScanned: recommendations.length,
     scanned: recommendations.length,
     recommendations: recommendations.filter((r) => r.recommendation.badge !== BADGES.NONE).length,
+    recommendedBadges: recommendations.filter((r) => r.recommendation.badge !== BADGES.NONE).length,
     applied: realAppliedCount || recommendations.filter((r) => r.isApplied).length,
+    appliedBadges: realAppliedCount || recommendations.filter((r) => r.isApplied).length,
     badges: {
       [BADGES.LOW_STOCK]: recommendations.filter((r) => r.recommendation.badge === BADGES.LOW_STOCK).length,
       [BADGES.CLEARANCE]: recommendations.filter((r) => r.recommendation.badge === BADGES.CLEARANCE).length,

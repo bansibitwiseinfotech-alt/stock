@@ -904,6 +904,7 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null, ext
     const cleanId = ruleIdOrVariantId ? String(ruleIdOrVariantId).replace(/\D/g, "") : "";
     const extraCleanProd = extraIds?.productId ? String(extraIds.productId).replace(/\D/g, "") : "";
     const extraCleanVar = extraIds?.variantId ? String(extraIds.variantId).replace(/\D/g, "") : "";
+    const extraRuleId = extraIds?.ruleId || "";
 
     const allCleanIds = [cleanId, extraCleanProd, extraCleanVar].filter(Boolean);
 
@@ -929,6 +930,7 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null, ext
 
     const idOrList = [];
     if (isObjectId) idOrList.push({ _id: ruleIdOrVariantId });
+    if (extraRuleId && String(extraRuleId).length === 24) idOrList.push({ _id: extraRuleId });
     if (ruleIdOrVariantId) {
       idOrList.push(
         { variantId: ruleIdOrVariantId },
@@ -1000,7 +1002,7 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null, ext
       }
     }
 
-    // Permanently remove / deactivate all matching markdown rules in DB
+    // Permanently deactivate all matching markdown rules in DB
     await MarkdownRule.updateMany(
       {
         $and: [shopFilter, idFilter],
@@ -1009,6 +1011,7 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null, ext
         $set: {
           status: "COMPLETED",
           active: false,
+          currentDiscount: 0,
           processing: false,
           isProcessing: false,
           nextEvaluationAt: null,
@@ -1020,18 +1023,36 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null, ext
       }
     );
 
-    // Also update any SmartBadgeAssignment if progressive markdown was applied via smart badges
+    // Also deactivate SmartBadgeAssignment and SmartBadgeApplication so storefront does not re-enable
     try {
       const SmartBadgeAssignment = require("../models/SmartBadgeAssignment");
-      await SmartBadgeAssignment.updateMany(
-        {
-          $and: [shopFilter, idFilter],
-          badgeType: "PROGRESSIVE_MARKDOWN",
-        },
-        {
-          $set: { status: "REMOVED", isActive: false },
-        }
-      );
+      const SmartBadgeApplication = require("../models/SmartBadgeApplication");
+      await Promise.all([
+        SmartBadgeAssignment.updateMany(
+          {
+            $and: [shopFilter, idFilter],
+            badgeType: "PROGRESSIVE_MARKDOWN",
+          },
+          {
+            $set: { status: "REMOVED", isActive: false },
+          }
+        ),
+        SmartBadgeApplication.updateMany(
+          {
+            $and: [shopFilter],
+            badgeType: "PROGRESSIVE_MARKDOWN",
+            productId: {
+              $in: allCleanIds
+                .map((c) => `gid://shopify/Product/${c}`)
+                .concat(allCleanIds)
+                .concat(allCleanIds.map((c) => `gid://shopify/ProductVariant/${c}`)),
+            },
+          },
+          {
+            $set: { enabled: false, active: false },
+          }
+        ),
+      ]);
     } catch (assignErr) {
       // ignore
     }
@@ -1230,12 +1251,14 @@ async function getStorefrontMarkdownData(shop, productId, variantId) {
     $and: [
       shopFilter,
       { $or: [{ status: "ACTIVE" }, { active: true }] },
+      { status: { $ne: "COMPLETED" } },
+      { active: { $ne: false } },
       ...(orConditions.length > 0 ? [{ $or: orConditions }] : []),
     ],
   };
 
   const rule = await MarkdownRule.findOne(query).sort({ createdAt: -1 }).lean();
-  if (!rule || rule.currentDiscount <= 0) {
+  if (!rule || rule.currentDiscount <= 0 || rule.active === false || rule.status !== "ACTIVE") {
     return { enabled: false };
   }
 

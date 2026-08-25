@@ -82,7 +82,6 @@ async function runDeadStockEngine(shopId, accessToken, thresholdDays = 60) {
     const productId = product.id;
     const title = product.title || "Untitled Product";
     const image = product.featuredImage?.url || "";
-    const createdAt = product.createdAt;
     const collectionIds = (product.collections?.nodes || []).map((c) => c.id);
 
     for (const variant of product.variants?.nodes || []) {
@@ -90,10 +89,10 @@ async function runDeadStockEngine(shopId, accessToken, thresholdDays = 60) {
       const variantId = variant.id;
       activeVariantIds.add(variantId);
 
-      // Unit cost calculation per requirement #8:
-      // Use inventoryItem.unitCost.amount. If unavailable, set costPrice = 0.
+      const createdAt = variant.createdAt || product.createdAt || null;
       const unitCostAmount = Number(variant.inventoryItem?.unitCost?.amount);
-      const costPrice = Number.isFinite(unitCostAmount) && unitCostAmount > 0 ? unitCostAmount : 0;
+      const variantPrice = Number(variant.price) || 0;
+      const costPrice = Number.isFinite(unitCostAmount) && unitCostAmount > 0 ? unitCostAmount : variantPrice;
 
       const locationLevels = variant.inventoryItem?.inventoryLevels?.nodes || [];
 
@@ -103,7 +102,8 @@ async function runDeadStockEngine(shopId, accessToken, thresholdDays = 60) {
           const locObj = level.location || locations[0] || { id: "main-location", name: "Main Location" };
           const locationId = locObj.id;
           const locationName = locObj.name;
-          const stock = Number(level.quantities?.find((q) => q.name === "available")?.quantity) || 0;
+          const availQty = level.quantities?.find((q) => q.name === "available" || q.name === "on_hand")?.quantity;
+          const stock = Number.isFinite(Number(availQty)) ? Number(availQty) : (Number(variant.inventoryQuantity) || 0);
 
           const key = `${variantId}_${locationId}`;
           if (processedKeys.has(key)) continue;
@@ -140,6 +140,7 @@ async function runDeadStockEngine(shopId, accessToken, thresholdDays = 60) {
                   collectionIds,
                   stock,
                   costPrice,
+                  currentPrice: variantPrice,
                   lastSoldAt,
                   daysUnsold,
                   salesLast7Days,
@@ -193,6 +194,7 @@ async function runDeadStockEngine(shopId, accessToken, thresholdDays = 60) {
                 collectionIds,
                 stock,
                 costPrice,
+                currentPrice: variantPrice,
                 lastSoldAt,
                 daysUnsold,
                 salesLast7Days,

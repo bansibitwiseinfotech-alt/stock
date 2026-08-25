@@ -11,17 +11,18 @@ const progressiveMarkdownService = require("../services/progressiveMarkdownServi
 const bundleService = require("../services/bundleService");
 const bulkSaleService = require("../services/bulkSaleService");
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shopify GraphQL query — cursor-based paginated product listing.
+// ──────────────────────────// Shopify GraphQL query — cursor-based paginated product listing.
 // ─────────────────────────────────────────────────────────────────────────────
 const GET_STORE_PRODUCTS_QUERY = `
   query GetStoreProducts($first: Int!, $after: String, $query: String) {
-    products(first: $first, after: $after, query: $query, sortKey: TITLE, reverse: false) {
+    products(first: $first, after: $after, query: $query, sortKey: UPDATED_AT, reverse: true) {
       nodes {
         id
         title
         handle
         status
+        createdAt
+        updatedAt
         totalInventory 
         featuredImage { url altText }
         variants(first: 250) {
@@ -30,6 +31,8 @@ const GET_STORE_PRODUCTS_QUERY = `
             title
             sku
             price
+            createdAt
+            updatedAt
             inventoryQuantity
             inventoryItem {
               unitCost { amount currencyCode }
@@ -118,9 +121,9 @@ async function getStoreProducts(req, res) {
     const first = Math.min(Math.max(Number(req.query.limit) || 50, 1), 250);
     const after = req.query.cursor || null;
     const rawSearch = String(req.query.search || "").trim().replace(/['"\\]/g, "");
-    const shopifyQuery = rawSearch ? `title:*${rawSearch}*` : null;
+    const shopifyQuery = rawSearch ? `title:*${rawSearch}*` : "status:active";
 
-    console.log(`[StoreProducts] shop=${shop} first=${first} after=${after || "null"} search=${rawSearch || "none"}`);
+    console.log(`[StoreProducts] shop=${shop} first=${first} after=${after || "null"} search=${rawSearch || "none"} query=${shopifyQuery}`);
 
     const data = await shopifyGraphQL(shop, accessToken, GET_STORE_PRODUCTS_QUERY, {
       first,
@@ -133,12 +136,46 @@ async function getStoreProducts(req, res) {
       return res.status(502).json({ success: false, message: "Shopify returned an unexpected response." });
     }
 
+    // Collect all variant and product IDs to look up in MongoDB DeadStock collection
+    const allVariantIds = [];
+    for (const product of connection.nodes || []) {
+      for (const variant of product.variants?.nodes || []) {
+        allVariantIds.push(variant.id);
+        const cleanVarId = String(variant.id).replace("gid://shopify/ProductVariant/", "");
+        allVariantIds.push(cleanVarId);
+      }
+    }
+
+    const deadStockDocs = await DeadStock.find({
+      $or: [
+        { shopId: shop },
+        { shopId: `https://${shop}` },
+        { shopId: String(shop).replace(/^https?:\/\//i, "") },
+      ],
+      variantId: { $in: allVariantIds },
+    }).lean().catch(() => []);
+
+    const deadStockMap = new Map();
+    for (const doc of deadStockDocs) {
+      deadStockMap.set(doc.variantId, doc);
+      const clean = String(doc.variantId).replace("gid://shopify/ProductVariant/", "");
+      deadStockMap.set(clean, doc);
+    }
+
     const products = [];
 
     for (const product of connection.nodes || []) {
       const variants = product.variants?.nodes || [];
 
       if (variants.length === 0) {
+        const stock = product.totalInventory || 0;
+        const creationDate = product.createdAt;
+        let daysUnsold = 0;
+        if (creationDate) {
+          const diffMs = Date.now() - new Date(creationDate).getTime();
+          daysUnsold = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+        }
+
         products.push({
           id: product.id,
           shopifyProductId: product.id,
@@ -149,11 +186,11 @@ async function getStoreProducts(req, res) {
           status: product.status,
           image: product.featuredImage?.url || null,
           sku: "",
-          stock: product.totalInventory || 0,
-          currentPrice: null,
-          unitCost: null,
-          cashTiedUp: null,
-          daysUnsold: null,
+          stock,
+          currentPrice: 0,
+          unitCost: 0,
+          cashTiedUp: 0,
+          daysUnsold,
           lastSoldAt: null,
           salesVelocity: 0,
           salesLast7Days: 0,
@@ -164,12 +201,40 @@ async function getStoreProducts(req, res) {
       }
 
       for (const variant of variants) {
-        const stock = Number(variant.inventoryQuantity) || 0;
-        const currentPrice = Number(variant.price) || 0;
+        const cleanVarId = String(variant.id).replace("gid://shopify/ProductVariant/", "");
+        const deadStockDoc = deadStockMap.get(variant.id) || deadStockMap.get(cleanVarId);
 
+        let stock = variant.inventoryQuantity != null ? Number(variant.inventoryQuantity) : (deadStockDoc?.stock || 0);
+        if (isNaN(stock) || (stock === 0 && Number(product.totalInventory) > 0 && variants.length === 1)) {
+          stock = Number(product.totalInventory) || 0;
+        }
+
+        const currentPrice = Number(variant.price) || 0;
         const rawCost = variant.inventoryItem?.unitCost?.amount;
-        const unitCost = rawCost != null ? Number(rawCost) : null;
-        const cashTiedUp = unitCost != null ? Number((stock * unitCost).toFixed(2)) : null;
+        const unitCost = rawCost != null && Number(rawCost) > 0
+          ? Number(rawCost)
+          : (deadStockDoc?.costPrice && deadStockDoc.costPrice > 0 ? deadStockDoc.costPrice : currentPrice);
+
+        const cashTiedUp = deadStockDoc?.cashTiedUp != null
+          ? deadStockDoc.cashTiedUp
+          : Number((stock * unitCost).toFixed(2));
+
+        let daysUnsold = deadStockDoc?.daysUnsold;
+        if (daysUnsold == null) {
+          const creationDate = variant.createdAt || product.createdAt;
+          if (creationDate) {
+            const diffMs = Date.now() - new Date(creationDate).getTime();
+            daysUnsold = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+          } else {
+            daysUnsold = 0;
+          }
+        }
+
+        const salesVelocity = deadStockDoc?.salesVelocity ?? 0;
+        const lastSoldAt = deadStockDoc?.lastSoldAt ?? null;
+        const salesLast7Days = deadStockDoc?.salesLast7Days ?? 0;
+        const salesLast30Days = deadStockDoc?.salesLast30Days ?? 0;
+        const salesLast60Days = deadStockDoc?.salesLast60Days ?? 0;
 
         products.push({
           id: variant.id,
@@ -177,7 +242,7 @@ async function getStoreProducts(req, res) {
           shopifyVariantId: variant.id,
           title:
             variants.length > 1 && variant.title && variant.title !== "Default Title"
-              ? `${product.title} \u2014 ${variant.title}`
+              ? `${product.title} — ${variant.title}`
               : product.title,
           productTitle: product.title,
           handle: product.handle,
@@ -188,12 +253,12 @@ async function getStoreProducts(req, res) {
           currentPrice,
           unitCost,
           cashTiedUp,
-          daysUnsold: null,
-          lastSoldAt: null,
-          salesVelocity: 0,
-          salesLast7Days: 0,
-          salesLast30Days: 0,
-          salesLast60Days: 0,
+          daysUnsold,
+          lastSoldAt,
+          salesVelocity,
+          salesLast7Days,
+          salesLast30Days,
+          salesLast60Days,
         });
       }
     }
@@ -324,23 +389,77 @@ async function getDeadStockSummary(req, res) {
       req.headers["x-shopify-shop-domain"] ||
       "";
 
+    if (!shopId) {
+      return res.status(400).json({ success: false, message: "Shop domain is required." });
+    }
+
+    const headerToken = req.headers["x-shopify-access-token"];
+    if (headerToken) await persistStoreToken(shopId, headerToken);
+
+    const store = await Store.findOne({
+      $or: [
+        { shop: shopId },
+        { shop: `https://${shopId}` },
+        { shop: String(shopId).replace(/^https?:\/\//i, "") },
+      ],
+    });
+    const accessToken = store?.accessToken || headerToken;
+
+    const cleanShop = String(shopId).replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
+    const shopMatch = {
+      $or: [
+        { shopId: cleanShop },
+        { shopId: `https://${cleanShop}` },
+        { shop: cleanShop },
+        { shop: `https://${cleanShop}` },
+        { shopId: new RegExp(cleanShop, "i") },
+        { shop: new RegExp(cleanShop, "i") },
+      ],
+    };
+
+    // Check if DeadStock records exist in MongoDB
+    let totalCount = await DeadStock.countDocuments(shopMatch).catch(() => 0);
+    if (totalCount === 0 && accessToken) {
+      try {
+        console.log(`[Summary] No dead stock records for ${cleanShop}, auto-running dead stock sync...`);
+        await runDeadStockEngine(cleanShop, accessToken);
+        totalCount = await DeadStock.countDocuments(shopMatch).catch(() => 0);
+      } catch (err) {
+        console.warn("[Summary] Auto sync notice:", err.message);
+      }
+    }
+
     const summaryQuery = {
-      shopId,
+      ...shopMatch,
       $or: [{ status: "dead_stock" }, { daysUnsold: { $gte: 60 } }],
     };
 
-    const aggregation = await DeadStock.aggregate([
+    let aggregation = await DeadStock.aggregate([
       { $match: summaryQuery },
       { $group: { _id: null, totalCashTiedUp: { $sum: "$cashTiedUp" }, deadStockSkuCount: { $sum: 1 } } },
     ]).catch(() => []);
 
-    const result = aggregation[0] || { totalCashTiedUp: 0, deadStockSkuCount: 0 };
+    let result = aggregation[0];
+
+    // If no 60+ days dead stock but store has idle/slow-moving inventory (daysUnsold >= 30 or positive cash), use fallback
+    if (!result || (result.deadStockSkuCount === 0 && result.totalCashTiedUp === 0)) {
+      const fallbackAgg = await DeadStock.aggregate([
+        { $match: { ...shopMatch, cashTiedUp: { $gt: 0 } } },
+        { $group: { _id: null, totalCashTiedUp: { $sum: "$cashTiedUp" }, deadStockSkuCount: { $sum: { $cond: [{ $gte: ["$daysUnsold", 30] }, 1, 0] } } } },
+      ]).catch(() => []);
+      if (fallbackAgg[0] && fallbackAgg[0].totalCashTiedUp > 0) {
+        result = fallbackAgg[0];
+      }
+    }
+
+    const totalCash = result?.totalCashTiedUp || 0;
+    const skuCount = result?.deadStockSkuCount || 0;
 
     return res.status(200).json({
       success: true,
       data: {
-        totalCashTiedUp: Number((result.totalCashTiedUp || 0).toFixed(2)),
-        deadStockSkuCount: result.deadStockSkuCount || 0,
+        totalCashTiedUp: Number(totalCash.toFixed(2)),
+        deadStockSkuCount: skuCount,
       },
     });
   } catch (error) {
@@ -622,6 +741,9 @@ async function getDeadStockByVariantId(req, res) {
       $or: [{ shop: shopId }, { shop: String(shopId).replace(/^https?:\/\//i, "") }],
       $and: [
         { $or: [{ status: "ACTIVE" }, { active: true }] },
+        { status: { $ne: "COMPLETED" } },
+        { active: { $ne: false } },
+        { currentDiscount: { $gt: 0 } },
         {
           $or: [
             { variantId: formattedProduct.shopifyVariantId },
@@ -822,6 +944,7 @@ async function stopProgressiveMarkdown(req, res) {
     const targetId = getParamId(req);
     const bodyProdId = req.body?.productId || req.query?.productId || "";
     const bodyVarId = req.body?.variantId || req.query?.variantId || "";
+    const bodyRuleId = req.body?.ruleId || req.query?.ruleId || "";
 
     if (!shopId) return res.status(401).json({ success: false, message: "Shop domain is required." });
 
@@ -829,6 +952,7 @@ async function stopProgressiveMarkdown(req, res) {
     const result = await progressiveMarkdownService.stopMarkdownRule(shopId, targetId, accessToken, {
       productId: bodyProdId,
       variantId: bodyVarId,
+      ruleId: bodyRuleId,
     });
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {

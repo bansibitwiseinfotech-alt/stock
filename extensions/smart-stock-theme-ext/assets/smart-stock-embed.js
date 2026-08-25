@@ -780,6 +780,12 @@
     const showDiscountBadge = bundleCfg.showDiscountBadge !== false;
     const discountText = isBOGO ? "SAVE 100% OFF" : `Save ${escapeHtml(discount)}% OFF`;
 
+    const badgeBgColor = bundleCfg.badgeColor || (isBOGO ? "#ECFDF5" : "#DCFCE7");
+    const badgeTextColor = bundleCfg.badgeTextColor || (isBOGO ? "#059669" : "#15803D");
+    const buttonBgColor = bundleCfg.buttonColor || "#111827";
+    const buttonTextColor = bundleCfg.buttonTextColor || "#FFFFFF";
+    const borderRadius = Number(bundleCfg.borderRadius) || 12;
+
     const pageProductTitle = document.querySelector('h1, .product__title, .product-title')?.innerText?.trim() || "";
 
     const isPlaceholderTitle = (str) => {
@@ -875,6 +881,8 @@
         "smart-stock-embed-bundle smart-stock-embed-inline"
       );
 
+    element.style.borderRadius = `${borderRadius}px`;
+
     element.innerHTML = `
 
       <!-- HEADER -->
@@ -895,7 +903,7 @@
 
         ${showDiscountBadge
         ? `
-            <div class="smart-stock-bundle-discount ${isBOGO ? 'bogo-badge' : ''}">
+            <div class="smart-stock-bundle-discount ${isBOGO ? 'bogo-badge' : ''}" style="background:${badgeBgColor} !important; color:${badgeTextColor} !important; border:1px solid ${badgeBgColor} !important;">
               ${discountText}
             </div>
           `
@@ -1064,7 +1072,7 @@
 
         ${savingsFormatted
         ? `
-              <div class="smart-stock-bundle-saving">
+              <div class="smart-stock-bundle-saving" style="background:${badgeBgColor} !important; color:${badgeTextColor} !important;">
                 Save ${savingsFormatted}
               </div>
             `
@@ -1079,6 +1087,7 @@
       <button
         type="button"
         class="smart-stock-buy-bundle-btn"
+        style="background:${buttonBgColor} !important; color:${buttonTextColor} !important; border-radius:${Math.min(borderRadius, 8)}px !important;"
       >
 
         <span>
@@ -1839,30 +1848,100 @@
 
 
   /* =========================================================
+     CART PRE-ORDER DEPOSIT DISPLAY ENHANCEMENT
+     ========================================================= */
+  async function enhanceCartPreOrderDisplay() {
+    try {
+      var cartRes = await fetch("/cart.js", { headers: { Accept: "application/json" } });
+      if (!cartRes.ok) return;
+      var cart = await cartRes.json();
+      if (!cart || !cart.items || cart.items.length === 0) return;
+
+      var hasPreOrder = false;
+      var totalPayableCents = 0;
+
+      cart.items.forEach(function (item) {
+        var props = item.properties || {};
+        var isPre = props._preorder === "true" || props._preorder_launch === "true" || props["Deposit Paid"] || props["Remaining Balance Due"] || props["Pre-Order Total"];
+        var depositCents = props._deposit_cents ? Number(props._deposit_cents) : null;
+
+        if (isPre) {
+          hasPreOrder = true;
+          if (depositCents == null) {
+            var depStr = props["Deposit Paid"] || props["Deposit Paid (0%)"] || "";
+            var num = parseFloat(String(depStr).replace(/[^0-9.]/g, ""));
+            depositCents = !isNaN(num) && num > 0 ? Math.round(num * 100) : item.final_line_price;
+          }
+          totalPayableCents += depositCents * (props._deposit_cents ? 1 : item.quantity);
+        } else {
+          totalPayableCents += item.final_line_price;
+        }
+      });
+
+      if (!hasPreOrder) return;
+
+      var cartItems = document.querySelectorAll("cart-items .cart-item, .cart-item, .cart__items tr, tr.cart-item, [data-cart-item], .cart-drawer .cart-item");
+      cartItems.forEach(function (row) {
+        var rowText = row.textContent || "";
+        if (!rowText.includes("Deposit Paid") && !rowText.includes("Remaining Balance Due") && !rowText.includes("Pre-Order Total")) return;
+
+        var match = rowText.match(/Deposit Paid[^:]*:\s*\$?([\d,]+(?:\.\d{2})?)/i);
+        var depAmt = match ? match[1].replace(/,/g, "") : "";
+        if (!depAmt) {
+          var match2 = rowText.match(/Pre-Order Total[^:]*:\s*\$?([\d,]+(?:\.\d{2})?)/i);
+          if (match2) depAmt = match2[1].replace(/,/g, "");
+        }
+
+        if (depAmt) {
+          var priceContainers = row.querySelectorAll(".cart-item__price-wrapper, .cart-item__totals, .cart-item__price, .price--end, [data-cart-item-line-price], .cart-item__final-price");
+          priceContainers.forEach(function (pEl) {
+            if (pEl.getAttribute("data-smart-stock-enhanced")) return;
+            pEl.setAttribute("data-smart-stock-enhanced", "true");
+            var origHtml = pEl.innerHTML;
+            pEl.innerHTML =
+              '<div style="display:inline-flex; flex-direction:column; align-items:flex-end;">' +
+              '<span style="color:#0F172A; font-weight:800; font-size:15px; display:inline-flex; align-items:center; gap:6px;">$' +
+              parseFloat(depAmt).toFixed(2) +
+              ' <span style="font-size:11px; background:#EEF2FF; color:#4F46E5; padding:2px 6px; border-radius:4px; font-weight:700; text-transform:uppercase;">Deposit</span></span>' +
+              '<span style="font-size:12px; color:#94A3B8; text-decoration:line-through;">' +
+              origHtml.replace(/<[^>]*>?/gm, "").trim() +
+              '</span></div>';
+          });
+        }
+      });
+
+      var subtotalEls = document.querySelectorAll(".totals__total-value, .cart__subtotal-value, .cart-subtotal, [data-cart-subtotal], .cart__total, .cart-drawer__total, .totals__subtotal-value, .cart__footer .totals__total-value, [data-cart-total]");
+      subtotalEls.forEach(function (stEl) {
+        if (stEl.getAttribute("data-smart-stock-subtotal-enhanced")) return;
+        stEl.setAttribute("data-smart-stock-subtotal-enhanced", "true");
+        var formattedDeposit = "$" + (totalPayableCents / 100).toFixed(2);
+        stEl.innerHTML =
+          '<div style="text-align:right;">' +
+          '<div style="font-size:18px; font-weight:800; color:#0F172A;">' + formattedDeposit + ' USD</div>' +
+          '<div style="font-size:11.5px; color:#64748B; font-weight:600; margin-top:2px;">Pay Now Deposit (Remaining balance due before shipping)</div>' +
+          '</div>';
+      });
+    } catch (_) {}
+  }
+
+  /* =========================================================
      INITIAL LOAD
      ========================================================= */
 
   function init() {
-
     loadFeatures();
-
+    enhanceCartPreOrderDisplay();
   }
 
-
-  if (
-    document.readyState ===
-    "loading"
-  ) {
-
-    document.addEventListener(
-      "DOMContentLoaded",
-      init
-    );
-
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
   } else {
-
     init();
-
   }
 
+  setTimeout(enhanceCartPreOrderDisplay, 500);
+  setTimeout(enhanceCartPreOrderDisplay, 1500);
+  document.addEventListener("cart:updated", enhanceCartPreOrderDisplay);
+  document.addEventListener("theme:cart:update", enhanceCartPreOrderDisplay);
+  document.addEventListener("cart:refresh", enhanceCartPreOrderDisplay);
 })();

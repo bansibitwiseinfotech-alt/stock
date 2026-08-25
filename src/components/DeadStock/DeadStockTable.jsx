@@ -101,8 +101,8 @@ export default function DeadStockTable({
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          <Text variant="bodyMd" as="span">
-            {item.salesVelocity ? `${item.salesVelocity}/day` : "0/day"}
+          <Text variant="bodyMd" as="span" tone="subdued">
+            {typeof item.salesVelocity === "number" ? `${item.salesVelocity.toFixed(2)} / day` : item.salesVelocity ? `${item.salesVelocity} / day` : "0 / day"}
           </Text>
         </IndexTable.Cell>
 

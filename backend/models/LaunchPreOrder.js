@@ -78,8 +78,13 @@ const LaunchPreOrderSchema = new mongoose.Schema(
     depositPercentage: {
       type: Number,
       default: 50,
-      min: 1,
+      min: 0,
       max: 100,
+    },
+    depositAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     depositEnabled: {
       type: Boolean,

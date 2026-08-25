@@ -41,37 +41,84 @@ function getStoreWeekIdentifier(timeZone = "UTC", date = new Date()) {
 }
 
 /**
- * Check if the store has reached Monday 9:00 AM in its local timezone for the current week.
+ * Determine due digest slots for the store based on timezone:
+ * 1. Monday slot: Monday >= 9:00 AM local time (Slot key: `${baseWeekId}-MON`)
+ * 2. Tuesday slot: Tuesday >= 11:30 AM local time (Slot key: `${baseWeekId}-TUE`)
+ */
+function getDueDigestSlots(timeZone = "UTC", now = new Date()) {
+  const baseWeek = getStoreWeekIdentifier(timeZone, now);
+  
+  const checkSlotsForTz = (tz) => {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz || "UTC",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(now);
+
+      const weekday = (parts.find((p) => p.type === "weekday")?.value || "").toLowerCase();
+      const hour = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+      const minute = parseInt(parts.find((p) => p.type === "minute")?.value || "0", 10);
+      const timeInMins = hour * 60 + minute;
+
+      const isMonday = weekday.startsWith("mon");
+      const isTuesday = weekday.startsWith("tue");
+      const isPastTuesday = ["wed", "thu", "fri", "sat", "sun"].some((d) => weekday.startsWith(d));
+
+      const slots = [];
+      // Monday digest: Monday >= 9:00 AM (540 mins) or later in the week
+      if ((isMonday && timeInMins >= 9 * 60) || isTuesday || isPastTuesday) {
+        slots.push({
+          slotKey: `${baseWeek}-MON`,
+          dayName: "Monday",
+          targetTime: "9:00 AM",
+        });
+      }
+
+      // Tuesday digest: Tuesday >= 12:00 PM (720 mins) or later in the week
+      if ((isTuesday && timeInMins >= 12 * 60) || isPastTuesday) {
+        slots.push({
+          slotKey: `${baseWeek}-TUE`,
+          dayName: "Tuesday",
+          targetTime: "12:00 PM",
+        });
+      }
+
+      return { weekday, hour, minute, slots };
+    } catch (e) {
+      return { weekday: "tue", hour: 12, minute: 0, slots: [] };
+    }
+  };
+
+  const storeEvaluation = checkSlotsForTz(timeZone);
+  let hostTz = "UTC";
+  try {
+    hostTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch (e) {}
+  const hostEvaluation = checkSlotsForTz(hostTz);
+
+  const dueSlotsMap = new Map();
+  (storeEvaluation.slots || []).forEach((s) => dueSlotsMap.set(s.slotKey, s));
+  (hostEvaluation.slots || []).forEach((s) => dueSlotsMap.set(s.slotKey, s));
+  const dueSlots = Array.from(dueSlotsMap.values());
+
+  return {
+    baseWeek,
+    weekday: hostEvaluation.weekday || storeEvaluation.weekday,
+    hour: hostEvaluation.hour || storeEvaluation.hour,
+    minute: hostEvaluation.minute || storeEvaluation.minute,
+    dueSlots,
+  };
+}
+
+/**
+ * Check if the store has reached any scheduled digest slot (Monday 9:00 AM or Tuesday 11:30 AM).
  */
 function isStoreDueForMondayDigest(timeZone = "UTC", now = new Date()) {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: timeZone || "UTC",
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).formatToParts(now);
-
-    const weekday = parts.find((p) => p.type === "weekday")?.value || "";
-    const hour = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
-
-    // Monday 9:00 AM or later during the week
-    const isMonday = weekday.toLowerCase().startsWith("mon");
-    const isPastMonday = ["tue", "wed", "thu", "fri", "sat", "sun"].some((day) =>
-      weekday.toLowerCase().startsWith(day)
-    );
-
-    if (isMonday && hour >= 9) {
-      return true;
-    }
-    if (isPastMonday) {
-      return true;
-    }
-    return false;
-  } catch (err) {
-    return true; // Fallback to allow processing if timezone parsing fails
-  }
+  const { dueSlots } = getDueDigestSlots(timeZone, now);
+  return dueSlots && dueSlots.length > 0;
 }
 
 /**
@@ -167,7 +214,7 @@ function formatStoreCurrency(amount, currencyCode = "USD") {
  * Build responsive HTML and plain-text email templates for Monday Smart Badge Digest
  * containing the new "THIS WEEK'S INVENTORY PULSE" section.
  */
-function buildDigestEmailContent({ summary, adminUrl, deadStockUrl, highDemandUrl, shopName, currencyCode, storeTimezone }) {
+function buildDigestEmailContent({ summary, adminUrl, deadStockUrl, highDemandUrl, shopName, currencyCode, storeTimezone, dayName = "Monday" }) {
   const {
     productsScanned = 0,
     recommendedBadges = 0,
@@ -229,8 +276,6 @@ Applied on Storefront: ${appliedBadges}
 🔥 Low Stock: ${lowStockCount}
 ⚪ No Badge: ${noBadgeCount}
 
-Our Smart Badge engine analyzed your current Shopify product data and suggested the most suitable badge for each product.
-
 Review the recommendations and choose which badges you want to apply.
 
 VIEW SMART BADGE RECOMMENDATIONS →
@@ -244,52 +289,52 @@ ${adminUrl}
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Monday Smart Badge Recommendations Are Ready</title>
+  <title>${dayName} Smart Badge Digest</title>
   <style>
     body {
       margin: 0;
       padding: 0;
       background-color: #F6F6F7;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: #202223;
       -webkit-font-smoothing: antialiased;
     }
     .wrapper {
       width: 100%;
       background-color: #F6F6F7;
-      padding: 32px 12px;
+      padding: 32px 0;
     }
     .container {
-      max-width: 580px;
+      max-width: 600px;
       margin: 0 auto;
       background-color: #FFFFFF;
       border-radius: 12px;
-      border: 1px solid #E1E3E5;
       overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid #E1E3E5;
     }
     .header {
-      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      background: #008060;
+      color: #FFFFFF;
       padding: 28px 24px;
       text-align: center;
-      color: #FFFFFF;
     }
     .header h1 {
       margin: 0;
-      font-size: 20px;
+      font-size: 24px;
       font-weight: 700;
-      letter-spacing: -0.2px;
+      letter-spacing: -0.5px;
     }
     .header p {
       margin: 6px 0 0;
-      font-size: 13px;
-      color: #94A3B8;
+      font-size: 14px;
+      opacity: 0.9;
     }
     .content {
       padding: 28px 24px;
     }
     .greeting {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 600;
       color: #202223;
       margin-bottom: 8px;
@@ -303,48 +348,44 @@ ${adminUrl}
     .section-title {
       font-size: 12px;
       font-weight: 700;
+      color: #202223;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: #5C5F62;
+      letter-spacing: 0.5px;
       margin-bottom: 12px;
     }
     .inventory-pulse-card {
-      background-color: #FFFDF7;
-      border: 1px solid #FEE2B3;
-      border-radius: 10px;
-      padding: 18px 20px;
+      background-color: #FAFAFA;
+      border: 1px solid #E1E3E5;
+      border-radius: 8px;
+      padding: 16px;
       margin-bottom: 24px;
     }
     .pulse-item {
-      padding: 10px 0;
-    }
-    .pulse-item:first-child {
-      padding-top: 0;
-    }
-    .pulse-item:last-child {
-      padding-bottom: 0;
+      padding: 6px 0;
     }
     .pulse-item-border {
-      border-bottom: 1px dashed #FCD38D;
+      border-bottom: 1px solid #E5E7EB;
+      padding-bottom: 12px;
+      margin-bottom: 10px;
     }
     .pulse-headline {
       font-size: 15px;
       font-weight: 700;
-      color: #1A1A1A;
+      color: #202223;
       margin-bottom: 4px;
     }
     .pulse-detail {
       font-size: 13px;
+      line-height: 1.45;
       color: #5C5F62;
-      line-height: 1.4;
+      margin-bottom: 6px;
     }
     .pulse-link {
-      display: inline-block;
-      margin-top: 6px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       color: #008060;
       text-decoration: none;
+      display: inline-block;
     }
     .pulse-card {
       background-color: #F8FAFC;
@@ -413,15 +454,6 @@ ${adminUrl}
       letter-spacing: 0.2px;
       box-shadow: 0 2px 4px rgba(0, 128, 96, 0.2);
     }
-    .footer-note {
-      font-size: 13px;
-      line-height: 1.5;
-      color: #6D7175;
-      text-align: center;
-      margin-top: 24px;
-      padding-top: 16px;
-      border-top: 1px solid #E1E3E5;
-    }
   </style>
 </head>
 <body>
@@ -429,7 +461,7 @@ ${adminUrl}
     <div class="container">
       <div class="header">
         <h1>Smart Stock</h1>
-        <p>Monday Morning Smart Badge Pulse &bull; ${shopName || "Your Store"}</p>
+        <p>${dayName} Smart Badge Pulse &bull; ${shopName || "Your Store"}</p>
       </div>
 
       <div class="content">
@@ -438,7 +470,7 @@ ${adminUrl}
           Your products have been analyzed and your latest Smart Badge recommendations are ready.
         </div>
 
-        <!-- NEW SECTION: THIS WEEK'S INVENTORY PULSE -->
+        <!-- THIS WEEK'S INVENTORY PULSE -->
         <div class="section-title">💡 THIS WEEK'S INVENTORY PULSE</div>
         <div class="inventory-pulse-card">
           <!-- 1. Cash At Risk -->
@@ -461,7 +493,7 @@ ${adminUrl}
           </div>
 
           <!-- 2. Stockout Warning -->
-          <div class="pulse-item" style="padding-top: 10px;">
+          <div class="pulse-item">
             <div class="pulse-headline">
               🔥 Stockout Warning
             </div>
@@ -484,7 +516,7 @@ ${adminUrl}
           </div>
         </div>
 
-        <!-- EXISTING SECTION: THIS WEEK'S SMART BADGE PULSE -->
+        <!-- THIS WEEK'S SMART BADGE PULSE -->
         <div class="section-title">📊 THIS WEEK'S SMART BADGE PULSE</div>
         <div class="pulse-card">
           <table style="width: 100%; border-collapse: collapse;">
@@ -503,7 +535,7 @@ ${adminUrl}
           </table>
         </div>
 
-        <!-- EXISTING SECTION: BADGE RECOMMENDATION BREAKDOWN -->
+        <!-- BADGE RECOMMENDATION BREAKDOWN -->
         <div class="section-title">🏷️ BADGE RECOMMENDATION BREAKDOWN</div>
         <table class="breakdown-table">
           <tr class="breakdown-row" style="background-color: #F8FAFC;">
@@ -532,22 +564,11 @@ ${adminUrl}
           </tr>
         </table>
 
-        <div class="subtext" style="margin-bottom: 16px;">
-          Our Smart Badge engine analyzed your current Shopify product data and suggested the most suitable badge for each product.
-        </div>
-        <div class="subtext">
-          Review the recommendations and choose which badges you want to apply.
-        </div>
-
         <!-- PRIMARY SINGLE CTA -->
         <div class="cta-container">
           <a href="${adminUrl}" class="cta-button" target="_blank" rel="noopener noreferrer">
             VIEW SMART BADGE RECOMMENDATIONS &rarr;
           </a>
-        </div>
-
-        <div class="footer-note">
-          Smart Stock does not automatically modify your inventory or pricing without your approval. Visit the Smart Badges page inside your Shopify Admin to review and apply any badge recommendations.
         </div>
       </div>
     </div>
@@ -556,61 +577,36 @@ ${adminUrl}
 </html>
   `.trim();
 
-  return { subject: "📊 Your Monday Smart Badge Recommendations Are Ready", html, text };
+  return { subject: `📊 Your ${dayName} Smart Badge Recommendations Are Ready`, html, text };
 }
 
 /**
- * Process Monday Smart Badge Digest for a single store.
- * Safe against duplicate sends, concurrent executions, and temporary API failures.
+ * Execute digest generation and email send for a specific slot.
  */
-async function processStoreMondayDigest({ shop, accessToken, force = false }) {
-  const cleanShop = normalizeShop(shop);
-  console.log(`[MondayDigest] Processing store: ${cleanShop}`);
-
-  // 1. Resolve store details & timezone & currency
-  const shopMeta = await fetchShopDetails(cleanShop, accessToken);
+async function executeDigestSendForSlot({ cleanShop, accessToken, shopMeta, slotKey, dayName = "Monday", force = false }) {
   const ianaTimezone = shopMeta.ianaTimezone || "UTC";
   const currencyCode = shopMeta.currencyCode || "USD";
-  const weekIdentifier = getStoreWeekIdentifier(ianaTimezone);
 
-  console.log(
-    `[MondayDigest] Store: ${cleanShop} | Timezone: ${ianaTimezone} | Currency: ${currencyCode} | Week: ${weekIdentifier}`
-  );
-
-  // 2. Check if already successfully sent for this store & week
+  // 1. Check if already successfully sent for this slot & store
   const existingDigest = await WeeklyBadgeDigest.findOne({
     shop: cleanShop,
-    weekIdentifier,
+    weekIdentifier: slotKey,
   }).lean();
 
   if (existingDigest && existingDigest.emailStatus === "sent" && !force) {
     console.log(
-      `[MondayDigest] Digest for ${cleanShop} week ${weekIdentifier} was already sent on ${existingDigest.sentAt}. Skipping duplicate.`
+      `[DigestScheduler] Digest for ${cleanShop} slot ${slotKey} was already sent on ${existingDigest.sentAt}. Skipping duplicate.`
     );
     return {
       success: true,
       skipped: true,
       reason: "ALREADY_SENT",
       sentAt: existingDigest.sentAt,
-      weekIdentifier,
+      weekIdentifier: slotKey,
     };
   }
 
-  // 3. Check if Monday 9 AM has arrived (unless forced by manual API trigger)
-  if (!force && !isStoreDueForMondayDigest(ianaTimezone)) {
-    console.log(
-      `[MondayDigest] Store ${cleanShop} is not yet due for Monday 9:00 AM digest in timezone ${ianaTimezone}. Skipping.`
-    );
-    return {
-      success: true,
-      skipped: true,
-      reason: "NOT_DUE_YET",
-      timeZone: ianaTimezone,
-      weekIdentifier,
-    };
-  }
-
-  // 4. Resolve recipient merchant email
+  // 2. Resolve recipient merchant email
   const merchantEmail =
     shopMeta.email ||
     process.env.MERCHANT_DIGEST_EMAIL ||
@@ -618,18 +614,18 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
     process.env.EMAIL ||
     "admin@" + cleanShop;
 
-  // 5. Construct dynamic Shopify Admin URLs
+  // 3. Construct dynamic Shopify Admin URLs
   const adminUrl = generateShopifyAdminUrl(shopMeta.storeHandle, "app/smart-badges");
   const deadStockUrl = generateShopifyAdminUrl(shopMeta.storeHandle, "app/dead-stock");
   const highDemandUrl = generateShopifyAdminUrl(shopMeta.storeHandle, "app/high-demand");
 
-  // 6. Acquire atomic lock in MongoDB
+  // 4. Acquire atomic lock in MongoDB
   let digestRecord;
   try {
     digestRecord = await WeeklyBadgeDigest.findOneAndUpdate(
       {
         shop: cleanShop,
-        weekIdentifier,
+        weekIdentifier: slotKey,
       },
       {
         $set: {
@@ -642,40 +638,39 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
         },
         $setOnInsert: {
           shop: cleanShop,
-          weekIdentifier,
+          weekIdentifier: slotKey,
         },
       },
       {
         upsert: true,
         returnDocument: "after",
-        setDefaultsOnInsert: true,
+        new: true,
       }
     );
-  } catch (err) {
-    console.error(`[MondayDigest] Failed to acquire lock for ${cleanShop}:`, err.message);
+  } catch (lockErr) {
+    console.error(`[DigestScheduler] Lock acquisition failed for ${cleanShop} (${slotKey}):`, lockErr.message);
     return {
       success: false,
       error: "LOCK_ACQUISITION_FAILED",
-      message: err.message,
+      message: lockErr.message,
     };
   }
 
-  // 7. Run Smart Badge Analysis using EXISTING Engine
+  // 5. Run Live Analysis Engine
   let analysisResult;
   try {
-    console.log(`[MondayDigest] Running Smart Badge Analysis for ${cleanShop}...`);
     analysisResult = await runSmartBadgeAnalysis({
       shop: cleanShop,
       accessToken,
     });
   } catch (analysisErr) {
-    console.error(`[MondayDigest] Smart Badge analysis failed for ${cleanShop}:`, analysisErr.message);
+    console.error(`[DigestScheduler] Analysis execution failed for ${cleanShop}:`, analysisErr.message);
     await WeeklyBadgeDigest.updateOne(
       { _id: digestRecord._id },
       {
         $set: {
           emailStatus: "failed",
-          errorMessage: `Analysis error: ${analysisErr.message}`,
+          errorMessage: `Analysis failed: ${analysisErr.message}`,
         },
         $inc: { retryCount: 1 },
       }
@@ -687,14 +682,11 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
     };
   }
 
-  // 8. Extract real weekly summary metrics + REAL INVENTORY PULSE METRICS
+  // 6. Extract real summary metrics + REAL INVENTORY PULSE METRICS
   const summaryData = analysisResult.summary || {};
   const badgesData = summaryData.badges || {};
   const analyzedProducts = analysisResult.products || [];
 
-  // =========================================================
-  // CALCULATE REAL INVENTORY PULSE (100% REAL DATA)
-  // =========================================================
   let realCashAtRisk = 0;
   const deadStockProducts = [];
 
@@ -703,7 +695,6 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
     const variantPrice = Number(prod.variants?.[0]?.price || 0);
     const badge = prod.recommendation?.badge;
 
-    // Check if identified as slow-moving/dead-stock by recommendation or inventory rules
     const isSlowMoving =
       [BADGES.CLEARANCE, BADGES.PROGRESSIVE_MARKDOWN, BADGES.BUNDLE].includes(badge) ||
       (inv > 0 && (Number(prod.salesVelocity || 0) <= 0.05 || Number(prod.daysSinceLastSale || 0) >= 45));
@@ -716,7 +707,6 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
 
   const realDeadStockSkuCount = deadStockProducts.length;
 
-  // Real Stockout Warning Calculation (Combining Shopify Inventory + High Demand Intelligence)
   const highDemandDocs = await HighDemand.find({
     $or: [{ shopId: cleanShop }, { shop: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
   })
@@ -759,41 +749,49 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
   }
 
   const realStockoutWarningCount = stockoutRiskProducts.length;
+  let realStockoutBestSellerCount = 0;
+  let minDaysStockout = Infinity;
 
-  // Best-seller stockout items
-  const bestSellerStockout = stockoutRiskProducts.filter((p) => {
-    const vel = Number(p.salesVelocity || p.hdData?.salesVelocity || 0);
-    const sold = Number(p.unitsSold30d || p.hdData?.last30DaysSales || 0);
-    return vel >= 0.05 || sold >= 1;
-  });
-
-  const realStockoutBestSellerCount =
-    bestSellerStockout.length > 0 ? bestSellerStockout.length : Math.min(2, realStockoutWarningCount);
-
-  // Compute earliest projected stockout day in store's timezone
-  let stockoutEarliestWeekday = null;
-  if (stockoutRiskProducts.length > 0) {
-    const validDays = stockoutRiskProducts
-      .map((p) => (typeof p.daysUntilStockout === "number" && p.daysUntilStockout > 0 ? p.daysUntilStockout : 3))
-      .filter((d) => !isNaN(d));
-
-    const minDays = validDays.length > 0 ? Math.min(...validDays) : 3;
-    const projectedDate = new Date(Date.now() + Math.max(1, Math.round(minDays)) * 24 * 60 * 60 * 1000);
-
-    try {
-      stockoutEarliestWeekday = new Intl.DateTimeFormat("en-US", {
-        timeZone: ianaTimezone,
-        weekday: "long",
-      }).format(projectedDate);
-    } catch (_) {
-      stockoutEarliestWeekday = "Thursday";
+  for (const p of stockoutRiskProducts) {
+    const velocity = Number(p.salesVelocity || 0);
+    const days = p.daysUntilStockout;
+    if (velocity >= 0.1 || (p.hdData && Number(p.hdData.last30DaysSales || 0) >= 3)) {
+      realStockoutBestSellerCount++;
+    }
+    if (days !== null && Number.isFinite(days) && days >= 0 && days < minDaysStockout) {
+      minDaysStockout = days;
     }
   }
 
+  if (minDaysStockout === Infinity) {
+    minDaysStockout = 3;
+  }
+
+  let stockoutEarliestWeekday = "Thursday";
+  try {
+    const targetDate = new Date(Date.now() + Math.max(1, Math.round(minDaysStockout)) * 24 * 60 * 60 * 1000);
+    stockoutEarliestWeekday = new Intl.DateTimeFormat("en-US", {
+      timeZone: ianaTimezone,
+      weekday: "long",
+    }).format(targetDate);
+  } catch (err) {
+    stockoutEarliestWeekday = "Thursday";
+  }
+
+  const SmartBadgeApplication = require("../models/SmartBadgeApplication");
+  const realAppliedCount = await SmartBadgeApplication.countDocuments({
+    $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+    enabled: true,
+  }).catch(() => 0);
+
+  const recommendedBadges = summaryData.recommendations ?? summaryData.recommendedBadges ?? (analyzedProducts.filter((p) => p.recommendation?.badge && p.recommendation.badge !== BADGES.NONE).length);
+  const appliedBadges = realAppliedCount || summaryData.applied || summaryData.appliedBadges || (analyzedProducts.filter((p) => p.isApplied).length);
+
   const summary = {
-    productsScanned: summaryData.productsScanned || summaryData.scanned || 0,
-    recommendedBadges: summaryData.recommendations || 0,
-    appliedBadges: summaryData.applied !== undefined ? summaryData.applied : analyzedProducts.filter((p) => p.isApplied).length,
+    productsScanned: summaryData.productsScanned || analyzedProducts.length,
+    recommendedBadges,
+    appliedBadges,
+
     preOrderCount: badgesData[BADGES.PRE_ORDER] || 0,
     markdownCount: badgesData[BADGES.PROGRESSIVE_MARKDOWN] || 0,
     clearanceCount: badgesData[BADGES.CLEARANCE] || 0,
@@ -801,7 +799,6 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
     lowStockCount: badgesData[BADGES.LOW_STOCK] || 0,
     noBadgeCount: badgesData[BADGES.NONE] || 0,
 
-    // Real Inventory Pulse
     cashAtRisk: Math.round(realCashAtRisk),
     deadStockSkuCount: realDeadStockSkuCount,
     stockoutWarningCount: realStockoutWarningCount,
@@ -810,7 +807,6 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
     currencyCode,
   };
 
-  // Update digest record with latest analyzed statistics
   await WeeklyBadgeDigest.updateOne(
     { _id: digestRecord._id },
     {
@@ -821,7 +817,7 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
     }
   );
 
-  // 9. Build Email Template & Dispatch
+  // 7. Build Email Template & Dispatch
   const { subject, html, text } = buildDigestEmailContent({
     summary,
     adminUrl,
@@ -830,9 +826,10 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
     shopName: shopMeta.shopName || cleanShop,
     currencyCode,
     storeTimezone: ianaTimezone,
+    dayName,
   });
 
-  console.log(`[MondayDigest] Dispatching email to: ${merchantEmail}...`);
+  console.log(`[DigestScheduler] Dispatching ${dayName} email to: ${merchantEmail}...`);
   const emailResult = await sendEmail({
     to: merchantEmail,
     subject,
@@ -841,7 +838,7 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
   });
 
   if (!emailResult.success) {
-    console.error(`[MondayDigest] Email dispatch failed for ${cleanShop}:`, emailResult.error);
+    console.error(`[DigestScheduler] Email dispatch failed for ${cleanShop}:`, emailResult.error);
     await WeeklyBadgeDigest.updateOne(
       { _id: digestRecord._id },
       {
@@ -861,7 +858,7 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
     };
   }
 
-  // 10. Mark digest as successfully sent
+  // 8. Mark digest as successfully sent
   const sentAt = new Date();
   await WeeklyBadgeDigest.updateOne(
     { _id: digestRecord._id },
@@ -875,13 +872,13 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
   );
 
   console.log(
-    `[MondayDigest] Successfully sent Monday Smart Badge Digest for ${cleanShop} (Week: ${weekIdentifier})`
+    `[DigestScheduler] Successfully sent ${dayName} Smart Badge Digest for ${cleanShop} (Slot: ${slotKey})`
   );
 
   return {
     success: true,
-    message: "Monday Smart Badge Digest sent successfully",
-    weekIdentifier,
+    message: `${dayName} Smart Badge Digest sent successfully`,
+    weekIdentifier: slotKey,
     merchantEmail,
     sentAt,
     summary,
@@ -889,14 +886,86 @@ async function processStoreMondayDigest({ shop, accessToken, force = false }) {
 }
 
 /**
- * Process Monday Smart Badge Digest for all active stores in the system.
+ * Process Monday (9:00 AM) & Tuesday (11:30 AM) Smart Badge Digests for a single store.
+ * Safe against duplicate sends, concurrent executions, and temporary API failures.
+ */
+async function processStoreMondayDigest({ shop, accessToken, force = false }) {
+  const cleanShop = normalizeShop(shop);
+  console.log(`[DigestScheduler] Processing store: ${cleanShop}`);
+
+  const shopMeta = await fetchShopDetails(cleanShop, accessToken);
+  const ianaTimezone = shopMeta.ianaTimezone || "UTC";
+  const { baseWeek, dueSlots } = getDueDigestSlots(ianaTimezone);
+
+  if (force) {
+    const slotKey = `${baseWeek}-MANUAL`;
+    return await executeDigestSendForSlot({
+      cleanShop,
+      accessToken,
+      shopMeta,
+      slotKey,
+      dayName: "Weekly",
+      force: true,
+    });
+  }
+
+  if (!dueSlots || dueSlots.length === 0) {
+    console.log(
+      `[DigestScheduler] Store ${cleanShop} is not yet due for Monday 9:00 AM or Tuesday 11:30 AM digest in timezone ${ianaTimezone}. Skipping.`
+    );
+    return {
+      success: true,
+      skipped: true,
+      reason: "NOT_DUE_YET",
+      timeZone: ianaTimezone,
+      baseWeek,
+    };
+  }
+
+  const results = [];
+  for (const slot of dueSlots) {
+    const existing = await WeeklyBadgeDigest.findOne({
+      shop: cleanShop,
+      weekIdentifier: slot.slotKey,
+    }).lean();
+
+    if (existing && existing.emailStatus === "sent") {
+      continue;
+    }
+
+    const res = await executeDigestSendForSlot({
+      cleanShop,
+      accessToken,
+      shopMeta,
+      slotKey: slot.slotKey,
+      dayName: slot.dayName,
+      force: false,
+    });
+    results.push(res);
+  }
+
+  if (results.length === 0) {
+    return {
+      success: true,
+      skipped: true,
+      reason: "ALREADY_SENT",
+      timeZone: ianaTimezone,
+      baseWeek,
+    };
+  }
+
+  return results[results.length - 1];
+}
+
+/**
+ * Process scheduled Smart Badge Digests for all active stores in the system.
  */
 async function processAllStoresMondayDigests() {
-  console.log("[MondayDigest Job] Starting Monday Smart Badge Digest job for all active stores...");
+  console.log("[DigestScheduler Job] Checking Monday (9:00 AM) & Tuesday (11:30 AM) scheduled digests for active stores...");
   const stores = await Store.find({ active: true }).lean();
 
   if (!stores || stores.length === 0) {
-    console.log("[MondayDigest Job] No active stores found in database.");
+    console.log("[DigestScheduler Job] No active stores found in database.");
     return { processed: 0, sent: 0, skipped: 0, failed: 0 };
   }
 
@@ -920,13 +989,13 @@ async function processAllStoresMondayDigests() {
         failed++;
       }
     } catch (err) {
-      console.error(`[MondayDigest Job] Unhandled error processing store ${store.shop}:`, err.message);
+      console.error(`[DigestScheduler Job] Unhandled error processing store ${store.shop}:`, err.message);
       failed++;
     }
   }
 
   console.log(
-    `[MondayDigest Job] Finished Monday Digest cycle. Processed: ${stores.length}, Sent: ${sent}, Skipped: ${skipped}, Failed: ${failed}`
+    `[DigestScheduler Job] Finished digest cycle. Processed: ${stores.length}, Sent: ${sent}, Skipped: ${skipped}, Failed: ${failed}`
   );
 
   return {
@@ -941,6 +1010,7 @@ module.exports = {
   processStoreMondayDigest,
   processAllStoresMondayDigests,
   getStoreWeekIdentifier,
+  getDueDigestSlots,
   isStoreDueForMondayDigest,
   fetchShopDetails,
   generateShopifyAdminUrl,

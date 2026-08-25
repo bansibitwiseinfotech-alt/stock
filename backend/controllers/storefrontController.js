@@ -188,8 +188,22 @@ async function getProductWidgetData(req, res) {
       : Number(clearanceConfig?.discountPercentage ?? 10);
 
     const BundleConfig = require("../models/BundleConfig");
-    const bundleConfigRaw = await BundleConfig.findOne({ shop: shopId }).lean().catch(() => null);
-    const bundleConfig = bundleConfigRaw || { shop: shopId, enabled: true };
+    const cleanShopDomain = String(shopId).replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
+    const bundleConfigRaw = await BundleConfig.findOne({
+      $or: [{ shop: cleanShopDomain }, { shop: shopId }, { shop: new RegExp(`^${cleanShopDomain}$`, "i") }, { shopId: cleanShopDomain }],
+    }).lean().catch(() => null);
+
+    const bundleConfig = bundleConfigRaw || {
+      enabled: true,
+      headerTitle: "Frequently Bought Together",
+      buttonText: "Add Both to Cart",
+      showDiscountBadge: true,
+      badgeColor: "#DCFCE7",
+      badgeTextColor: "#15803D",
+      buttonColor: "#111827",
+      buttonTextColor: "#FFFFFF",
+      borderRadius: 12,
+    };
     const hasBundleOffer = Boolean(activeBundle) && bundleConfig.enabled !== false;
     const { resolveProductDetails, isPlaceholderText, ensureBOGODiscount } = require("../services/bundleService");
 
@@ -545,7 +559,33 @@ async function getStorefrontBundles(req, res) {
       $and: [{ $or: matchConditions }],
     };
 
-    const { resolveProductDetails, isPlaceholderText } = require("../services/bundleService");
+    const BundleConfig = require("../models/BundleConfig");
+    const cleanShopDomain = String(shop).replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
+    const bundleConfigRaw = await BundleConfig.findOne({
+      $or: [{ shop: cleanShopDomain }, { shop: shop }, { shop: new RegExp(`^${cleanShopDomain}$`, "i") }, { shopId: cleanShopDomain }],
+    }).lean().catch(() => null);
+
+    const bundleConfig = bundleConfigRaw || {
+      enabled: true,
+      headerTitle: "Frequently Bought Together",
+      buttonText: "Add Both to Cart",
+      showDiscountBadge: true,
+      badgeColor: "#DCFCE7",
+      badgeTextColor: "#15803D",
+      buttonColor: "#111827",
+      buttonTextColor: "#FFFFFF",
+      borderRadius: 12,
+    };
+
+    if (bundleConfig.enabled === false) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        bundleConfig,
+      });
+    }
+
+    const { resolveProductDetails, isPlaceholderText, ensureBOGODiscount } = require("../services/bundleService");
 
     const bundles = await Bundle.find(query).sort({ createdAt: -1 }).lean();
 
@@ -553,6 +593,7 @@ async function getStorefrontBundles(req, res) {
       return res.status(200).json({
         success: true,
         data: [],
+        bundleConfig,
       });
     }
 
@@ -671,6 +712,7 @@ async function getStorefrontBundles(req, res) {
     return res.status(200).json({
       success: true,
       data: validBundles,
+      bundleConfig,
     });
   } catch (error) {
     console.error("[StorefrontBundles] Error:", error.message);
@@ -890,6 +932,7 @@ async function getStorefrontLaunchPreOrder(req, res) {
       launchDetails: config.launchDetails || "",
       buttonText: globalPreOrderConfig?.buttonText || config.buttonText || "PRE-ORDER NOW",
       depositPercentage: typeof config.depositPercentage === "number" ? config.depositPercentage : 50,
+      depositAmount: typeof config.depositAmount === "number" ? config.depositAmount : 0,
       depositEnabled: config.depositEnabled !== false,
       cardBackgroundColor: globalPreOrderConfig?.cardBackgroundColor || config.cardBackgroundColor || "#FFFFFF",
       borderColor: globalPreOrderConfig?.borderColor || config.borderColor || "#E2E8F0",
