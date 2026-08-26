@@ -75,101 +75,68 @@ export default function Dashboard({ shopDomain = "" }) {
   const [timeframe, setTimeframe] = useState("monthly"); // "daily" | "weekly" | "monthly"
   const initialTrends = getInitialTrends();
   const [data, setData] = useState({
-    totalCashRecovered: 300755,
-    growthPercentage: 14.8,
-    deadStockCashTiedUp: 18450,
-    deadStockSkuCount: 29,
+    totalCashRecovered: 0,
+    growthPercentage: 0,
+    deadStockCashTiedUp: 0,
+    deadStockSkuCount: 0,
+    revenueAtRisk: 0,
+    highDemandRiskCount: 0,
+    totalActiveAutomations: 0,
     dailyTrend: initialTrends.dailyTrend,
     weeklyTrend: initialTrends.weeklyTrend,
     monthlyTrend: initialTrends.monthlyTrend,
     stockHealth: {
-      healthyPercent: 62,
-      slowMovingPercent: 25,
-      deadStockPercent: 13,
-      healthyCount: 142,
-      slowMovingCount: 57,
-      deadStockCount: 29,
+      healthyPercent: 70,
+      slowMovingPercent: 20,
+      deadStockPercent: 10,
+      healthyCount: 35,
+      slowMovingCount: 9,
+      deadStockCount: 6,
     },
-    activityFeed: [
-      {
-        id: "act-1",
-        title: "Companion Bundle created",
-        description: "Automated BOGO bundle created for slow-moving phone accessories",
-        time: "10m ago",
-        status: "Active",
-      },
-      {
-        id: "act-2",
-        title: "Clearance discount applied",
-        description: "20% discount activated on 18 dead stock SKUs",
-        time: "45m ago",
-        status: "Live",
-      },
-      {
-        id: "act-3",
-        title: "Low stock badge assigned",
-        description: "Urgency counter badge published on 6 trending variants",
-        time: "2h ago",
-        status: "Live",
-      },
-      {
-        id: "act-4",
-        title: "Progressive markdown step updated",
-        description: "15% markdown tier applied to items idle over 45 days",
-        time: "5h ago",
-        status: "Updated",
-      },
-      {
-        id: "act-5",
-        title: "Inventory sync finished",
-        description: "Full sync completed for 228 variants across all locations",
-        time: "Yesterday",
-        status: "Completed",
-      },
-    ],
+    activityFeed: [],
     badgeBreakdown: [
       {
-        key: "markdown",
-        title: "Progressive Markdown",
-        badgesUsed: 2619,
-        cashRecovered: 278696,
-        percentage: 92,
-        color: "#008060",
+        key: "clearance",
+        title: "Clearance Sales",
+        badgesUsed: 0,
+        cashRecovered: 0,
+        percentage: 0,
+        color: "#10B981",
         link: "/app/dead-stock",
       },
       {
         key: "bundle",
         title: "Bundle Offers",
-        badgesUsed: 103,
-        cashRecovered: 16441,
-        percentage: 5,
-        color: "#5C6AC4",
+        badgesUsed: 0,
+        cashRecovered: 0,
+        percentage: 0,
+        color: "#F59E0B",
         link: "/app/bundles",
       },
       {
-        key: "clearance",
-        title: "Clearance Sales",
-        badgesUsed: 42,
-        cashRecovered: 5363,
-        percentage: 2,
-        color: "#47C1BF",
+        key: "markdown",
+        title: "Progressive Markdown",
+        badgesUsed: 0,
+        cashRecovered: 0,
+        percentage: 0,
+        color: "#8B5CF6",
         link: "/app/dead-stock",
       },
       {
-        key: "urgency",
-        title: "Urgency Badges",
-        badgesUsed: 3,
-        cashRecovered: 255,
-        percentage: 1,
-        color: "#2C6ECB",
-        link: "/app/high-demand",
+        key: "preorder",
+        title: "Pre-Orders & Badges",
+        badgesUsed: 0,
+        cashRecovered: 0,
+        percentage: 0,
+        color: "#0EA5E9",
+        link: "/app/pre-orders",
       },
     ],
     recommendations: [
       {
         id: "rec-1",
-        title: "Clear 42 slow-moving products",
-        description: "Items have had zero sales for 60+ days. Launching a clearance discount could recover an estimated $15,960.",
+        title: "Clear slow-moving products",
+        description: "Items with zero or slow sales. Launch a clearance discount or markdown to recover tied-up capital.",
         actionText: "Create Clearance Sale",
         tag: "Dead stock",
         tone: "attention",
@@ -177,8 +144,8 @@ export default function Dashboard({ shopDomain = "" }) {
       },
       {
         id: "rec-2",
-        title: "Protect revenue on 54 high-demand products",
-        description: "High sales velocity items risk stocking out during high-traffic periods. Enable low-stock badges to drive conversion.",
+        title: "Protect revenue on high-demand products",
+        description: "High velocity items risk stocking out. Enable pre-orders or low-stock urgency badges to secure orders.",
         actionText: "View High Demand",
         tag: "High velocity",
         tone: "info",
@@ -198,14 +165,26 @@ export default function Dashboard({ shopDomain = "" }) {
           growthPercentage: res.growthPercentage ?? prev.growthPercentage,
           deadStockCashTiedUp: res.deadStockCashTiedUp ?? prev.deadStockCashTiedUp,
           deadStockSkuCount: res.deadStockSkuCount ?? prev.deadStockSkuCount,
+          revenueAtRisk: res.revenueAtRisk ?? prev.revenueAtRisk,
+          highDemandRiskCount: res.highDemandRiskCount ?? prev.highDemandRiskCount,
+          totalActiveAutomations: res.totalActiveAutomations ?? prev.totalActiveAutomations,
           dailyTrend: res.dailyTrend || prev.dailyTrend,
           weeklyTrend: res.weeklyTrend || prev.weeklyTrend,
           monthlyTrend: res.monthlyTrend || prev.monthlyTrend,
-          badgeBreakdown:
-            res.badgeBreakdown?.map((b) => ({
-              ...b,
-              percentage: Math.round(((b.cashRecovered || 0) / (res.totalCashRecovered || 1)) * 100),
-            })) || prev.badgeBreakdown,
+          stockHealth: res.stockHealth || prev.stockHealth,
+          activityFeed: res.activityFeed && res.activityFeed.length > 0 ? res.activityFeed : prev.activityFeed,
+          badgeBreakdown: res.badgeBreakdown || prev.badgeBreakdown,
+          recommendations: res.smartRecipes
+            ? res.smartRecipes.map((r) => ({
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                actionText: r.recommendedAction,
+                tag: r.id.includes("summer") ? "Dead stock" : "High demand",
+                tone: r.id.includes("summer") ? "attention" : "info",
+                link: r.link,
+              }))
+            : prev.recommendations,
         }));
       }
     } catch (err) {
@@ -338,7 +317,7 @@ export default function Dashboard({ shopDomain = "" }) {
                 </InlineStack>
                 <div>
                   <Text variant="heading2xl" as="p" fontWeight="bold">
-                    {formatCurrency(24300)}
+                    {formatCurrency(data.revenueAtRisk)}
                   </Text>
                   <div style={{ paddingTop: "2px" }}>
                     <Button
@@ -346,7 +325,7 @@ export default function Dashboard({ shopDomain = "" }) {
                       size="slim"
                       onClick={() => navigate("/app/high-demand")}
                     >
-                      54 items low in stock →
+                      {data.highDemandRiskCount || 0} items at risk →
                     </Button>
                   </div>
                 </div>
@@ -364,7 +343,7 @@ export default function Dashboard({ shopDomain = "" }) {
                 </InlineStack>
                 <div>
                   <Text variant="heading2xl" as="p" fontWeight="bold">
-                    {(data.badgeBreakdown || []).reduce((s, b) => s + (b.badgesUsed || 0), 0).toLocaleString()}
+                    {data.totalActiveAutomations ?? (data.badgeBreakdown || []).reduce((s, b) => s + (b.badgesUsed || 0), 0)}
                   </Text>
                   <Text variant="bodyXs" tone="subdued">
                     Badges & discount rules active

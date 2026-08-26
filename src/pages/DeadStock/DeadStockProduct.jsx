@@ -166,7 +166,7 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
           setClearanceStartDate(sStr >= todayDateValue() ? sStr : todayDateValue());
         }
       }
-    }
+    }        
     if (type === "markdown" && product?.activeMarkdownRule) {
       setStartingDiscount(String(product.activeMarkdownRule.startingDiscount ?? 10));
       setIncreasePercent(String(product.activeMarkdownRule.increasePercent ?? product.activeMarkdownRule.incrementPercent ?? 10));
@@ -510,9 +510,31 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
   return (
     <Page
       fullWidth
-      backAction={{ content: "Back to Dead Stock", onAction: handleBack }}
+      backAction={{ content: "Dead Stock", onAction: handleBack }}
       title={product.title || "Dead Stock Product"}
-      subtitle={`SKU: ${sku}`}
+      subtitle={`SKU: ${sku || "N/A"}`}
+      titleMetadata={
+        <InlineStack gap="200" blockAlign="center">
+          <Badge tone={daysUnsold >= 60 ? "critical" : "warning"}>
+            {daysUnsold >= 60 ? "🚨 Dead Stock (60+ days)" : `${daysUnsold} Days Unsold`}
+          </Badge>
+          {isClearanceActive && (
+            <Badge tone="success">
+              🏷️ Clearance Active ({product.activeClearanceSale?.discountValue || 20}% OFF)
+            </Badge>
+          )}
+          {product?.activeBundle && (
+            <Badge tone="info">
+              📦 Bundle Active
+            </Badge>
+          )}
+          {product?.activeMarkdownRule && (
+            <Badge tone="success">
+              📉 Markdown ({product.activeMarkdownRule.currentDiscount}% OFF)
+            </Badge>
+          )}
+        </InlineStack>
+      }
     >
       <Layout>
         {actionNotification && (
@@ -535,73 +557,18 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
           </Layout.Section>
         )}
 
-        {/* Product Overview Header */}
-        <Layout.Section>
-          <Card>
-            <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-              {product.image ? (
-                <img
-                  src={product.image}
-                  alt={product.title}
-                  style={{
-                    width: "100px",
-                    height: "100px",
-                    borderRadius: "12px",
-                    objectFit: "cover",
-                    border: "1px solid #E2E8F0",
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: "100px",
-                    height: "100px",
-                    borderRadius: "12px",
-                    backgroundColor: "#EEF2FF",
-                    color: "#4F46E5",
-                    fontSize: "36px",
-                    fontWeight: "700",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {product.title?.charAt(0) || "?"}
-                </div>
-              )}
-
-              <BlockStack gap="100">
-                <Text variant="headingLg" as="h1">
-                  {product.title}
-                </Text>
-                <Text variant="bodyMd" tone="subdued">
-                  SKU: {sku} | ID: {product.shopifyProductId || product.id}
-                </Text>
-                {actionsLog.length > 0 && (
-                  <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-                    {actionsLog.slice(0, 3).map((act) => (
-                      <Badge
-                        key={act._id}
-                        tone={act.status === "COMPLETED" || act.status === "ACTIVE" ? "success" : "critical"}
-                      >
-                        {act.actionType}: {act.status}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </BlockStack>
-            </div>
-          </Card>
-        </Layout.Section>
-
         {/* Metrics Grid */}
         <Layout.Section>
-          <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
+          <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="300">
             {/* Card 1: Shopify Selling Price */}
-            <Card>
+            <Card padding="400">
               <BlockStack gap="100">
-                <Text variant="headingXs" tone="subdued" as="h3">SHOPIFY SELLING PRICE</Text>
-                <Text variant="headingLg" as="p">{formattedSellingPrice}</Text>
+                <Text variant="bodySm" tone="subdued">
+                  SHOPIFY SELLING PRICE
+                </Text>
+                <Text variant="headingXl" as="p" fontWeight="bold">
+                  {formattedSellingPrice}
+                </Text>
                 {formattedCompareAt && (
                   <Text variant="bodySm" tone="subdued" as="span">
                     Original: <span style={{ textDecoration: "line-through" }}>{formattedCompareAt}</span>
@@ -611,45 +578,64 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
             </Card>
 
             {/* Card 2: Current Inventory Stock */}
-            <Card>
+            <Card padding="400">
               <BlockStack gap="100">
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="headingXs" tone="subdued" as="h3">CURRENT STOCK</Text>
+                  <Text variant="bodySm" tone="subdued">
+                    CURRENT STOCK
+                  </Text>
                   <Badge tone={stock > 0 ? "success" : "critical"}>
                     {stock > 0 ? "In Stock" : "Out of Stock"}
                   </Badge>
                 </InlineStack>
-                <Text variant="headingLg" as="p">{stock} units</Text>
+                <Text
+                  variant="headingXl"
+                  as="p"
+                  fontWeight="bold"
+                  tone={stock <= 0 ? "critical" : undefined}
+                >
+                  {stock} units
+                </Text>
               </BlockStack>
             </Card>
 
             {/* Card 3: Potential Stock Value */}
-            <Card>
+            <Card padding="400">
               <BlockStack gap="100">
-                <Text variant="headingXs" tone="critical" as="h3">POTENTIAL STOCK VALUE</Text>
-                <Text variant="headingLg" tone="critical" as="p">{formattedStockValue}</Text>
+                <Text variant="bodySm" tone="critical">
+                  POTENTIAL STOCK VALUE
+                </Text>
+                <Text variant="headingXl" tone="critical" as="p" fontWeight="bold">
+                  {formattedStockValue}
+                </Text>
                 <Text variant="bodySm" tone="subdued" as="span">
-                  {stock > 0 ? `Total inventory retail value` : `No inventory value`}
+                  {stock > 0 ? "Total inventory retail value" : "No inventory value"}
                 </Text>
               </BlockStack>
             </Card>
 
             {/* Card 4: Days Unsold */}
-            <Card>
+            <Card padding="400">
               <BlockStack gap="100">
-                <Text variant="headingXs" tone="subdued" as="h3">DAYS UNSOLD</Text>
-                <Text variant="headingLg" as="p">
+                <Text variant="bodySm" tone="subdued">
+                  DAYS UNSOLD
+                </Text>
+                <Text variant="headingXl" as="p" fontWeight="bold">
                   {daysUnsold >= 900 || daysUnsold === 0 ? "Stagnant (60+ days)" : `${daysUnsold} days`}
                 </Text>
-                <Text variant="bodySm" tone="subdued" as="span">Dead stock stagnation</Text>
+                <Text variant="bodySm" tone="subdued" as="span">
+                  Dead stock stagnation
+                </Text>
               </BlockStack>
             </Card>
 
             {/* Card 5: Last Sold Date */}
-            <Card>
+            <Card padding="400">
               <BlockStack gap="100">
-                <Text variant="headingXs" tone="subdued" as="h3">LAST SOLD DATE</Text>
-                <Text variant="headingMd" as="p">
+                <Text variant="bodySm" tone="subdued">
+                  LAST SOLD DATE
+                </Text>
+                <Text variant="headingLg" as="p" fontWeight="bold">
                   {product.lastSoldAt ? new Date(product.lastSoldAt).toLocaleDateString() : "Never sold"}
                 </Text>
                 <Text variant="bodySm" tone="subdued" as="span">
@@ -659,10 +645,12 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
             </Card>
 
             {/* Card 6: Sales Velocity */}
-            <Card>
+            <Card padding="400">
               <BlockStack gap="100">
-                <Text variant="headingXs" tone="subdued" as="h3">SALES VELOCITY</Text>
-                <Text variant="headingMd" as="p">
+                <Text variant="bodySm" tone="subdued">
+                  SALES VELOCITY
+                </Text>
+                <Text variant="headingLg" as="p" fontWeight="bold">
                   {salesVelocity ? `${salesVelocity.toFixed(2)} units/day` : "0.00 units/day"}
                 </Text>
                 <Text variant="bodySm" tone="subdued" as="span">
@@ -675,64 +663,37 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
 
         {/* Recommended Recovery Actions */}
         <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">Recommended Dead Stock Recovery Actions</Text>
+          <BlockStack gap="300">
+            <Text variant="headingMd" as="h2" fontWeight="semibold">
+              Recommended Dead Stock Recovery Actions
+            </Text>
 
-              <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
-                <div
-                  style={{
-                    padding: "20px",
-                    borderRadius: "10px",
-                    border: "1px solid #CBD5E1",
-                    backgroundColor: "#FFFFFF",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    gap: "14px",
-                    minHeight: "180px",
-                  }}
-                >
-                  <BlockStack gap="100">
-                    <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="headingSm" as="h3">
-                        🏷️ Clearance Sale
-                      </Text>
+            <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
+              {/* Action 1: Clearance Sale */}
+              <Card padding="400">
+                <BlockStack gap="300">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      🏷️ Clearance Sale
+                    </Text>
+                    <Badge tone={isClearanceActive ? "success" : "subdued"}>
+                      {isClearanceActive ? "● Enabled" : "○ Not Configured"}
+                    </Badge>
+                  </InlineStack>
 
-                      <Badge tone={isClearanceActive ? "success" : "subdued"}>
-                        {isClearanceActive ? "● Enabled" : "○ Not Configured"}
-                      </Badge>
-                    </InlineStack>
-
-                    <BlockStack gap="050">
-                      <Text variant="bodySm" tone="subdued">
-                        Why: 60+ days unsold
-                      </Text>
-
-                      <Text variant="bodySm" tone="subdued">
-                        Best for: Fast recovery
-                      </Text>
-
-                      <Text variant="bodySm" tone="subdued">
-                        How: Immediate discount
-                      </Text>
-
-                      <Text variant="bodySm" tone="subdued">
-                        Result: Quick stock movement
-                      </Text>
-                    </BlockStack>
-                  </BlockStack>
+                  <Text variant="bodySm" tone="subdued">
+                    Apply immediate price discounts to liquidate stagnant inventory and recover working capital quickly.
+                  </Text>
 
                   <InlineStack gap="200" align="start">
                     <Button
-                      size="slim"
+                      variant={isClearanceActive ? "secondary" : "primary"}
                       onClick={() => openModal("clearance")}
                     >
                       {isClearanceActive ? "Edit Sale" : "Launch Sale"}
                     </Button>
                     <Button
-                      size="slim"
-                      variant="tertiary"
+                      variant="plain"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate("/app/customization/clearance-sale");
@@ -741,117 +702,84 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
                       Customize
                     </Button>
                   </InlineStack>
-                </div>
+                </BlockStack>
+              </Card>            
 
-                <div
-                  style={{
-                    padding: "20px",
-                    borderRadius: "10px",
-                    border: "1px solid #CBD5E1",
-                    backgroundColor: "#FFFFFF",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    gap: "14px",
-                    minHeight: "180px",
-                  }}
-                >
-                  <BlockStack gap="100">
-  <InlineStack align="space-between" blockAlign="center">
-    <Text variant="headingSm" as="h3">
-      📦 Dead Stock Bundle
-    </Text>
+              {/* Action 2: Dead Stock Bundle */}
+              <Card padding="400">
+                <BlockStack gap="300">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      📦 Dead Stock Bundle
+                    </Text>
+                    <Badge tone={product?.activeBundle ? "success" : "subdued"}>
+                      {product?.activeBundle ? "● Active Bundle" : "○ Not Configured"}
+                    </Badge>
+                  </InlineStack>
 
-    <Badge tone={product?.activeBundle ? "success" : "subdued"}>
-      {product?.activeBundle ? "● Active Bundle" : "○ Not Configured"}
-    </Badge>
-  </InlineStack>
+                  <Text variant="bodySm" tone="subdued">
+                    Bundle this slow-moving item with a popular companion product to increase perceived value and volume.
+                  </Text>
 
-  <BlockStack gap="050">
-    <Text variant="bodySm" tone="subdued">
-      Why: Low product demand
-    </Text>
-
-    <Text variant="bodySm" tone="subdued">
-      Best for: Avoiding heavy discounts
-    </Text>
-
-    <Text variant="bodySm" tone="subdued">
-      How: Bundle with a companion product
-    </Text>
-
-    <Text variant="bodySm" tone="subdued">
-      Result: Increase product value
-    </Text>
-  </BlockStack>
-</BlockStack>
                   <InlineStack gap="200" align="start">
                     <Button
-                      size="slim"
+                      variant={product?.activeBundle ? "secondary" : "primary"}
                       onClick={() => openModal("bundle")}
                     >
                       {product?.activeBundle ? "Edit Bundle" : "Create Bundle"}
                     </Button>
+                    <Button
+                      variant="plain"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/app/customization/clearance-sale");
+                      }}
+                    >
+                      Customize
+                    </Button>
                   </InlineStack>
-                </div>
+                </BlockStack>
+              </Card>
 
-                <div
-                  style={{
-                    padding: "20px",
-                    borderRadius: "10px",
-                    border: "1px solid #CBD5E1",
-                    backgroundColor: "#FFFFFF",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    gap: "14px",
-                    minHeight: "180px",
-                  }}
-                >
-                  <BlockStack gap="100">
-  <InlineStack align="space-between" blockAlign="center">
-    <Text variant="headingSm" as="h3">
-      📉 Progressive Markdown
-    </Text>
+              {/* Action 3: Progressive Markdown */}
+              <Card padding="400">
+                <BlockStack gap="300">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      📉 Progressive Markdown
+                    </Text>
+                    <Badge tone={product?.activeMarkdownRule ? "success" : "subdued"}>
+                      {product?.activeMarkdownRule
+                        ? `● Active (${product.activeMarkdownRule.currentDiscount}% OFF)`
+                        : "○ Not Configured"}
+                    </Badge>
+                  </InlineStack>
 
-    <Badge tone={product?.activeMarkdownRule ? "success" : "subdued"}>
-      {product?.activeMarkdownRule
-        ? `● Active (${product.activeMarkdownRule.currentDiscount}% OFF)`
-        : "○ Not Configured"}
-    </Badge>
-  </InlineStack>
-
-  <BlockStack gap="050">
-    <Text variant="bodySm" tone="subdued">
-      Why: Sales performance needs monitoring
-    </Text>
-
-    <Text variant="bodySm" tone="subdued">
-      Best for: Controlled discounting
-    </Text>
-
-    <Text variant="bodySm" tone="subdued">
-      How: Adjust discount every 24 hours
-    </Text>
-
-    <Text variant="bodySm" tone="subdued">
-      Result: Optimize discount and recover stock
-    </Text>
-  </BlockStack>
-</BlockStack>
+                  <Text variant="bodySm" tone="subdued">
+                    Automatically step down discounts at set time intervals to achieve sales while maximizing revenue.
+                  </Text> 
 
                   <InlineStack gap="200" align="start">
                     <Button
-                      size="slim"
+                      variant={product?.activeMarkdownRule ? "secondary" : "primary"}
                       onClick={() => openModal("markdown")}
                     >
                       {product?.activeMarkdownRule ? "Manage Rule" : "Create Markdown"}
                     </Button>
+                    <Button
+                      variant="plain"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/app/customization/clearance-sale");
+                      }}
+                    >
+                      Customize
+                    </Button>
                   </InlineStack>
-                </div>
-              </InlineGrid>
-            </BlockStack>
-          </Card>
+                </BlockStack>
+              </Card>
+            </InlineGrid>
+          </BlockStack>
         </Layout.Section>
 
         {/* Action Audit Log Table (First 3 Actions) */}
