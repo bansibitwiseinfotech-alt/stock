@@ -65,6 +65,9 @@ export default function App() {
           <s-link href="/app/settings">
             Email Schedule
           </s-link>
+          <s-link href="/app/billing">
+            Billing & Plans
+          </s-link>
         </s-app-nav>
 
         {/* ==================================================

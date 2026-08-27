@@ -85,9 +85,9 @@ function ColorPickerField({ label, value, onChange }) {
 }
 
 const DEFAULT_CONFIG_FORM = {
-  productId: "",
+  productId: "",                              
   productTitle: "",
-  productHandle: "",
+  productHandle: "",         
   productImage: "",
   preOrderEnabled: true,
   launchDate: "",
@@ -126,7 +126,7 @@ export default function PreOrders({ shopDomain } = {}) {
   const [launchSearch, setLaunchSearch] = useState("");
   const [launchStatusFilter, setLaunchStatusFilter] = useState("ALL");
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("CREATE"); // CREATE or EDIT
+  const [modalMode, setModalMode] = useState("CREATE"); // CREATE or EDIT   
   const [configForm, setConfigForm] = useState(DEFAULT_CONFIG_FORM);
   const [savingLaunch, setSavingLaunch] = useState(false);
 
@@ -198,13 +198,13 @@ export default function PreOrders({ shopDomain } = {}) {
     try {
       setProductsLoading(true);
       const res = await fetchLaunchStoreProductsApi(shop, query);
-      if (res?.success) {
+      if (res?.success) { 
         setStoreProducts(res.data || []);
-      }
+      }                                                                 
     } catch (err) {
       console.error("Failed to load store products:", err);
     } finally {
-      setProductsLoading(false);
+      setProductsLoading(false);  
     }
   }, [shop]);
 
@@ -212,11 +212,11 @@ export default function PreOrders({ shopDomain } = {}) {
     if (shop) {
       loadLaunchConfigs();
     }
-  }, [shop, loadLaunchConfigs]);
+  }, [shop, loadLaunchConfigs]);   
 
-  // ====================================================
-  // LOAD CUSTOMER PRE-ORDERS
-  // ====================================================
+  // ====================================================                                
+  // LOAD CUSTOMER PRE-ORDERS 
+  // ====================================================       
   const orderTabs = [
     { id: "ALL", content: `All (${metrics.totalPreOrders || 0})` },
     { id: "PENDING", content: `Pending (${metrics.pendingPreOrders || 0})` },
@@ -271,16 +271,16 @@ export default function PreOrders({ shopDomain } = {}) {
       ...DEFAULT_CONFIG_FORM,
       launchDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     });
-    setProductSearch("");
-    setProductDropdownOpen(false);
+    setProductSearch("");      
+    setProductDropdownOpen(false);      
     loadStoreProducts("");
-    setModalOpen(true);
+    setModalOpen(true);       
   };
 
-  const handleOpenEditModal = (item) => {
-    setModalMode("EDIT");
-    setConfigForm({
-      productId: item.productId,
+  const handleOpenEditModal = (item) => { 
+    setModalMode("EDIT");                     
+    setConfigForm({                    
+      productId: item.productId,      
       productTitle: item.productTitle || "",
       productHandle: item.productHandle || "",
       productImage: item.productImage || "",
@@ -292,10 +292,10 @@ export default function PreOrders({ shopDomain } = {}) {
       launchLabel: item.launchLabel || "NEW LAUNCH",
       launchTitle: item.launchTitle || "New Product Launch",
       customerMessage: item.customerMessage || "",
-      launchDetails: item.launchDetails || "",
+      launchDetails: item.launchDetails || "",                                        
       buttonText: item.buttonText || "PRE-ORDER NOW",
-      depositPercentage: typeof item.depositPercentage === "number" ? item.depositPercentage : 50,
-      depositAmount: typeof item.depositAmount === "number" ? item.depositAmount : 0,
+      depositPercentage: typeof item.depositPercentage === "number" ? item.depositPercentage : 50,        
+      depositAmount: typeof item.depositAmount === "number" ? item.depositAmount : 0,                
       depositEnabled: item.depositEnabled !== false,
       cardBackgroundColor: item.cardBackgroundColor || "#FFFFFF",
       textColor: item.textColor || "#111827",
@@ -305,7 +305,7 @@ export default function PreOrders({ shopDomain } = {}) {
       badgeTextColor: item.badgeTextColor || "#FFFFFF",
     });
     setProductSearch("");
-    setProductDropdownOpen(false);
+    setProductDropdownOpen(false);                        
     setModalOpen(true);
   };
 

@@ -22,6 +22,10 @@ const {
   saveCollectionSaleRecords,
   deleteCollectionSaleRecords,
 } = require("../controllers/deadStockController");
+const {
+  checkPlanLimit,
+  requirePremiumFeature,
+} = require("../middleware/checkPlanLimit");
 
 const router = express.Router();
 
@@ -39,7 +43,11 @@ router.post("/sync", syncDeadStockData);
 router.post("/webhook/product-delete", deleteProductByWebhook);
 
 // Collection bulk sale — save and delete ClearanceSale records for storefront widget
-router.post("/collection-sale-records", saveCollectionSaleRecords);
+router.post(
+  "/collection-sale-records",
+  requirePremiumFeature("collectionBulkSale"),
+  saveCollectionSaleRecords
+);
 router.post("/collection-sale-records/delete", deleteCollectionSaleRecords);
 
 // Product-specific routes
@@ -54,7 +62,11 @@ router.get("/:variantId/markdown", getProgressiveMarkdown);
 
 router.get("/:variantId", getDeadStockByVariantId);
 
-router.post("/:variantId/clearance", createClearanceSale);
+router.post(
+  "/:variantId/clearance",
+  checkPlanLimit("clearanceSale"),
+  createClearanceSale
+);
 
 router.delete("/:variantId/clearance", deleteClearanceSale);
 
@@ -65,6 +77,7 @@ router.post(
 
 router.post(
   "/:variantId/markdown",
+  checkPlanLimit("progressiveMarkdown"),
   createProgressiveMarkdown
 );
 
@@ -85,6 +98,7 @@ router.post(
 
 router.post(
   "/:variantId/bundle",
+  checkPlanLimit("deadStockBundle"),
   createBundle
 );
 

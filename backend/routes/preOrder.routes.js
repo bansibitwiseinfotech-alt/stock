@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const preOrderController = require("../controllers/preOrder.controller");
+const {
+  checkPlanLimit,
+} = require("../middleware/checkPlanLimit");
 
 // ==================================================
 // LAUNCH PRE-ORDER CONFIGURATION ROUTES
@@ -13,10 +16,18 @@ router.get("/launch-config", preOrderController.getLaunchConfigs);
 router.get("/launch-config/:productId", preOrderController.getLaunchConfigByProduct);
 
 // POST /api/pre-orders/launch-config - Save / update launch config
-router.post("/launch-config", preOrderController.saveLaunchConfig);
+router.post(
+  "/launch-config",
+  checkPlanLimit("launchPreOrder"),
+  preOrderController.saveLaunchConfig
+);
 
 // POST /api/pre-orders/launch-config/:productId/toggle - Toggle enabled
-router.post("/launch-config/:productId/toggle", preOrderController.toggleLaunchConfig);
+router.post(
+  "/launch-config/:productId/toggle",
+  checkPlanLimit("launchPreOrder"),
+  preOrderController.toggleLaunchConfig
+);
 
 // DELETE /api/pre-orders/launch-config/:productId - Delete launch config
 router.delete("/launch-config/:productId", preOrderController.deleteLaunchConfig);

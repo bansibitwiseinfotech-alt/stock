@@ -10,6 +10,10 @@ const highDemandReorderController = require(
   "../controllers/highDemandReorder.controller"
 );
 
+const {
+  checkPlanLimit,
+} = require("../middleware/checkPlanLimit");
+
 // ==================================================
 // HIGH DEMAND ANALYSIS
 // ==================================================
@@ -93,6 +97,7 @@ router.post(
 
 router.post(
   "/toggle-badge",
+  checkPlanLimit("lowStockBadge"),
   highDemandController.toggleUrgencyBadge
 );
 

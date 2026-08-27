@@ -14,6 +14,9 @@ const {
   fetchLast30DaysSalesMap,
 } = require("../services/shopifyHighDemand.service");
 const shopifyGraphQL = require("../services/shopifyGraphql");
+const {
+  incrementFeatureUsage,
+} = require("../middleware/checkPlanLimit");
 
 async function ensureConnected() {
   if (mongoose.connection.readyState !== 1) {
@@ -465,6 +468,12 @@ async function toggleUrgencyBadge(req, res) {
       ],
     };
 
+    const existingConfig = await HighDemandStorefront.findOne(filterQuery).lean();
+    const wasAlreadyEnabled = Boolean(
+      existingConfig?.urgencyBadgeEnabled ||
+      existingConfig?.lowStockBadge?.enabled
+    );
+
     const storefrontConfig = await HighDemandStorefront.findOneAndUpdate(
       filterQuery,
       {
@@ -485,6 +494,14 @@ async function toggleUrgencyBadge(req, res) {
       { $set: { urgencyBadgeEnabled: isEnabled, "lowStockBadge.enabled": isEnabled } }
     ).catch(() => {});
 
+    // Only increment usage on transitioning to active (prevent duplicate counts)
+    if (isEnabled && !wasAlreadyEnabled && req.subscription) {
+      await incrementFeatureUsage(
+        req.subscription,
+        "lowStockBadge"
+      );
+    }
+
     return res.status(200).json({
       success: true,
       message: isEnabled
@@ -497,6 +514,12 @@ async function toggleUrgencyBadge(req, res) {
         lowStockBadge: storefrontConfig.lowStockBadge,
         config: storefrontConfig,
       },
+      billing: req.subscription
+        ? {
+            plan: req.subscription.plan,
+            feature: "lowStockBadge",
+          }
+        : null,
     });
   } catch (error) {
     console.error("Toggle Urgency Badge Error:", error);

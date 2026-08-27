@@ -1,6 +1,9 @@
 const express = require("express");
 const { authenticateShop } = require("../middleware/auth");
 const {
+  requirePremiumFeature,
+} = require("../middleware/checkPlanLimit");
+const {
   scanProducts,
   getRecommendations,
   getSummary,
@@ -14,6 +17,7 @@ const {
 const router = express.Router();
 
 router.use(authenticateShop);
+router.use(requirePremiumFeature("smartBadges"));
 
 // Core endpoints
 router.post("/scan", scanProducts);

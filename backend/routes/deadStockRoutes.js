@@ -2,6 +2,10 @@ const express = require("express");
 const router = express.Router();
 const deadStockController = require("../controllers/deadStockController");
 const { authenticateShop } = require("../middleware/auth");
+const {
+    checkPlanLimit,
+} = require("../middleware/checkPlanLimit");
+
 
 // Public webhook — no auth required (Shopify signs the payload)
 router.post("/webhook/product-delete", deadStockController.deleteProductByWebhook);
@@ -28,16 +32,23 @@ router.post("/collection-sale-records", deadStockController.saveCollectionSaleRe
 router.get("/store-products", deadStockController.getStoreProducts);
 
 // Action endpoints
-router.get("/markdown/rules", deadStockController.listProgressiveMarkdownRules);                 
-router.post("/:variantId/clearance", deadStockController.createClearanceSale);
-router.delete("/:variantId/clearance", deadStockController.deleteClearanceSale);
+router.get("/markdown/rules", deadStockController.listProgressiveMarkdownRules);
+router.post(
+    "/:variantId/clearance",
+    checkPlanLimit("clearanceSale"),
+    deadStockController.createClearanceSale
+); router.delete("/:variantId/clearance", deadStockController.deleteClearanceSale);
 router.post("/:variantId/collection", deadStockController.addToClearanceCollection);
 router.get("/:variantId/markdown", deadStockController.getProgressiveMarkdown);
 router.post("/:variantId/markdown", deadStockController.createProgressiveMarkdown);
 router.delete("/:variantId/markdown", deadStockController.stopProgressiveMarkdown);
 router.post("/:variantId/markdown/stop", deadStockController.stopProgressiveMarkdown);
 router.post("/:variantId/markdown/pause", deadStockController.pauseProgressiveMarkdown);
-router.post("/:variantId/bundle", deadStockController.createBundle);
+router.post(
+    "/:variantId/bundle",
+    checkPlanLimit("deadStockBundle"),
+    deadStockController.createBundle
+);
 router.delete("/:variantId/bundle", deadStockController.deleteBundle);
 router.get("/:variantId/companion-products", deadStockController.getCompanionProducts);
 router.get("/:variantId/actions", deadStockController.getProductActions);

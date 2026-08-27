@@ -52,7 +52,7 @@ const {
 } = require(
   "./services/clearanceExpirationService"
 );
-
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 // ==================================================
 // APP
 // ==================================================
@@ -338,7 +338,7 @@ app.use(
   "/api/orders",
   require("./routes/orders")
 );
-
+app.use("/api/subscription", subscriptionRoutes);
 // ==================================================
 // STOREFRONT ROUTES
 // ==================================================

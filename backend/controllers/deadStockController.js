@@ -10,6 +10,11 @@ const clearanceService = require("../services/clearanceService");
 const progressiveMarkdownService = require("../services/progressiveMarkdownService");
 const bundleService = require("../services/bundleService");
 const bulkSaleService = require("../services/bulkSaleService");
+const PLAN_LIMITS = require("../config/planLimits");
+const {
+  incrementFeatureUsage,
+  getOrCreateSubscription,
+} = require("../middleware/checkPlanLimit");
 
 // ──────────────────────────// Shopify GraphQL query — cursor-based paginated product listing.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,12 +123,22 @@ async function getStoreProducts(req, res) {
       });
     }
 
-    const first = Math.min(Math.max(Number(req.query.limit) || 50, 1), 250);
+    const subscription = await getOrCreateSubscription(shop);
+    const planLimits = PLAN_LIMITS[subscription?.plan] || PLAN_LIMITS.free;
+    const planProductLimit = planLimits?.products ?? 10;
+
+    const requestedLimit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 250);
+    const finalLimit =
+      planProductLimit === Infinity
+        ? requestedLimit
+        : Math.min(requestedLimit, planProductLimit);
+
+    const first = Math.min(finalLimit, 250);
     const after = req.query.cursor || null;
     const rawSearch = String(req.query.search || "").trim().replace(/['"\\]/g, "");
     const shopifyQuery = rawSearch ? `title:*${rawSearch}*` : "status:active";
 
-    console.log(`[StoreProducts] shop=${shop} first=${first} after=${after || "null"} search=${rawSearch || "none"} query=${shopifyQuery}`);
+    console.log(`[StoreProducts] shop=${shop} plan=${subscription?.plan} limit=${finalLimit} first=${first} after=${after || "null"} search=${rawSearch || "none"} query=${shopifyQuery}`);
 
     const data = await shopifyGraphQL(shop, accessToken, GET_STORE_PRODUCTS_QUERY, {
       first,
@@ -263,17 +278,23 @@ async function getStoreProducts(req, res) {
       }
     }
 
+    const limitedProducts = planProductLimit === Infinity ? products : products.slice(0, finalLimit);
+
     return res.json({
       success: true,
-      data: products,
+      data: limitedProducts,
       pagination: {
-        limit: first,
+        limit: finalLimit,
         hasNextPage: connection.pageInfo.hasNextPage,
         hasPreviousPage: connection.pageInfo.hasPreviousPage,
         nextCursor: connection.pageInfo.endCursor || null,
         previousCursor: connection.pageInfo.startCursor || null,
         totalItems: null,
         totalPages: null,
+      },
+      billing: {
+        plan: subscription?.plan || "free",
+        productLimit: planProductLimit === Infinity ? "unlimited" : planProductLimit,
       },
     });
   } catch (error) {
@@ -570,14 +591,14 @@ async function getDeadStockByVariantId(req, res) {
 
     const idCondition = {
       $or: [
-        { variantId: decodedId }, 
+        { variantId: decodedId },
         { variantId: `gid://shopify/ProductVariant/${cleanId}` },
         { variantId: cleanId },
         { productId: decodedId },
         { productId: `gid://shopify/Product/${cleanId}` },
         { productId: cleanId },
       ],
-    };                                                                                  
+    };
 
     const item = await DeadStock.findOne({
       $and: [shopCondition, idCondition],
@@ -807,21 +828,48 @@ async function createClearanceSale(req, res) {
       computedEndDate = new Date(start.getTime() + days * 86400000).toISOString();
     }
 
-    const result = await clearanceService.createClearanceSale(shopId, accessToken, {
+   const result =
+  await clearanceService.createClearanceSale(
+    shopId,
+    accessToken,
+    {
       productId: targetId,
       variantId: variantId || "",
       discountPercent: Number(discountPercent),
       startDate,
       endDate: computedEndDate,
       title,
-    });
+    }
+  );
 
-    return res.status(result.success ? 200 : 400).json(result);
-  } catch (error) {
-    console.error("POST /api/dead-stock/:variantId/clearance Error:", error);
-    return res.status(500).json({ success: false, message: error.message || "Failed to create clearance sale." });
-  }
+// =====================================================
+// INCREMENT BILLING USAGE ONLY AFTER SUCCESS
+// =====================================================
+
+if (result.success && req.subscription) {
+  await incrementFeatureUsage(
+    req.subscription,
+    "clearanceSale"
+  );
 }
+
+const statusCode = result.success ? 200 : 400;
+
+return res.status(statusCode).json({
+  ...result,
+
+  billing: req.subscription
+    ? {
+        plan: req.subscription.plan,
+        feature: "clearanceSale",
+      }
+    : null,
+});
+} catch (error) {
+  console.error("POST /api/dead-stock/:variantId/clearance Error:", error);
+  return res.status(500).json({ success: false, message: error.message || "Failed to create clearance sale." });
+}
+} 
 
 // DELETE /api/dead-stock/:variantId/clearance
 async function deleteClearanceSale(req, res) {
@@ -1068,7 +1116,23 @@ async function createBundle(req, res) {
       freeProductTitle,
       freeProductImage,
     });
-    return res.status(result.success ? 200 : 400).json(result);
+
+    if (result.success && req.subscription) {
+      await incrementFeatureUsage(
+        req.subscription,
+        "deadStockBundle"
+      );
+    }
+
+    return res.status(result.success ? 200 : 400).json({
+      ...result,
+      billing: req.subscription
+        ? {
+            plan: req.subscription.plan,
+            feature: "deadStockBundle",
+          }
+        : null,
+    });
   } catch (error) {
     console.error("POST /api/dead-stock/:variantId/bundle Error:", error);
     return res.status(500).json({ success: false, message: error.message || "Failed to create bundle." });

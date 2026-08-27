@@ -21,6 +21,9 @@ const {
   sendTestEmail,
   runDigestNow,
 } = require("../controllers/emailController");
+const {
+  requirePremiumFeature,
+} = require("../middleware/checkPlanLimit");
 
 const router = express.Router();
 
@@ -28,15 +31,15 @@ const router = express.Router();
 router.get("/settings", getEmailSettings);
 
 // PUT /api/email/settings
-router.put("/settings", saveEmailSettings);
+router.put("/settings", requirePremiumFeature("emailSchedule"), saveEmailSettings);
 
 // PATCH /api/email/settings/toggle — lightweight toggle only
-router.patch("/settings/toggle", toggleWeeklyDigest);
+router.patch("/settings/toggle", requirePremiumFeature("emailSchedule"), toggleWeeklyDigest);
 
 // POST /api/email/test
-router.post("/test", sendTestEmail);
+router.post("/test", requirePremiumFeature("emailSchedule"), sendTestEmail);
 
 // GET /api/email/run-now?shop=...&force=true — manual trigger
-router.get("/run-now", runDigestNow);
+router.get("/run-now", requirePremiumFeature("emailSchedule"), runDigestNow);
 
 module.exports = router;
