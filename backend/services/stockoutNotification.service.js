@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const StockoutNotification = require("../models/StockoutNotification");
-const emailService = require("./email.service");
+const emailService = require("./smtpService");
 const connectDB = require("../config/mongodb");
 
 async function ensureConnected() {

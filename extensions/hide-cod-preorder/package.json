@@ -4,10 +4,10 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "shopify": "npm exec -- shopify",
-    "typegen": "npm exec -- shopify app function typegen",
-    "build": "npm exec -- shopify app function build",
-    "preview": "npm exec -- shopify app function run",
+    "shopify": "pnpm exec shopify",
+    "typegen": "pnpm exec shopify app function typegen",
+    "build": "pnpm exec shopify app function build",
+    "preview": "pnpm exec shopify app function run",
     "test": "vitest"
   },
   "codegen": {

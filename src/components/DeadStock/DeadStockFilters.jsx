@@ -5,7 +5,9 @@ import {
   TextField,
   Box,
   Button,
+  Icon,
 } from "@shopify/polaris";
+import { SearchIcon, DiscountIcon } from "@shopify/polaris-icons";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DeadStockFilters
@@ -45,75 +47,84 @@ export default function DeadStockFilters({
 
   const handleSearchClear = () => {
     setSearchTerm("");
-    onApply();
+    if (onApply) {
+      setTimeout(() => onApply(), 0);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onApply();
+    }
   };
 
   return (
-    <Box paddingBlockEnd="400">
-      <InlineStack
-        gap="300"
-        blockAlign="end"
-        wrap
-      >
-        {!showStoreProducts && (
-          <Select
-            label="Unsold Days"
-            options={[
-              {
-                label: "All Days",
-                value: "all",
-              },
-              {
-                label: "30+ Days",
-                value: "30",
-              },
-              {
-                label: "60+ Days",
-                value: "60",
-              },
-              {
-                label: "90+ Days",
-                value: "90",
-              },
-            ]}
-            value={days}
-            onChange={handleDaysChange}
-          />
-        )}
+    <Box paddingBlockEnd="200">
+      <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
+        <div style={{ flex: 1, minWidth: "280px" }}>
+          <InlineStack gap="300" blockAlign="center">
+            <div style={{ flex: 1, maxWidth: "9855px" }}>
+              <TextField
+                label="Search products"
+                labelHidden
+                placeholder="Search by title or SKU..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                onKeyDown={handleKeyDown} 
+                autoComplete="off"
+                clearButton
+                onClearButtonClick={handleSearchClear}
+                prefix={<Icon source={SearchIcon} tone="subdued" />}
+                connectedRight={
+                  <Button onClick={onApply} variant="primary">
+                    Search
+                  </Button>
+                }
+              />
+            </div>
 
-        {/* Search */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: "300px",
-          }}
-        >
-          <TextField
-            label="Search"
-            placeholder="Search by title or SKU..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            autoComplete="off"
-            clearButton
-            onClearButtonClick={handleSearchClear}
-            connectedRight={
-              <Button
-                onClick={onApply}
-                variant="primary"
-              >
-                Search
-              </Button>
-            }
-          />
+            {!showStoreProducts && (
+              <div style={{ minWidth: "150px" }}>
+                <Select
+                  label="Unsold Days"
+                  labelHidden
+                  options={[
+                    {
+                      label: "All Unsold Days",
+                      value: "all",
+                    },
+                    {
+                      label: "30+ Days",
+                      value: "30",
+                    },
+                    {
+                      label: "60+ Days",
+                      value: "60",
+                    },
+                    {
+                      label: "90+ Days",
+                      value: "90",
+                    },
+                  ]}
+                  value={days}
+                  onChange={handleDaysChange}
+                />
+              </div>
+            )}
+          </InlineStack>
         </div>
 
         {/* Collection Bulk Sale */}
-        <Button
-          variant="primary"
-          onClick={onCollectionBulkSale}
-        >
-          Collection Bulk Sale
-        </Button>
+        <InlineStack gap="200" blockAlign="center">
+          <Button
+            variant="primary"
+            icon={DiscountIcon}
+            onClick={onCollectionBulkSale}
+          >
+            Collection Bulk Sale
+          </Button>
+        </InlineStack>
       </InlineStack>
     </Box>
   );

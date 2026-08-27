@@ -315,9 +315,9 @@ export default function HighDemand({
         </IndexTable.Cell>
 
         {/* DAYS LEFT */}
-        <IndexTable.Cell>
+    <IndexTable.Cell>
           <Text variant="bodyMd" as="span">
-            {typeof daysLeft === "number" ? `${daysLeft} days` : "N/A"}
+           {typeof daysLeft === "number" ? `${daysLeft} days` : "N/A"}
           </Text>
         </IndexTable.Cell>
 

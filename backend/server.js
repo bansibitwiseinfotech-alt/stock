@@ -33,24 +33,20 @@ const connectDB = require("./config/mongodb");
 // ==================================================
 // ROUTES
 // ==================================================
-
 const storefrontSaleRoutes = require(
   "./routes/storefrontSaleRoutes"
 );
 
 // ==================================================
-// SERVICES / WORKERS
+// SERVICES / WORKERS & ROUTES
 // ==================================================
-
+const emailRoutes = require("./routes/emailRoutes");
 const {
   processActiveMarkdownRules,
 } = require(
   "./services/progressiveMarkdownService"
 );
-
-const smartBadgeRoutes =
-  require("./routes/smartBadgeRoutes");
-
+const smartBadgeRoutes = require("./routes/smartBadgeRoutes");
 const {
   processClearanceSales,
 } = require(
@@ -117,6 +113,38 @@ connectDB()
       console.log("HighDemandStorefront indexes synced ✅");
     } catch (error) {
       console.error("Failed to sync HighDemandStorefront indexes:", error.message);
+    }
+
+    // ----------------------------------------------
+    // EMAIL SETTINGS & EMAIL LOG INDEXES
+    // ----------------------------------------------
+
+    try {
+      const EmailSettings = require("./models/EmailSettings");
+      await EmailSettings.syncIndexes();
+      console.log("EmailSettings indexes synced ✅");
+    } catch (error) {
+      console.error("Failed to sync EmailSettings indexes:", error.message);
+    }
+
+    try {
+      const EmailLog = require("./models/EmailLog");
+      await EmailLog.syncIndexes();
+      console.log("EmailLog indexes synced ✅");
+    } catch (error) {
+      console.error("Failed to sync EmailLog indexes:", error.message);
+    }
+
+    // ----------------------------------------------
+    // WEEKLY EMAIL SCHEDULER
+    // ----------------------------------------------
+
+    try {
+      const { startWeeklyEmailScheduler } = require("./jobs/weeklyEmailScheduler");
+      startWeeklyEmailScheduler();
+      console.log("Weekly email scheduler started ✅");
+    } catch (cronErr) {
+      console.error("Failed to start weekly email scheduler:", cronErr.message);
     }
 
     // ----------------------------------------------
@@ -243,7 +271,7 @@ const limiter = rateLimit({
       ip.includes("127.0.0.1") ||
       ip.includes("::1") ||
       process.env.NODE_ENV !==
-        "production"
+      "production"
     );
   },
 
@@ -324,7 +352,6 @@ app.use(
   "/api/storefront",
   require("./routes/storefrontRoutes")
 );
-
 // ==================================================
 // DASHBOARD
 // ==================================================
@@ -411,6 +438,11 @@ app.use(
   "/api/smart-badges",
   smartBadgeRoutes
 );
+// ==================================================
+// EMAIL (single registration)
+// ==================================================
+
+app.use("/api/email", emailRoutes);
 
 app.use(
   "/api/badge-settings",
@@ -456,10 +488,10 @@ app.use(
 // ==================================================
 // BACKGROUND JOB
 // ==================================================
-
 const {
   startMarkdownJob,
 } = require("./jobs/markdown.job");
+
 
 // ==================================================
 // PORT
@@ -471,6 +503,8 @@ const PORT =
 // ==================================================
 // START SERVER
 // ==================================================
+
+// Weekly merchant email cron is started inside connectDB().then() after MongoDB is ready.
 
 app.listen(
   PORT,
@@ -500,25 +534,17 @@ app.listen(
       );
     }
 
-    // Monday Morning Smart Badge Digest Scheduler
-    try {
-      const { startMondayBadgeDigestScheduler } = require("./jobs/mondayBadgeDigest.job");
-      startMondayBadgeDigestScheduler();
-    } catch (digestJobErr) {
-      console.error("Failed to start Monday Badge Digest scheduler:", digestJobErr.message);
-    }
-
     // Auto-sync real Shopify Pre-Orders & send confirmation emails on Pay Now
     try {
       const Store = require("./models/Store");
       const { syncShopifyPreOrders } = require("./controllers/preOrder.controller");
-      
+
       setInterval(async () => {
         try {
           const stores = await Store.find({ accessToken: { $exists: true, $ne: "" } }).lean();
           for (const s of stores) {
             if (s.shop) {
-              await syncShopifyPreOrders(s.shop).catch(() => {});
+              await syncShopifyPreOrders(s.shop).catch(() => { });
             }
           }
         } catch (syncErr) {

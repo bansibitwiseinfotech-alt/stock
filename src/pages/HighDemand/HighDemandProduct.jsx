@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   Page,
   Layout,
@@ -26,6 +27,8 @@ import {
   saveLaunchPreOrderApi,
   deleteLaunchPreOrderApi,
 } from "../../services/appApi";
+import LowStockCustomizeModal from "../../components/LowStockCustomizeModal";
+import PreOrderCustomizeModal from "../../components/PreOrderCustomizeModal";
 
 function ColorPickerField({ label, value, onChange }) {
   return (
@@ -106,6 +109,7 @@ export default function HighDemandProduct({
         : null)
   );
 
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(!initialProduct);
   const [actionLoading, setActionLoading] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -123,6 +127,8 @@ export default function HighDemandProduct({
 
   // New Product Launch Pre-Order State
   const [launchModalOpen, setLaunchModalOpen] = useState(false);
+  const [lowStockCustomizeOpen, setLowStockCustomizeOpen] = useState(false);
+  const [preOrderCustomizeOpen, setPreOrderCustomizeOpen] = useState(false);
   const [launchConfig, setLaunchConfig] = useState(null);
   const [savingLaunch, setSavingLaunch] = useState(false);
   const [deletingLaunch, setDeletingLaunch] = useState(false);
@@ -595,14 +601,20 @@ export default function HighDemandProduct({
     Number(
       item.salesVelocity || 0
     );
+const rawDaysLeft =
+  item.daysUntilStockout !== null &&
+  item.daysUntilStockout !== undefined &&
+  item.daysUntilStockout !== ""
+    ? item.daysUntilStockout
+    : item.daysLeftToStockout;
 
-  const daysLeft =
-    item.daysUntilStockout !==
-      null &&
-    item.daysUntilStockout !==
-      undefined
-      ? item.daysUntilStockout
-      : item.daysLeftToStockout;
+const daysLeft =
+  rawDaysLeft !== null &&
+  rawDaysLeft !== undefined &&
+  rawDaysLeft !== "" &&
+  Number.isFinite(Number(rawDaysLeft))
+    ? Number(rawDaysLeft)
+    : null;
 
   const risk =
     (
@@ -615,66 +627,118 @@ export default function HighDemandProduct({
       item.reorderQuantity || 0
     );
 
-  const getRiskLabel = (r) => {
-    switch (r) {
-      case "CRITICAL":
-        return "🔴 CRITICAL";
-      case "HIGH":
-        return "🟠 HIGH";
-      case "MEDIUM":
-        return "🟡 MEDIUM";
-      default:
-        return "🟢 SAFE";
-    }
-  };
+  // ==================================================
+  // INTELLIGENT DEMAND & STOCKOUT ANALYSIS
+  // ==================================================
+const getDynamicAnalysis = (
+  currentStockVal,
+  daysVal,
+  velVal
+) => {
+  const safeStock = Number(currentStockVal ?? 0);
+  const safeVelocity = Number(velVal ?? 0);
 
-  const getStatusLabel = (r) => {
-    switch (r) {
-      case "CRITICAL":
-        return "🚨 Stockout Risk";
-      case "HIGH":
-        return "📦 Restock Needed";
-      case "MEDIUM":
-        return "👀 Demand Watch";
-      default:
-        return "✅ Stock Stable";
-    }
-  };
+  const safeDays =
+    daysVal !== null &&
+    daysVal !== undefined &&
+    Number.isFinite(Number(daysVal))
+      ? Number(daysVal)
+      : null;
 
-  const getRecommendedAction = (r) => {
-    switch (r) {
-      case "CRITICAL":
-        return "🚨 Immediate Reorder";
-      case "HIGH":
-        return "📦 Reorder Stock";
-      case "MEDIUM":
-        return "👀 Monitor";
-      default:
-        return "✓ No Immediate Action Required";
-    }
-  };
+  // OUT OF STOCK
+  if (safeStock <= 0) {
+    return {
+      riskLevel: "CRITICAL",
+      riskTone: "critical",
+      riskLabel: "🔴 CRITICAL",
+      statusBadge: "🚨 Out of Stock",
+      actionLabel: "🚨 Immediate Reorder",
+      prediction: `Inventory is exhausted (${safeStock} units). Create a purchase order immediately to prevent lost sales.`,
+      needsReorder: true,
+    };
+  }
 
-  const getStockoutPrediction = (r, days, vel) => {
-    const formattedDays =
-      typeof days === "number"
-        ? `${Number(days).toFixed(1)} days`
-        : "N/A";
+  // NO SALES DATA
+  if (safeVelocity <= 0 || safeDays === null) {
+    return {
+      riskLevel: "SAFE",
+      riskTone: "success",
+      riskLabel: "🟢 SAFE",
+      statusBadge: "✅ Stock Stable",
+      actionLabel: "✓ Stock Stable",
+      prediction: `Current inventory is ${safeStock} units. There is currently insufficient sales velocity data to predict a stockout date.`,
+      needsReorder: false,
+    };
+  }
 
-    switch (r) {
-      case "CRITICAL":
-        return `🚨 Stockout Prediction: Immediate stockout risk! At current velocity of ${vel.toFixed(
-          2
-        )}/day, inventory is predicted to run out in ${formattedDays}.`;
-      case "HIGH":
-        return `📦 Stockout Prediction: Restock needed. Inventory coverage is estimated at ${formattedDays}. Reordering stock is recommended.`;
-      case "MEDIUM":
-        return `👀 Demand Watch: Elevated demand detected at ${vel.toFixed(
-          2
-        )}/day (${formattedDays} coverage). Monitor inventory trends closely.`;
-      default:
-        return `✅ Stock Stable: Inventory coverage is healthy (${formattedDays}). No immediate restocking needed.`;
-    }
+  // CRITICAL: 0–7 DAYS
+  if (safeDays <= 7) {
+    return {
+      riskLevel: "CRITICAL",
+      riskTone: "critical",
+      riskLabel: "🔴 CRITICAL",
+      statusBadge: "🚨 Stockout Risk Detected",
+      actionLabel: "🚨 Immediate Reorder",
+      prediction: `High stockout risk! At the current sales velocity of ${safeVelocity.toFixed(
+        2
+      )} units/day, inventory is predicted to run out in ${safeDays.toFixed(
+        1
+      )} days.`,
+      needsReorder: true,
+    };
+  }
+
+  // HIGH: 8–14 DAYS
+  if (safeDays <= 14) {
+    return {
+      riskLevel: "HIGH",
+      riskTone: "warning",
+      riskLabel: "🟠 HIGH",
+      statusBadge: "📦 Restock Required",
+      actionLabel: "📦 Reorder Stock",
+      prediction: `Restock is recommended. Current inventory provides approximately ${safeDays.toFixed(
+        1
+      )} days of coverage at ${safeVelocity.toFixed(2)} units/day.`,
+      needsReorder: true,
+    };
+  }
+
+  // MEDIUM: 15–30 DAYS
+  if (safeDays <= 30) {
+    return {
+      riskLevel: "MEDIUM",
+      riskTone: "attention",
+      riskLabel: "🟡 MEDIUM",
+      statusBadge: "👀 Demand Watch",
+      actionLabel: "👀 Monitor Demand",
+      prediction: `Demand is stable. Current inventory provides approximately ${safeDays.toFixed(
+        1
+      )} days of stock coverage.`,
+      needsReorder: false,
+    };
+  }
+
+  // SAFE: MORE THAN 30 DAYS
+  return {
+    riskLevel: "SAFE",
+    riskTone: "success",
+    riskLabel: "🟢 SAFE",
+    statusBadge: "✅ Healthy Stock Level",
+    actionLabel: "✓ Stock Stable",
+    prediction: `Stock coverage is healthy with approximately ${safeDays.toFixed(
+      1
+    )} days remaining at current sales velocity (${safeVelocity.toFixed(
+      2
+    )} units/day).`,
+    needsReorder: false,
   };
+};          
+
+const dynamicAnalysis = getDynamicAnalysis(
+  stock,
+  daysLeft,
+  velocity
+);
 
   const sold30 = Number(
     item.last30DaysSales ?? item.sold30Days ?? 0
@@ -693,9 +757,17 @@ export default function HighDemandProduct({
           onAction: onBack,
         }}
         title={title}
-        subtitle={`SKU: ${
-          item.sku || "N/A"
-        }`}
+        subtitle={`SKU: ${item.sku || "N/A"}`}
+        titleMetadata={
+          <InlineStack gap="200" blockAlign="center">
+            <Badge tone={dynamicAnalysis.riskTone}>
+              {dynamicAnalysis.riskLabel}
+            </Badge>
+            <Badge tone={dynamicAnalysis.riskTone}>
+              {dynamicAnalysis.statusBadge}
+            </Badge>
+          </InlineStack>
+        }
       >
         <Layout>
           {/* NOTICE */}
@@ -720,151 +792,69 @@ export default function HighDemandProduct({
             </Layout.Section>
           )}
 
-          {/* PRODUCT */}
+          {/* MAIN PRODUCT DASHBOARD */}
           <Layout.Section>
-            <Card>
-              <BlockStack gap="500">
-
-                {/* HEADER */}
-                <InlineStack
-                  gap="400"
-                  blockAlign="center"
-                >
-                  {item.image && (
-                    <Thumbnail
-                      source={item.image}
-                      alt={title}
-                      size="large"
-                    />
-                  )}
-
+            <BlockStack gap="400">
+              {/* METRICS ROW */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                {/* 1. CURRENT STOCK */}
+                <Card padding="400">
                   <BlockStack gap="100">
-                    <Text
-                      variant="headingLg"
-                      as="h2"
-                    >
-                      {title}
-                    </Text>
-
-                    <Text
-                      variant="bodyMd"
-                      tone="subdued"
-                    >
-                      SKU: {item.sku || "N/A"}
-                    </Text>
-
-                    <InlineStack gap="200">
-                      <Badge
-                        tone={
-                          risk === "CRITICAL"
-                            ? "critical"
-                            : risk === "HIGH"
-                            ? "warning"
-                            : risk === "MEDIUM"
-                            ? "attention"
-                            : "success"
-                        }
-                      >
-                        {getRiskLabel(risk)}
-                      </Badge>
-                      <Badge
-                        tone={
-                          risk === "CRITICAL"
-                            ? "critical"
-                            : risk === "HIGH"
-                            ? "warning"
-                            : risk === "MEDIUM"
-                            ? "attention"
-                            : "success"
-                        }
-                      >
-                        {getStatusLabel(risk)}
-                      </Badge>
-                    </InlineStack>
-                  </BlockStack>
-                </InlineStack>
-
-                <Divider />
-
-                {/* METRICS */}
-                <InlineStack
-                  gap="400"
-                  wrap={false}
-                >
-                  <Box
-                    width="25%"
-                    padding="300"
-                    background="bg-surface-secondary"
-                    borderRadius="200"
-                  >
-                    <Text
-                      variant="bodySm"
-                      tone="subdued"
-                    >
+                    <Text variant="bodySm" tone="subdued">
                       CURRENT STOCK
                     </Text>
-
                     <Text
-                      variant="headingLg"
-                      as="h3"
+                      variant="headingXl"
+                      as="p"
+                      fontWeight="bold"
+                      tone={stock <= 0 ? "critical" : undefined}
                     >
                       {stock} units
                     </Text>
-                  </Box>
+                  </BlockStack>
+                </Card>
 
-                  <Box
-                    width="25%"
-                    padding="300"
-                    background="bg-surface-secondary"
-                    borderRadius="200"
-                  >
-                    <Text
-                      variant="bodySm"
-                      tone="subdued"
-                    >
+                {/* 2. SALES VELOCITY */}
+                <Card padding="400">
+                  <BlockStack gap="100">
+                    <Text variant="bodySm" tone="subdued">
                       SALES VELOCITY
                     </Text>
-
-                    <Text
-                      variant="headingLg"
-                      as="h3"
-                    >
+                    <Text variant="headingXl" as="p" fontWeight="bold">
                       {velocity.toFixed(2)} / day
                     </Text>
-                  </Box>
+                  </BlockStack>
+                </Card>
 
-                  <Box
-                    width="25%"
-                    padding="300"
-                    background={
-                      risk === "CRITICAL"
-                        ? "bg-surface-critical-subdued"
-                        : risk === "HIGH"
-                        ? "bg-surface-warning-subdued"
-                        : "bg-surface-secondary"
-                    }
-                    borderRadius="200"
-                  >
+                {/* 3. DAYS UNTIL STOCKOUT */}
+                <Card padding="400">
+                  <BlockStack gap="100">
                     <Text
                       variant="bodySm"
                       tone={
-                        risk === "CRITICAL"
+                        dynamicAnalysis.riskLevel === "CRITICAL"
                           ? "critical"
-                          : risk === "HIGH"
+                          : dynamicAnalysis.riskLevel === "HIGH"
                           ? "warning"
                           : "subdued"
                       }
                     >
                       DAYS UNTIL STOCKOUT
                     </Text>
-
                     <Text
-                      variant="headingLg"
-                      as="h3"
+                      variant="headingXl"
+                      as="p"
+                      fontWeight="bold"
                       tone={
-                        risk === "CRITICAL"
+                        dynamicAnalysis.riskLevel === "CRITICAL"
                           ? "critical"
-                          : risk === "HIGH"
+                          : dynamicAnalysis.riskLevel === "HIGH"
                           ? "warning"
                           : undefined
                       }
@@ -873,84 +863,42 @@ export default function HighDemandProduct({
                         ? `${daysLeft.toFixed(1)} days`
                         : "N/A"}
                     </Text>
-                  </Box>
+                  </BlockStack>
+                </Card>
 
-                  <Box
-                    width="25%"
-                    padding="300"
-                    background="bg-surface-secondary"
-                    borderRadius="200"
-                  >
-                    <Text
-                      variant="bodySm"
-                      tone="subdued"
-                    >
+                {/* 4. SOLD LAST 30 DAYS */}
+                <Card padding="400">
+                  <BlockStack gap="100">
+                    <Text variant="bodySm" tone="subdued">
                       SOLD LAST 30 DAYS
                     </Text>
-
-                    <Text
-                      variant="headingLg"
-                      as="h3"
-                    >
+                    <Text variant="headingXl" as="p" fontWeight="bold">
                       {sold30} units
                     </Text>
-                  </Box>
-                </InlineStack>
+                  </BlockStack>
+                </Card>
+              </div>
 
-                {/* WHY THIS PRODUCT IS AT RISK / STOCKOUT SHIELD */}
-                <Card>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between">
-                      <Text
-                        variant="headingMd"
-                        as="h3"
-                      >
-                        🛡️ Stockout Shield Analysis
-                      </Text>
-                      <Badge
-                        tone={
-                          risk === "CRITICAL"
-                            ? "critical"
-                            : risk === "HIGH"
-                            ? "warning"
-                            : risk === "MEDIUM"
-                            ? "attention"
-                            : "success"
-                        }
-                      >
-                        {risk === "CRITICAL"
-                          ? "⚠️ Stockout Risk Detected"
-                          : risk === "HIGH"
-                          ? "📦 Restock Required"
-                          : risk === "MEDIUM"
-                          ? "👀 Demand Watch Alert"
-                          : "✅ Healthy Stock Level"}
-                      </Badge>
-                    </InlineStack>
-
-                    <Text
-                      variant="bodyMd"
-                    >
-                      {getStockoutPrediction(
-                        risk,
-                        daysLeft,
-                        velocity
-                      )}
+              {/* STOCKOUT SHIELD ANALYSIS */}
+              <Card padding="400">
+                <BlockStack gap="300">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="headingMd" as="h3" fontWeight="semibold">
+                      🛡️ Stockout & Demand Analysis
                     </Text>
+                    <Badge tone={dynamicAnalysis.riskTone}>
+                      {dynamicAnalysis.statusBadge}
+                    </Badge>
+                  </InlineStack>
 
-                    <InlineStack gap="300">
-                      <Badge
-                        tone={
-                          risk === "CRITICAL"
-                            ? "critical"
-                            : risk === "HIGH"
-                            ? "warning"
-                            : risk === "MEDIUM"
-                            ? "attention"
-                            : "success"
-                        }
-                      >
-                        Recommended Action: {getRecommendedAction(risk)}
+                  <Text variant="bodyMd" as="p">
+                    {dynamicAnalysis.prediction}
+                  </Text>
+
+                  <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
+                    <InlineStack gap="200" blockAlign="center">
+                      <Badge tone={dynamicAnalysis.riskTone}>
+                        Recommended Action: {dynamicAnalysis.actionLabel}
                       </Badge>
 
                       {recommendedQuantity > 0 && (
@@ -959,116 +907,132 @@ export default function HighDemandProduct({
                         </Badge>
                       )}
                     </InlineStack>
-                  </BlockStack>
-                </Card>
 
-                {/* STOREFRONT PROTECTION CONTROLS & ACTIONS */}
-                <Text
-                  variant="headingMd"
-                  as="h3"
-                >
+                    {dynamicAnalysis.needsReorder && (
+                      <Button variant="primary" onClick={openReorderModal}>
+                        Create Reorder Request
+                      </Button>
+                    )}
+                  </InlineStack>
+                </BlockStack>
+              </Card>
+
+              {/* PROTECTION CONTROLS & RECOMMENDED ACTIONS */}
+              <BlockStack gap="300">
+                <Text variant="headingMd" as="h3" fontWeight="semibold">
                   Protection Controls & Recommended Actions
                 </Text>
 
-                <InlineStack
-                  gap="400"
-                  wrap={false}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                    gap: "16px",
+                  }}
                 >
                   {/* LOW STOCK BADGE */}
-                  <Box width="50%">
-                    <Card>
-                      <BlockStack gap="300">
-                        <InlineStack align="space-between">
-                          <Text
-                            variant="headingSm"
-                            as="h4"
-                          >
-                            🔥 Low Stock Badge
-                          </Text>
-                          <Badge
-                            tone={
-                              (item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
-                                ? "success"
-                                : "subdued"
-                            }
-                          >
-                            {(item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
-                              ? "Status: ON"
-                              : "Status: OFF"}
-                          </Badge>
-                        </InlineStack>
-
-                        <Text
-                          variant="bodySm"
-                          tone="subdued"
-                        >
-                          Show urgency message on the customer storefront.
+                  <Card padding="400">
+                    <BlockStack gap="300">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text variant="headingSm" as="h4" fontWeight="semibold">
+                          🔥 Low Stock Badge
                         </Text>
+                        <Badge
+                          tone={
+                            (item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
+                              ? "success"
+                              : "subdued"
+                          }
+                        >
+                          {(item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
+                            ? "Status: ON"
+                            : "Status: OFF"}
+                        </Badge>
+                      </InlineStack>
 
+                      <Text variant="bodySm" tone="subdued">
+                        Display dynamic urgency stock count on customer storefront to protect margins & drive conversion.
+                      </Text>
+
+                      <InlineStack gap="200" align="start">
                         <Button
                           onClick={handleToggleBadge}
                           loading={badgeLoading}
                           variant={
                             (item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
-                              ? "primary"
-                              : "secondary"
+                              ? "secondary"
+                              : "primary"
                           }
                         >
                           {(item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
-                            ? "Remove Badge"
-                            : "Apply Badge"}
+                            ? "Disable Badge"
+                            : "Enable Badge"}
                         </Button>
-                      </BlockStack>
-                    </Card>
-                  </Box>
-
-                  {/* PREORDER */}
-                  <Box width="50%">
-                    <Card>
-                      <BlockStack gap="300">
-                        <InlineStack align="space-between">
-                          <Text
-                            variant="headingSm"
-                            as="h4"
-                          >
-                            🛒 Pre-Order
-                          </Text>
-                          <Badge
-                            tone={
-                              (launchConfig?.preOrderEnabled ?? false)
-                                ? "success"
-                                : "subdued"
-                            }
-                          >
-                            {(launchConfig?.preOrderEnabled ?? false)
-                              ? "Status: ON"
-                              : "Status: OFF"}
-                          </Badge>
-                        </InlineStack>
-
-                        <Text
-                          variant="bodySm"
-                          tone="subdued"
+                        <Button
+                          variant="plain"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate("/app/customization");
+                          }}
                         >
-                          Accept orders for a new product before its official launch.
-                        </Text>
+                          Customize
+                        </Button>
+                      </InlineStack>
+                    </BlockStack>
+                  </Card>
 
+                  {/* PRE-ORDER */}
+                  <Card padding="400">
+                    <BlockStack gap="300">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text variant="headingSm" as="h4" fontWeight="semibold">
+                          📦 Launch Pre-Order
+                        </Text>
+                        <Badge
+                          tone={
+                            (launchConfig?.preOrderEnabled ?? false)
+                              ? "success"
+                              : "subdued"
+                          }
+                        >
+                          {(launchConfig?.preOrderEnabled ?? false)
+                            ? "Status: ON"
+                            : "Status: OFF"}
+                        </Badge>
+                      </InlineStack>
+
+                      <Text variant="bodySm" tone="subdued">
+                        Accept customer pre-orders and deposit payments for this item before official inventory release.
+                      </Text>
+
+                      <InlineStack gap="200" align="start">
                         <Button
                           onClick={() => setLaunchModalOpen(true)}
                           variant={
                             (launchConfig?.preOrderEnabled ?? false)
-                              ? "primary"
-                              : "secondary"
+                              ? "secondary"
+                              : "primary"
                           }
                         >
-                          Apply Launch
+                          {(launchConfig?.preOrderEnabled ?? false)
+                            ? "Configure Pre-Order"
+                            : "Setup Pre-Order"}
                         </Button>
-                      </BlockStack>
-                    </Card>
-                  </Box>
-                </InlineStack>
+                        <Button
+                          variant="plain"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate("/app/customization");
+                          }}
+                        >
+                          Customize
+                        </Button>
+                      </InlineStack>
+                    </BlockStack>
+                  </Card>
+                </div>
               </BlockStack>
-            </Card>
+            </BlockStack>
           </Layout.Section>
         </Layout>
       </Page>
@@ -1421,6 +1385,28 @@ export default function HighDemandProduct({
           </BlockStack>
         </Modal.Section>
       </Modal>
+
+      {/* Low Stock Badge Customization Modal */}
+      <LowStockCustomizeModal
+        open={lowStockCustomizeOpen}
+        onClose={() => setLowStockCustomizeOpen(false)}
+        shop={shop}
+        onSaved={() => {
+          setNoticeTone("success");
+          setNotice("✓ Low Stock Badge customization saved!");
+        }}
+      />
+
+      {/* Pre-Order Customization Modal */}
+      <PreOrderCustomizeModal
+        open={preOrderCustomizeOpen}
+        onClose={() => setPreOrderCustomizeOpen(false)}
+        shop={shop}
+        onSaved={() => {
+          setNoticeTone("success");
+          setNotice("✓ Pre-Order styling customization saved!");
+        }}
+      />
     </>
   );
 }

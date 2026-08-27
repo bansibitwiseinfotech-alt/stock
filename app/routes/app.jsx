@@ -62,6 +62,9 @@ export default function App() {
           <s-link href="/app/smart-badges">
             Smart Badges
           </s-link>
+          <s-link href="/app/settings">
+            Email Schedule
+          </s-link>
         </s-app-nav>
 
         {/* ==================================================

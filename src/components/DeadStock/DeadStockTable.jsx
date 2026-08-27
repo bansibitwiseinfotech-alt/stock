@@ -92,7 +92,7 @@ export default function DeadStockTable({
           <Text variant="bodyMd" as="span">
             {item.stock ?? item.inventoryQuantity ?? 0} units
           </Text>
-        </IndexTable.Cell>
+        </IndexTable.Cell>    
 
         <IndexTable.Cell>
           <Text variant="bodyMd" as="span">
@@ -124,38 +124,21 @@ export default function DeadStockTable({
   return (
     <Card padding="0">
       <Box width="100%">
-        <IndexTable
-          resourceName={resourceName}
-          itemCount={products.length}
-          selectedItemsCount={
-            allSelected ? "All" : someSelected ? selectedProducts.length : 0
-          }
-          onSelectionChange={(_selectionType, isSelecting, selectionId) => {
-            if (_selectionType === "all") {
-              onSelectAll(isSelecting);
-            } else {
-              const product = products.find((item, idx) => {
-                const resId = item.shopifyVariantId || item.variantId || item.id || "";
-                const k = resId ? `${resId}_${item.locationId || "default"}` : `row_${idx}`;
-                return k === selectionId;
-              });
-              if (product) {
-                onSelectProduct(product);
-              }
-            }
-          }}
-          headings={[
-            { title: "Product / SKU" },
-            { title: "Stock Units" },
-            { title: "Days Unsold" },
-            { title: "Sales Velocity" },
-            { title: "Cash Tied Up" },
-            { title: "Action" },
-          ]}
-          selectable
-        >
-          {rowMarkup}
-        </IndexTable>
+   <IndexTable
+  resourceName={resourceName}
+  itemCount={products.length}    
+  selectable={false}
+  headings={[
+    { title: "Product / SKU" },
+    { title: "Stock Units" },
+    { title: "Days Unsold" },
+    { title: "Sales Velocity" },
+    { title: "Cash Tied Up" },
+    { title: "Action" },
+  ]}
+> 
+  {rowMarkup}
+</IndexTable>
       </Box>
     </Card>
   );

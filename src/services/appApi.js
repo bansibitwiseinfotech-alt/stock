@@ -448,11 +448,16 @@ export async function toggleStockoutMonitorApi(
   }
 
   const cleanId = encodeURIComponent(
-    String(variantId).replace("gid://shopify/ProductVariant/", "")
+    String(variantId).replace(
+      "gid://shopify/ProductVariant/",
+      ""
+    )
   );
 
   const res = await fetch(
-    `/api/high-demand/monitor/${cleanId}?shop=${encodeURIComponent(shop)}`,
+    `/api/high-demand/monitor/${cleanId}?shop=${encodeURIComponent(
+      shop
+    )}`,
     {
       method: "POST",
       headers: {
@@ -470,7 +475,8 @@ export async function toggleStockoutMonitorApi(
 
   if (!res.ok || !json.success) {
     throw new Error(
-      json.message || "Failed to update monitor setting."
+      json.message ||
+      "Failed to update monitor setting."
     );
   }
 
@@ -495,11 +501,16 @@ export async function updateStockoutShieldConfigApi(
   }
 
   const cleanId = encodeURIComponent(
-    String(variantId).replace("gid://shopify/ProductVariant/", "")
+    String(variantId).replace(
+      "gid://shopify/ProductVariant/",
+      ""
+    )
   );
 
   const res = await fetch(
-    `/api/high-demand/storefront/${cleanId}?shop=${encodeURIComponent(shop)}`,
+    `/api/high-demand/storefront/${cleanId}?shop=${encodeURIComponent(
+      shop
+    )}`,
     {
       method: "PATCH",
       headers: {
@@ -517,7 +528,8 @@ export async function updateStockoutShieldConfigApi(
 
   if (!res.ok || !json.success) {
     throw new Error(
-      json.message || "Failed to update storefront configuration."
+      json.message ||
+      "Failed to update storefront configuration."
     );
   }
 
@@ -995,16 +1007,22 @@ export async function fetchLowStockConfigApi(shop = "") {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to load low stock badge configuration.");
+    throw new Error(
+      "Failed to load low stock badge configuration."
+    );
   }
 
   const json = await res.json();
+
   return json.data;
 }
 
 // ==================================================
 
-export async function saveLowStockConfigApi(shop = "", payload = {}) {
+export async function saveLowStockConfigApi(
+  shop = "",
+  payload = {}
+) {
   const res = await fetch(
     `/api/customization/low-stock?shop=${encodeURIComponent(shop)}`,
     {
@@ -1020,7 +1038,9 @@ export async function saveLowStockConfigApi(shop = "", payload = {}) {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to save low stock badge configuration.");
+    throw new Error(
+      "Failed to save low stock badge configuration."
+    );
   }
 
   return await res.json();
@@ -1043,7 +1063,9 @@ export async function resetLowStockConfigApi(shop = "") {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to reset low stock badge configuration.");
+    throw new Error(
+      "Failed to reset low stock badge configuration."
+    );
   }
 
   return await res.json();
@@ -1059,16 +1081,22 @@ export async function fetchPreOrderConfigApi(shop = "") {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to load pre-order styling configuration.");
+    throw new Error(
+      "Failed to load pre-order styling configuration."
+    );
   }
 
   const json = await res.json();
+
   return json.data;
 }
 
 // ==================================================
 
-export async function savePreOrderConfigApi(shop = "", payload = {}) {
+export async function savePreOrderConfigApi(
+  shop = "",
+  payload = {}
+) {
   const res = await fetch(
     `/api/customization/pre-order?shop=${encodeURIComponent(shop)}`,
     {
@@ -1084,7 +1112,9 @@ export async function savePreOrderConfigApi(shop = "", payload = {}) {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to save pre-order styling configuration.");
+    throw new Error(
+      "Failed to save pre-order styling configuration."
+    );
   }
 
   return await res.json();
@@ -1107,7 +1137,9 @@ export async function resetPreOrderConfigApi(shop = "") {
   );
 
   if (!res.ok) {
-    throw new Error("Failed to reset pre-order styling configuration.");
+    throw new Error(
+      "Failed to reset pre-order styling configuration."
+    );
   }
 
   return await res.json();
@@ -1127,43 +1159,92 @@ export async function fetchNotificationsApi({
   limit = 25,
 } = {}) {
   const params = new URLSearchParams();
+
   if (shop) params.set("shop", shop);
-  if (status && status !== "ALL") params.set("status", status);
+  if (status && status !== "ALL") {
+    params.set("status", status);
+  }
   if (search) params.set("search", search);
   if (productId) params.set("productId", productId);
   if (variantId) params.set("variantId", variantId);
+
   params.set("page", String(page));
   params.set("limit", String(limit));
 
-  const res = await fetch(`/api/notifications?${params.toString()}`);
-  if (!res.ok) {
-    throw new Error("Failed to load back-in-stock notifications.");
-  }
-  return await res.json();
-}
-
-export async function cancelNotificationApi(shop, notificationId, hardDelete = false) {
   const res = await fetch(
-    `/api/notifications/${encodeURIComponent(notificationId)}?shop=${encodeURIComponent(shop)}&hard=${hardDelete}`,
-    { method: "DELETE" }
+    `/api/notifications?${params.toString()}`
   );
+
   if (!res.ok) {
-    throw new Error("Failed to delete/cancel notification request.");
+    throw new Error(
+      "Failed to load back-in-stock notifications."
+    );
   }
+
   return await res.json();
 }
 
-export async function triggerRestockApi(shop, variantId, currentStock = 10) {
-  const quantity = Number(currentStock || 10);
-  const res = await fetch(`/api/notifications/test-restock`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shop, variantId, quantity, currentStock: quantity }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok && res.status !== 207) {
-    throw new Error(data.message || `Restock failed (Status ${res.status})`);
+export async function cancelNotificationApi(
+  shop,
+  notificationId,
+  hardDelete = false
+) {
+  const res = await fetch(
+    `/api/notifications/${encodeURIComponent(
+      notificationId
+    )}?shop=${encodeURIComponent(
+      shop
+    )}&hard=${hardDelete}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to delete/cancel notification request."
+    );
   }
+
+  return await res.json();
+}
+
+export async function triggerRestockApi(
+  shop,
+  variantId,
+  currentStock = 10
+) {
+  const quantity = Number(
+    currentStock || 10
+  );
+
+  const res = await fetch(
+    `/api/notifications/test-restock`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shop,
+        variantId,
+        quantity,
+        currentStock: quantity,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
+  if (!res.ok && res.status !== 207) {
+    throw new Error(
+      data.message ||
+      `Restock failed (Status ${res.status})`
+    );
+  }
+
   return data;
 }
 
@@ -1179,52 +1260,104 @@ export async function fetchPreOrdersApi({
   limit = 20,
 } = {}) {
   const params = new URLSearchParams();
+
   if (shop) params.set("shop", shop);
-  if (status && status !== "ALL") params.set("status", status);
+  if (status && status !== "ALL") {
+    params.set("status", status);
+  }
   if (search) params.set("search", search);
+
   params.set("page", String(page));
   params.set("limit", String(limit));
 
-  const res = await fetch(`/api/pre-orders?${params.toString()}`);
+  const res = await fetch(
+    `/api/pre-orders?${params.toString()}`
+  );
+
   if (!res.ok) {
-    throw new Error("Failed to load pre-orders.");
+    throw new Error(
+      "Failed to load pre-orders."
+    );
   }
+
   return await res.json();
 }
 
-export async function updatePreOrderStatusApi(id, payload = {}) {
-  if (!id) throw new Error("Pre-order ID is required");
-  const res = await fetch(`/api/pre-orders/${encodeURIComponent(id)}/status`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    throw new Error("Failed to update pre-order status.");
+export async function updatePreOrderStatusApi(
+  id,
+  payload = {}
+) {
+  if (!id) {
+    throw new Error(
+      "Pre-order ID is required"
+    );
   }
+
+  const res = await fetch(
+    `/api/pre-orders/${encodeURIComponent(
+      id
+    )}/status`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to update pre-order status."
+    );
+  }
+
   return await res.json();
 }
 
 export async function syncPreOrdersApi(shop = "") {
-  const res = await fetch("/api/pre-orders/sync", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shop }),
-  });
+  const res = await fetch(
+    "/api/pre-orders/sync",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shop,
+      }),
+    }
+  );
+
   if (!res.ok) {
-    throw new Error("Failed to sync pre-orders from Shopify.");
+    throw new Error(
+      "Failed to sync pre-orders from Shopify."
+    );
   }
+
   return await res.json();
 }
 
 export async function deletePreOrderApi(id) {
-  if (!id) throw new Error("Pre-order ID is required");
-  const res = await fetch(`/api/pre-orders/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) {
-    throw new Error("Failed to delete pre-order.");
+  if (!id) {
+    throw new Error(
+      "Pre-order ID is required"
+    );
   }
+
+  const res = await fetch(
+    `/api/pre-orders/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to delete pre-order."
+    );
+  }
+
   return await res.json();
 }
 
@@ -1232,80 +1365,187 @@ export async function deletePreOrderApi(id) {
 // NEW PRODUCT LAUNCH PRE-ORDERS API
 // ==================================================
 
-export async function fetchLaunchPreOrdersApi(shop = "") {
+export async function fetchLaunchPreOrdersApi(
+  shop = ""
+) {
   const params = new URLSearchParams();
-  if (shop) params.set("shop", shop);
-  const res = await fetch(`/api/pre-orders/launch-config?${params.toString()}`);
-  if (!res.ok) {
-    throw new Error("Failed to load launch pre-order configurations.");
-  }
-  return await res.json();
-}
 
-export async function fetchLaunchPreOrderByIdApi(shop = "", productId = "") {
-  const params = new URLSearchParams();
-  if (shop) params.set("shop", shop);
-  const cleanId = encodeURIComponent(String(productId).replace(/^gid:\/\/shopify\/Product\//, ""));
-  const res = await fetch(`/api/pre-orders/launch-config/${cleanId}?${params.toString()}`);
-  if (!res.ok) {
-    throw new Error("Failed to load launch pre-order details.");
+  if (shop) {
+    params.set("shop", shop);
   }
-  return await res.json();
-}
 
-export async function saveLaunchPreOrderApi(shop = "", payload = {}) {
-  const res = await fetch(`/api/pre-orders/launch-config?shop=${encodeURIComponent(shop)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ shop, ...payload }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.message || "Failed to save launch pre-order configuration.");
-  }
-  return data;
-}
-
-export async function toggleLaunchPreOrderApi(shop = "", productId = "", enabled = true) {
-  const cleanId = encodeURIComponent(String(productId).replace(/^gid:\/\/shopify\/Product\//, ""));
   const res = await fetch(
-    `/api/pre-orders/launch-config/${cleanId}/toggle?shop=${encodeURIComponent(shop)}`,
+    `/api/pre-orders/launch-config?${params.toString()}`
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to load launch pre-order configurations."
+    );
+  }
+
+  return await res.json();
+}
+
+export async function fetchLaunchPreOrderByIdApi(
+  shop = "",
+  productId = ""
+) {
+  const params = new URLSearchParams();
+
+  if (shop) {
+    params.set("shop", shop);
+  }
+
+  const cleanId = encodeURIComponent(
+    String(productId).replace(
+      /^gid:\/\/shopify\/Product\//,
+      ""
+    )
+  );
+
+  const res = await fetch(
+    `/api/pre-orders/launch-config/${cleanId}?${params.toString()}`
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to load launch pre-order details."
+    );
+  }
+
+  return await res.json();
+}
+
+export async function saveLaunchPreOrderApi(
+  shop = "",
+  payload = {}
+) {
+  const res = await fetch(
+    `/api/pre-orders/launch-config?shop=${encodeURIComponent(
+      shop
+    )}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shop, enabled }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shop,
+        ...payload,
+      }),
     }
   );
-  const data = await res.json().catch(() => ({}));
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    throw new Error(data.message || "Failed to toggle launch pre-order.");
+    throw new Error(
+      data.message ||
+      "Failed to save launch pre-order configuration."
+    );
   }
+
   return data;
 }
 
-export async function deleteLaunchPreOrderApi(shop = "", productId = "") {
-  const cleanId = encodeURIComponent(String(productId).replace(/^gid:\/\/shopify\/Product\//, ""));
+export async function toggleLaunchPreOrderApi(
+  shop = "",
+  productId = "",
+  enabled = true
+) {
+  const cleanId = encodeURIComponent(
+    String(productId).replace(
+      /^gid:\/\/shopify\/Product\//,
+      ""
+    )
+  );
+
   const res = await fetch(
-    `/api/pre-orders/launch-config/${cleanId}?shop=${encodeURIComponent(shop)}`,
+    `/api/pre-orders/launch-config/${cleanId}/toggle?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shop,
+        enabled,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      data.message ||
+      "Failed to toggle launch pre-order."
+    );
+  }
+
+  return data;
+}
+
+export async function deleteLaunchPreOrderApi(
+  shop = "",
+  productId = ""
+) {
+  const cleanId = encodeURIComponent(
+    String(productId).replace(
+      /^gid:\/\/shopify\/Product\//,
+      ""
+    )
+  );
+
+  const res = await fetch(
+    `/api/pre-orders/launch-config/${cleanId}?shop=${encodeURIComponent(
+      shop
+    )}`,
     {
       method: "DELETE",
     }
   );
-  const data = await res.json().catch(() => ({}));
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    throw new Error(data.message || "Failed to delete launch pre-order configuration.");
+    throw new Error(
+      data.message ||
+      "Failed to delete launch pre-order configuration."
+    );
   }
+
   return data;
 }
 
-export async function fetchLaunchStoreProductsApi(shop = "", search = "") {
+export async function fetchLaunchStoreProductsApi(
+  shop = "",
+  search = ""
+) {
   const params = new URLSearchParams();
+
   if (shop) params.set("shop", shop);
   if (search) params.set("search", search);
-  const res = await fetch(`/api/pre-orders/products?${params.toString()}`);
+
+  const res = await fetch(
+    `/api/pre-orders/products?${params.toString()}`
+  );
+
   if (!res.ok) {
-    throw new Error("Failed to load store products.");
+    throw new Error(
+      "Failed to load store products."
+    );
   }
+
   return await res.json();
 }
 
@@ -1313,113 +1553,287 @@ export async function fetchLaunchStoreProductsApi(shop = "", search = "") {
 // SMART BADGE RECOMMENDATIONS
 // ==================================================
 
-export async function scanSmartBadgesApi(shop = "") {
-  const res = await fetch(`/api/smart-badges/scan?shop=${encodeURIComponent(shop)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify({ shop }),
-  });
-  const data = await res.json().catch(() => ({}));
+export async function scanSmartBadgesApi(
+  shop = ""
+) {
+  const res = await fetch(
+    `/api/smart-badges/scan?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shopify-shop-domain": shop,
+      },
+      body: JSON.stringify({
+        shop,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    const err = new Error(data.message || "Unable to scan Shopify products.");
+    const err = new Error(
+      data.message ||
+      "Unable to scan Shopify products."
+    );
+
     err.error = data.error;
     err.status = res.status;
+
     throw err;
   }
+
   return data;
 }
 
-export async function fetchSmartBadgeRecommendationsApi(shop = "") {
-  const res = await fetch(`/api/smart-badges/recommendations?shop=${encodeURIComponent(shop)}`, {
-    headers: { "x-shopify-shop-domain": shop },
-  });
-  const data = await res.json().catch(() => ({}));
+export async function fetchSmartBadgeRecommendationsApi(
+  shop = ""
+) {
+  const res = await fetch(
+    `/api/smart-badges/recommendations?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      headers: {
+        "x-shopify-shop-domain": shop,
+      },
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    const err = new Error(data.message || "Failed to load smart badge recommendations.");
+    const err = new Error(
+      data.message ||
+      "Failed to load smart badge recommendations."
+    );
+
     err.error = data.error;
     err.status = res.status;
+
     throw err;
   }
+
   return data;
 }
 
-export async function fetchSmartBadgeSummaryApi(shop = "") {
-  const res = await fetch(`/api/smart-badges/summary?shop=${encodeURIComponent(shop)}`, {
-    headers: { "x-shopify-shop-domain": shop },
-  });
-  const data = await res.json().catch(() => ({}));
+export async function fetchSmartBadgeSummaryApi(
+  shop = ""
+) {
+  const res = await fetch(
+    `/api/smart-badges/summary?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      headers: {
+        "x-shopify-shop-domain": shop,
+      },
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    const err = new Error(data.message || "Failed to load smart badge summary.");
+    const err = new Error(
+      data.message ||
+      "Failed to load smart badge summary."
+    );
+
     err.error = data.error;
     err.status = res.status;
+
     throw err;
   }
+
   return data;
 }
 
-export async function applySmartBadgeApi(shop = "", productId = "", badge = "") {
-  const cleanId = encodeURIComponent(String(productId).replace(/^gid:\/\/shopify\/Product\//, ""));
-  const res = await fetch(`/api/smart-badges/${cleanId}/apply?shop=${encodeURIComponent(shop)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify({ shop, productId, badge, badgeType: badge }),
-  });
-  const data = await res.json().catch(() => ({}));
+export async function applySmartBadgeApi(
+  shop = "",
+  productId = "",
+  badge = ""
+) {
+  const cleanId = encodeURIComponent(
+    String(productId).replace(
+      /^gid:\/\/shopify\/Product\//,
+      ""
+    )
+  );
+
+  const res = await fetch(
+    `/api/smart-badges/${cleanId}/apply?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shopify-shop-domain": shop,
+      },
+      body: JSON.stringify({
+        shop,
+        productId,
+        badge,
+        badgeType: badge,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    const err = new Error(data.message || `Failed to apply ${badge} badge.`);
+    const err = new Error(
+      data.message ||
+      `Failed to apply ${badge} badge.`
+    );
+
     err.error = data.error;
     err.status = res.status;
+
     throw err;
   }
+
   return data;
 }
 
-export async function disableSmartBadgeApi(shop = "", productId = "", badge = "") {
-  const cleanId = encodeURIComponent(String(productId).replace(/^gid:\/\/shopify\/Product\//, ""));
-  const res = await fetch(`/api/smart-badges/${cleanId}/disable?shop=${encodeURIComponent(shop)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify({ shop, productId, badge, badgeType: badge }),
-  });
-  const data = await res.json().catch(() => ({}));
+export async function disableSmartBadgeApi(
+  shop = "",
+  productId = "",
+  badge = ""
+) {
+  const cleanId = encodeURIComponent(
+    String(productId).replace(
+      /^gid:\/\/shopify\/Product\//,
+      ""
+    )
+  );
+
+  const res = await fetch(
+    `/api/smart-badges/${cleanId}/disable?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shopify-shop-domain": shop,
+      },
+      body: JSON.stringify({
+        shop,
+        productId,
+        badge,
+        badgeType: badge,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    const err = new Error(data.message || "Failed to disable badge.");
+    const err = new Error(
+      data.message ||
+      "Failed to disable badge."
+    );
+
     err.error = data.error;
     err.status = res.status;
+
     throw err;
   }
+
   return data;
 }
 
-export async function bulkApplySmartBadgesApi(shop = "", items = []) {
-  const res = await fetch(`/api/smart-badges/bulk-apply?shop=${encodeURIComponent(shop)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify({ shop, items }),
-  });
-  const data = await res.json().catch(() => ({}));
+export async function bulkApplySmartBadgesApi(
+  shop = "",
+  items = []
+) {
+  const res = await fetch(
+    `/api/smart-badges/bulk-apply?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shopify-shop-domain": shop,
+      },
+      body: JSON.stringify({
+        shop,
+        items,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    const err = new Error(data.message || "Failed to bulk apply recommendations.");
+    const err = new Error(
+      data.message ||
+      "Failed to bulk apply recommendations."
+    );
+
     err.error = data.error;
     err.status = res.status;
+
     throw err;
   }
+
   return data;
 }
 
-export async function retryFailedSmartBadgesApi(shop = "", productIds = []) {
-  const res = await fetch(`/api/smart-badges/retry-failed?shop=${encodeURIComponent(shop)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify({ shop, productIds }),
-  });
-  const data = await res.json().catch(() => ({}));
+export async function retryFailedSmartBadgesApi(
+  shop = "",
+  productIds = []
+) {
+  const res = await fetch(
+    `/api/smart-badges/retry-failed?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shopify-shop-domain": shop,
+      },
+      body: JSON.stringify({
+        shop,
+        productIds,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    const err = new Error(data.message || "Failed to retry products.");
+    const err = new Error(
+      data.message ||
+      "Failed to retry products."
+    );
+
     err.error = data.error;
     err.status = res.status;
+
     throw err;
   }
+
   return data;
 }
 
@@ -1427,109 +1841,373 @@ export async function retryFailedSmartBadgesApi(shop = "", productIds = []) {
 // STORE BADGE SETTINGS & ASSIGNMENTS API
 // ==================================================
 
-export async function fetchBadgeSettingsApi(shop = "") {
-  const res = await fetch(`/api/badge-settings?shop=${encodeURIComponent(shop)}`, {
-    headers: { "x-shopify-shop-domain": shop },
-  });
-  const data = await res.json().catch(() => ({}));
+export async function fetchBadgeSettingsApi(
+  shop = ""
+) {
+  const res = await fetch(
+    `/api/badge-settings?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      headers: {
+        "x-shopify-shop-domain": shop,
+      },
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    throw new Error(data.message || "Failed to load store badge settings.");
+    throw new Error(
+      data.message ||
+      "Failed to load store badge settings."
+    );
   }
+
   return data.data;
 }
 
-export async function saveBadgeSettingsApi(shop = "", settingsPayload = {}) {
-  const res = await fetch(`/api/badge-settings?shop=${encodeURIComponent(shop)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify(settingsPayload),
-  });
-  const data = await res.json().catch(() => ({}));
+export async function saveBadgeSettingsApi(
+  shop = "",
+  settingsPayload = {}
+) {
+  const res = await fetch(
+    `/api/badge-settings?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shopify-shop-domain": shop,
+      },
+      body: JSON.stringify(
+        settingsPayload
+      ),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    throw new Error(data.message || "Failed to save store badge settings.");
+    throw new Error(
+      data.message ||
+      "Failed to save store badge settings."
+    );
   }
+
   return data.data;
 }
 
-export async function validateBadgeSettingsApi(shop = "", badgeType = "") {
-  const params = new URLSearchParams({ shop });
-  if (badgeType) params.set("badgeType", badgeType);
-  const res = await fetch(`/api/badge-settings/validate?${params.toString()}`, {
-    headers: { "x-shopify-shop-domain": shop },
+export async function validateBadgeSettingsApi(
+  shop = "",
+  badgeType = ""
+) {
+  const params = new URLSearchParams({
+    shop,
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.message || "Failed to validate badge settings.");
+
+  if (badgeType) {
+    params.set(
+      "badgeType",
+      badgeType
+    );
   }
+
+  const res = await fetch(
+    `/api/badge-settings/validate?${params.toString()}`,
+    {
+      headers: {
+        "x-shopify-shop-domain": shop,
+      },
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      data.message ||
+      "Failed to validate badge settings."
+    );
+  }
+
   return data;
 }
 
-export async function applyAllSmartBadgesApi(shop = "") {
-  const res = await fetch(`/api/smart-badges/apply-all?shop=${encodeURIComponent(shop)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify({ shop }),
-  });
-  const data = await res.json().catch(() => ({}));
+export async function applyAllSmartBadgesApi(
+  shop = ""
+) {
+  const res = await fetch(
+    `/api/smart-badges/apply-all?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shopify-shop-domain": shop,
+      },
+      body: JSON.stringify({
+        shop,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    const err = new Error(data.message || "Failed to apply all recommendations.");
+    const err = new Error(
+      data.message ||
+      "Failed to apply all recommendations."
+    );
+
     err.error = data.error;
     err.status = res.status;
+
     throw err;
   }
+
   return data;
 }
 
-export async function fetchProductBadgeAssignmentApi(shop = "", productId = "") {
-  const cleanId = encodeURIComponent(String(productId).replace(/^gid:\/\/shopify\/Product\//, ""));
-  const res = await fetch(`/api/smart-badges/${cleanId}?shop=${encodeURIComponent(shop)}`, {
-    headers: { "x-shopify-shop-domain": shop },
-  });
-  const data = await res.json().catch(() => ({}));
+export async function fetchProductBadgeAssignmentApi(
+  shop = "",
+  productId = ""
+) {
+  const cleanId = encodeURIComponent(
+    String(productId).replace(
+      /^gid:\/\/shopify\/Product\//,
+      ""
+    )
+  );
+
+  const res = await fetch(
+    `/api/smart-badges/${cleanId}?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      headers: {
+        "x-shopify-shop-domain": shop,
+      },
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    throw new Error(data.message || "Failed to load product badge assignment.");
+    throw new Error(
+      data.message ||
+      "Failed to load product badge assignment."
+    );
   }
+
   return data.assignment;
 }
 
-export async function removeProductBadgeAssignmentApi(shop = "", productId = "") {
-  const cleanId = encodeURIComponent(String(productId).replace(/^gid:\/\/shopify\/Product\//, ""));
-  const res = await fetch(`/api/smart-badges/${cleanId}/disable?shop=${encodeURIComponent(shop)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify({ shop, productId }),
-  });
-  const data = await res.json().catch(() => ({}));
+export async function removeProductBadgeAssignmentApi(
+  shop = "",
+  productId = ""
+) {
+  const cleanId = encodeURIComponent(
+    String(productId).replace(
+      /^gid:\/\/shopify\/Product\//,
+      ""
+    )
+  );
+
+  const res = await fetch(
+    `/api/smart-badges/${cleanId}/disable?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shopify-shop-domain": shop,
+      },
+      body: JSON.stringify({
+        shop,
+        productId,
+      }),
+    }
+  );
+
+  const data = await res
+    .json()
+    .catch(() => ({}));
+
   if (!res.ok) {
-    throw new Error(data.message || "Failed to remove product badge assignment.");
+    throw new Error(
+      data.message ||
+      "Failed to remove product badge assignment."
+    );
   }
+
   return data;
 }
 
 // ==================================================
-// MONDAY MORNING SMART BADGE DIGEST
+// WEEKLY EMAIL DIGEST SETTINGS
 // ==================================================
 
-export async function fetchWeeklyDigestStatusApi(shop = "") {
-  const res = await fetch(`/api/smart-badges/weekly-digest-status?shop=${encodeURIComponent(shop)}`, {
-    headers: { "x-shopify-shop-domain": shop },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.message || "Failed to load weekly digest status.");
+export async function fetchEmailSettingsApi(
+  shop = ""
+) {
+  if (!shop) {
+    throw new Error(
+      "Shop domain is required."
+    );
   }
-  return data;
+
+  const res = await fetch(
+    `/api/email/settings?shop=${encodeURIComponent(
+      shop
+    )}`
+  );
+
+  const json = await res
+    .json()
+    .catch(() => ({}));
+
+  if (res.status === 404) {
+    return null;
+  }
+
+  if (!res.ok || !json.success) {
+    throw new Error(
+      json.message ||
+      "Failed to load email settings."
+    );
+  }
+
+  return json.settings;
 }
 
-export async function sendWeeklyDigestApi(shop = "", force = true) {
-  const res = await fetch(`/api/smart-badges/send-weekly-digest?shop=${encodeURIComponent(shop)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-shopify-shop-domain": shop },
-    body: JSON.stringify({ shop, force }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.message || "Failed to send weekly digest.");
+export async function saveEmailSettingsApi(
+  data = {}
+) {
+  if (!data.shop) {
+    throw new Error(
+      "Shop domain is required."
+    );
   }
-  return data;
+
+  const res = await fetch(
+    `/api/email/settings`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  const json = await res
+    .json()
+    .catch(() => ({}));
+
+  if (!res.ok || !json.success) {
+    throw new Error(
+      json.message ||
+      "Failed to save email settings."
+    );
+  }
+
+  return json.settings;
+}
+
+// ==================================================
+// WEEKLY EMAIL DIGEST — SEND TEST EMAIL
+// ==================================================
+
+export async function sendTestEmailDigestApi(
+  shop = ""
+) {
+  if (!shop) {
+    throw new Error(
+      "Shop domain is required."
+    );
+  }
+
+  const res = await fetch(
+    `/api/email/test?shop=${encodeURIComponent(
+      shop
+    )}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shop,
+      }),
+    }
+  );
+
+  const json = await res
+    .json()
+    .catch(() => ({}));
+
+  if (!res.ok || !json.success) {
+    throw new Error(
+      json.message ||
+      "Failed to send test email."
+    );
+  }
+
+  return json;
+}
+
+// ==================================================
+// WEEKLY EMAIL DIGEST — TOGGLE ENABLED STATUS
+// ==================================================
+
+export async function toggleWeeklyDigestApi(
+  shop = "",
+  enabled = true
+) {
+  if (!shop) {
+    throw new Error(
+      "Shop domain is required."
+    );
+  }
+
+  const res = await fetch(
+    `/api/email/settings/toggle`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shop,
+        weeklyDigestEnabled: enabled,
+      }),
+    }
+  );
+
+  const json = await res
+    .json()
+    .catch(() => ({}));
+
+  if (!res.ok || !json.success) {
+    throw new Error(
+      json.message ||
+      "Failed to update weekly digest setting."
+    );
+  }
+
+  return json.settings;
 }

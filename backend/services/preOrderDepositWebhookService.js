@@ -77,7 +77,7 @@ async function processPreOrderDepositWebhook({ shop, order, topic = "orders/crea
   const cleanOrderId = normalizeId(rawOrderId);
   const orderNumber = String(order.name || (order.order_number ? `#${order.order_number}` : "") || `#${cleanOrderId}`);
 
-  console.log(`[PREORDER EMAIL] Order received: ${orderNumber} (ID: ${cleanOrderId}) for shop ${cleanShop}`);
+
 
   // 1. Check if order is cancelled
   const isCancelled = Boolean(order.cancelled_at || order.cancelledAt);
@@ -262,8 +262,6 @@ async function processPreOrderDepositWebhook({ shop, order, topic = "orders/crea
     return { success: false, reason: "Not a pre-order" };
   }
 
-  console.log(`[PREORDER EMAIL] Pre-order detected for ${orderNumber} (${preOrderItems.length} item(s)).`);
-
   // 4. Financial Calculations
   const currency = String(
     order.currency || order.totalPriceSet?.shopMoney?.currencyCode || "USD"
@@ -277,22 +275,16 @@ async function processPreOrderDepositWebhook({ shop, order, topic = "orders/crea
   );
   const remainingBalance = Math.max(0, round2(preOrderTotal - depositPaid));
 
-  console.log(`[PREORDER EMAIL] Deposit percentage: ${detectedDepositPct}%`);
-  console.log(`[PREORDER EMAIL] Original Pre-Order total: ${currency} ${preOrderTotal}`);
-  console.log(`[PREORDER EMAIL] Deposit paid: ${currency} ${depositPaid}`);
-  console.log(`[PREORDER EMAIL] Remaining balance: ${currency} ${remainingBalance}`);
-
   // 5. Customer Email Extraction & Validation
   const customerEmail = String(
     order.customer?.email || order.email || order.contact_email || ""
   ).trim().toLowerCase();
 
   if (!customerEmail) {
-    console.warn(`[PREORDER EMAIL] Missing customer email for order ${orderNumber}. Skipping email dispatch.`);
+    console.warn(`[PRE-ORDER] ${orderNumber} — missing customer email. Skipping.`);
     return { success: false, reason: "Missing customer email" };
   }
 
-  console.log(`[PREORDER EMAIL] Customer email: ${maskEmail(customerEmail)}`);
 
   const customerName =
     order.customer?.first_name || order.customer?.name
@@ -310,9 +302,6 @@ async function processPreOrderDepositWebhook({ shop, order, topic = "orders/crea
   }).lean().catch(() => null);
 
   if (existingLog) {
-    console.log(
-      `[PREORDER EMAIL] Duplicate webhook ignored: Deposit confirmation email already sent on ${existingLog.sentAt} for order ${orderNumber}.`
-    );
     return {
       success: true,
       alreadySent: true,

@@ -10,10 +10,6 @@ const {
   applyAll,
   getProductAssignment,
 } = require("../controllers/smartBadgeController");
-const {
-  sendWeeklyDigest,
-  getWeeklyDigestStatus,
-} = require("../controllers/mondayBadgeDigest.controller");
 
 const router = express.Router();
 
@@ -25,10 +21,6 @@ router.get("/recommendations", getRecommendations);
 router.get("/summary", getSummary);
 router.post("/apply-all", applyAll);
 router.post("/bulk-apply", bulkApply);
-
-// Monday Morning Smart Badge Digest endpoints
-router.post("/send-weekly-digest", sendWeeklyDigest);
-router.get("/weekly-digest-status", getWeeklyDigestStatus);
 
 // Product actions
 router.get("/:productId", getProductAssignment);

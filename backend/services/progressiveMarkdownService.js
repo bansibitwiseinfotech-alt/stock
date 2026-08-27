@@ -673,7 +673,7 @@ async function processActiveMarkdownRules(shop = null) {
       return { success: true, processed: 0 };
     }
 
-    console.log(`[ProgressiveMarkdown Worker] Found ${dueRules.length} rules due for 24-hour evaluation.`);
+
     let processed = 0;
 
     for (const rawRule of dueRules) {
@@ -762,7 +762,7 @@ async function processActiveMarkdownRules(shop = null) {
             },
           }).catch(() => {});
 
-          console.log(`[ProgressiveMarkdown Worker] Rule ${rule._id} completed: stock is 0.`);
+
           processed++;
           continue;
         }
@@ -806,9 +806,7 @@ async function processActiveMarkdownRules(shop = null) {
 
           actualPrice = Number(updatedVariant.price);
         } else {
-          console.log(
-            `[ProgressiveMarkdown Worker] Discount unchanged for rule ${rule._id} (${reason}): ${rule.currentDiscount}%`
-          );
+
         }
 
         // 5. Update DB record and schedule next 24h evaluation
@@ -851,10 +849,7 @@ async function processActiveMarkdownRules(shop = null) {
           },
         }).catch(() => {});
 
-        console.log(
-          `[ProgressiveMarkdown Worker] Rule ${rule._id} 24h cycle complete: ` +
-          `sales=${unitsSoldLast24Hours}, discount=${newDiscount}%, nextEvaluationAt=${nextEval.toISOString()}`
-        );
+
 
         processed++;
       } catch (ruleErr) {

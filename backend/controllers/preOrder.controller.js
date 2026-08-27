@@ -334,7 +334,7 @@ async function syncShopifyPreOrders(shop) {
       }
     }
 
-    console.log(`[PreOrder Sync] Successfully synced ${syncedCount} real pre-orders for ${normalizedShop}`);
+
     return { count: syncedCount };
   } catch (err) {
     console.error("[PreOrder Sync Error]:", err);
