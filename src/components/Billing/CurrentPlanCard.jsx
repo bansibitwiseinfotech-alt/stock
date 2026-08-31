@@ -83,10 +83,10 @@ export default function CurrentPlanCard({ subscription, onUpgradeClick }) {
                   {isFree
                     ? "Essential dead-stock discovery"
                     : isBasic
-                    ? `Growth bundle & clearance (${billingCycle === "yearly" ? "$190/yr" : "$19/mo"})`
+                    ? `Growth bundle & clearance (${billingCycle === "yearly" ? "$99/yr" : "$19/mo"})`
                     : isPro
-                    ? `High-demand urgency plan (${billingCycle === "yearly" ? "$490/yr" : "$49/mo"})`
-                    : `Unlimited automation suite (${billingCycle === "yearly" ? "$990/yr" : "$99/mo"})`}
+                    ? `High-demand urgency plan (${billingCycle === "yearly" ? "$249/yr" : "$49/mo"})`
+                    : `Unlimited automation suite (${billingCycle === "yearly" ? "$499/yr" : "$99/mo"})`}
                 </Text>
               </BlockStack>
 

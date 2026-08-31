@@ -1371,7 +1371,7 @@ async function saveCollectionSaleRecords(req, res) {
                 error: "",
               },
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: "after" }
           );
         }
 

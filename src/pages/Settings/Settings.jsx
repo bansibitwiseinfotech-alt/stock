@@ -17,6 +17,8 @@ import {
   BlockStack,
 } from "@shopify/polaris";
 
+import LockedFeatureOverlay from "../../components/LockedFeatureOverlay";
+import { fetchSubscription } from "../../services/subscriptionApi";
 import {
   fetchEmailSettingsApi,
   saveEmailSettingsApi,
@@ -237,6 +239,20 @@ export default function Settings({
   // LOAD SETTINGS
   // ==================================================
 
+  const [currentPlan, setCurrentPlan] = useState("free");
+
+  useEffect(() => {
+    if (shopDomain) {
+      fetchSubscription(shopDomain)
+        .then((data) => {
+          if (data?.subscription?.plan) {
+            setCurrentPlan(data.subscription.plan.toLowerCase());
+          }
+        })
+        .catch(() => null);
+    }
+  }, [shopDomain]);
+
   useEffect(() => {
     const loadEmailSettings =
       async () => {
@@ -404,7 +420,11 @@ export default function Settings({
 
         <Layout.Section>
           <Card>
-            <BlockStack gap="500">
+            <div style={{ position: "relative", minHeight: "360px" }}>
+              {currentPlan !== "premium" && (
+                <LockedFeatureOverlay requiredPlan="Premium" />
+              )}
+              <BlockStack gap="500">
               <BlockStack gap="200">
                 <Text
                   variant="headingMd"
@@ -528,8 +548,9 @@ export default function Settings({
                 </Button>
               </FormLayout>
             </BlockStack>
-          </Card>
-        </Layout.Section>
+          </div>
+        </Card>
+      </Layout.Section>
       </Layout>
     </Page>
   );

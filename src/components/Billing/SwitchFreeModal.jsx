@@ -6,53 +6,20 @@ import {
   Text,
   Banner,
   Box,
-  Icon,
 } from "@shopify/polaris";
-import { AlertCircleIcon } from "@shopify/polaris-icons";
 
 export default function SwitchFreeModal({
   open,
   onClose,
-  currentPlanId = "basic",
   onConfirmSwitch,
   loading = false,
   error = null,
 }) {
-  const getLostFeatures = () => {
-    switch (currentPlanId) {
-      case "premium":
-        return [
-          "Unlimited Products Catalog (downgrades to 10 products)",
-          "Unlimited Clearance Sales (downgrades to 3 lifetime uses)",
-          "Dead Stock Bundles (BOGO)",
-          "Low Stock Urgency Badges",
-          "Progressive Markdown automation rules",
-          "Launch Pre-Order campaigns",
-          "Collection Bulk Sales",
-          "Weekly Merchant Email Digest schedules",
-          "Smart Badges automated assignments",
-          "Custom widget styling & layout controls",
-        ];
-      case "pro":
-        return [
-          "50 Products Catalog Capacity (downgrades to 10 products)",
-          "15 Clearance Sales (downgrades to 3 lifetime uses)",
-          "15 Dead Stock Bundles (BOGO)",
-          "15 Low Stock Urgency Badges",
-          "Bundle and badge customization styling",
-        ];
-      case "basic":
-      default:
-        return [
-          "25 Products Catalog Capacity (downgrades to 10 products)",
-          "10 Clearance Sales (downgrades to 3 lifetime uses)",
-          "10 Dead Stock Bundles (BOGO)",
-          "Bundle customization styling",
-        ];
-    }
-  };
-
-  const lostFeatures = getLostFeatures();
+  const freeFeatures = [
+    "10 Products Catalog Limit",
+    "3 Clearance Sales",
+    "Clearance Sale Customization",
+  ];
 
   return (
     <Modal
@@ -82,10 +49,10 @@ export default function SwitchFreeModal({
             </Banner>
           )}
 
-          <Banner tone="warning" title="You will lose access to premium features">
+          <Banner tone="warning" title="Switching to Free Plan">
             <p>
-              Switching to the Free plan will cancel your active Shopify
-              subscription and immediately lock advanced inventory features.
+              Switching to the Free plan will cancel your active paid Shopify
+              subscription.
             </p>
           </Banner>
 
@@ -96,15 +63,29 @@ export default function SwitchFreeModal({
           >
             <BlockStack gap="200">
               <Text variant="headingSm" as="h4" fontWeight="bold">
-                Features that will be deactivated:
+                WHAT'S INCLUDED IN FREE PLAN:
               </Text>
 
               <BlockStack gap="150">
-                {lostFeatures.map((item, idx) => (
-                  <InlineStack key={idx} gap="150" blockAlign="start">
-                    <Text variant="bodySm" tone="critical" as="span">
-                      ✕
-                    </Text>
+                {freeFeatures.map((item, idx) => (
+                  <InlineStack key={idx} gap="200" blockAlign="center">
+                    <div
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        borderRadius: "50%",
+                        backgroundColor: "#e6f4ea",
+                        color: "#137333",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        flexShrink: 0,
+                      }}
+                    >
+                      ✓
+                    </div>
                     <Text variant="bodySm" as="span">
                       {item}
                     </Text>
@@ -115,8 +96,7 @@ export default function SwitchFreeModal({
           </Box>
 
           <Text variant="bodySm" tone="subdued" as="p">
-            Your store's current configuration will be preserved, but automated
-            gated executions will stop until you upgrade again.
+            Your store's configuration will be preserved, but advanced features requiring a paid subscription will be locked until you upgrade again.
           </Text>
         </BlockStack>
       </Modal.Section>

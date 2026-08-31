@@ -29,6 +29,7 @@ import DeadStockFilters from "../../components/DeadStock/DeadStockFilters";
 import DeadStockTable from "../../components/DeadStock/DeadStockTable";
 import DeadStockPagination from "../../components/DeadStock/DeadStockPagination";
 import CollectionBulkSaleModal from "../../components/CollectionBulkSaleModal";
+import { fetchSubscription } from "../../services/subscriptionApi";
 import {
   filterAndSortVisibleActions,
   ACTION_LABELS,
@@ -109,10 +110,24 @@ export default function DeadStock({
   //       false = Show only Dead Stock products (MongoDB)
   const [showStoreProducts, setShowStoreProducts] = useState(true);
 
-  // ── UI state ───────────────────────────────────────────────────────────────
+  // UI state ───────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
+  const [currentPlan, setCurrentPlan] = useState("free");
+
+  // Fetch subscription plan
+  useEffect(() => {
+    if (activeShop) {
+      fetchSubscription(activeShop)
+        .then((data) => {
+          if (data?.subscription?.plan) {
+            setCurrentPlan(data.subscription.plan.toLowerCase());
+          }
+        })
+        .catch((e) => console.error("Failed to fetch subscription:", e));
+    }
+  }, [activeShop]);
 
   // Skip first client-side fetch — SSR loader already provided initialProducts
   const isFirstRender = useRef(true);
@@ -500,6 +515,7 @@ export default function DeadStock({
                 setShowStoreProducts={handleModeChange}
                 onApply={handleApplyFilters}
                 onCollectionBulkSale={() => setCollectionBulkSaleOpen(true)}
+                currentPlan={currentPlan}
               />
 
               {loading ? (
@@ -693,6 +709,7 @@ export default function DeadStock({
       <CollectionBulkSaleModal
         open={collectionBulkSaleOpen}
         onClose={() => setCollectionBulkSaleOpen(false)}
+        currentPlan={currentPlan}
         onSuccess={(data) => {
           // show success banner and refresh data
           setBulkSuccessMessage(

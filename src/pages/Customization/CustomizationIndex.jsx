@@ -18,6 +18,8 @@ import BundleCustomizeModal from "../../components/BundleCustomizeModal";
 import MarkdownCustomizeModal from "../../components/MarkdownCustomizeModal";
 import LowStockCustomizeModal from "../../components/LowStockCustomizeModal";
 import PreOrderCustomizeModal from "../../components/PreOrderCustomizeModal";
+import LockedFeatureOverlay from "../../components/LockedFeatureOverlay";
+import { fetchSubscription } from "../../services/subscriptionApi";
 import {
   fetchClearanceSaleConfigApi,
   saveClearanceSaleConfigApi,
@@ -89,9 +91,19 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
   const [customizeLowStockOpen, setCustomizeLowStockOpen] = useState(false);
   const [customizePreOrderOpen, setCustomizePreOrderOpen] = useState(false);
 
+  const [currentPlan, setCurrentPlan] = useState("free");
+
   useEffect(() => {
     if (shopDomain) {
       setLoading(true);
+      fetchSubscription(shopDomain)
+        .then((data) => {
+          if (data?.subscription?.plan) {
+            setCurrentPlan(data.subscription.plan.toLowerCase());
+          }
+        })
+        .catch(() => null);
+
       Promise.all([
         !initialConfig ? fetchClearanceSaleConfigApi(shopDomain).catch(() => null) : Promise.resolve(initialConfig),
         fetchBundleConfigApi(shopDomain).catch(() => null),
@@ -374,261 +386,281 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
 
             {/* BUNDLE OFFER CARD */}
             <Card padding="400">
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  height: "100%",
-                  minHeight: "240px",
-                  gap: "16px",
-                }}
-              >
-                <BlockStack gap="200">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Bundle offer
+              <div style={{ position: "relative", height: "100%", minHeight: "240px" }}>
+                {currentPlan === "free" && (
+                  <LockedFeatureOverlay requiredPlan="Basic" />
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    height: "100%",
+                    minHeight: "240px",
+                    gap: "16px",
+                  }}
+                >
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingSm" as="h3" fontWeight="semibold">
+                        Bundle offer
+                      </Text>
+                      <Badge tone={bundleConfig.enabled ? "success" : "subdued"}>
+                        {bundleConfig.enabled ? "Active" : "Disabled"}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="bodySm" tone="subdued">
+                      Displays bundle offers and companion pairings with 1-click cart addition.
                     </Text>
-                    <Badge tone={bundleConfig.enabled ? "success" : "subdued"}>
-                      {bundleConfig.enabled ? "Active" : "Disabled"}
-                    </Badge>
-                  </InlineStack>
 
-                  <Text variant="bodySm" tone="subdued">
-                    Displays bundle offers and companion pairings with 1-click cart addition.
-                  </Text>
-
-                  <div
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      backgroundColor: "#F6F6F7",
-                      fontSize: "12px",
-                      color: "#475569",
-                      marginTop: "4px",
-                    }}
-                  >
-                    <div><strong>Heading:</strong> {bundleConfig.headerTitle || "Frequently Bought Together"}</div>
-                    <div><strong>Button:</strong> {bundleConfig.buttonText || "Add Both to Cart"}</div>
-                  </div>
-                </BlockStack>
-
-                <BlockStack gap="200">
-                  <Divider />
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Button
-                      size="slim"
-                      variant="plain"
-                      tone={bundleConfig.enabled ? "critical" : "success"}
-                      onClick={handleToggleBundleStatus}
-                      loading={togglingBundle}
-                      disabled={loading}
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "6px",
+                        backgroundColor: "#F6F6F7",
+                        fontSize: "12px",
+                        color: "#475569",
+                        marginTop: "4px",
+                      }}
                     >
-                      {bundleConfig.enabled ? "Disable" : "Enable"}
-                    </Button>
-                    <Button
-                      size="slim"
-                      onClick={() => setCustomizeBundleOpen(true)}
-                    >
-                      Customize
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
+                      <div><strong>Heading:</strong> {bundleConfig.headerTitle || "Frequently Bought Together"}</div>
+                      <div><strong>Button:</strong> {bundleConfig.buttonText || "Add Both to Cart"}</div>
+                    </div>
+                  </BlockStack>
+
+                  <BlockStack gap="200">
+                    <Divider />
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Button
+                        size="slim"
+                        variant="plain"
+                        tone={bundleConfig.enabled ? "critical" : "success"}
+                        onClick={handleToggleBundleStatus}
+                        loading={togglingBundle}
+                        disabled={loading}
+                      >
+                        {bundleConfig.enabled ? "Disable" : "Enable"}
+                      </Button>
+                      <Button
+                        size="slim"
+                        onClick={() => setCustomizeBundleOpen(true)}
+                      >
+                        Customize
+                      </Button>
+                    </InlineStack>
+                  </BlockStack>
+                </div>
               </div>
             </Card>
 
             {/* PROGRESSIVE MARKDOWN CARD */}
             <Card padding="400">
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  height: "100%",
-                  minHeight: "240px",
-                  gap: "16px",
-                }}
-              >
-                <BlockStack gap="200">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Progressive markdown
+              <div style={{ position: "relative", height: "100%", minHeight: "240px" }}>
+                {currentPlan !== "premium" && (
+                  <LockedFeatureOverlay requiredPlan="Premium" />
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    height: "100%",
+                    minHeight: "240px",
+                    gap: "16px",
+                  }}
+                >
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingSm" as="h3" fontWeight="semibold">
+                        Progressive markdown
+                      </Text>
+                      <Badge tone={markdownConfig.enabled ? "success" : "subdued"}>
+                        {markdownConfig.enabled ? "Active" : "Disabled"}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="bodySm" tone="subdued">
+                      Displays progressive discount badges beside real pricing on active markdowns.
                     </Text>
-                    <Badge tone={markdownConfig.enabled ? "success" : "subdued"}>
-                      {markdownConfig.enabled ? "Active" : "Disabled"}
-                    </Badge>
-                  </InlineStack>
 
-                  <Text variant="bodySm" tone="subdued">
-                    Displays progressive discount badges beside real pricing on active markdowns.
-                  </Text>
-
-                  <div
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      backgroundColor: "#F6F6F7",
-                      fontSize: "12px",
-                      color: "#475569",
-                      marginTop: "4px",
-                    }}
-                  >
-                    <div><strong>Badge:</strong> {markdownConfig.badgeText || "{discount}% OFF"}</div>
-                    <div><strong>Strikethrough:</strong> {markdownConfig.showStrikethroughPrice !== false ? "Visible" : "Hidden"}</div>
-                  </div>
-                </BlockStack>
-
-                <BlockStack gap="200">
-                  <Divider />
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Button
-                      size="slim"
-                      variant="plain"
-                      tone={markdownConfig.enabled ? "critical" : "success"}
-                      onClick={handleToggleMarkdownStatus}
-                      loading={togglingMarkdown}
-                      disabled={loading}
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "6px",
+                        backgroundColor: "#F6F6F7",
+                        fontSize: "12px",
+                        color: "#475569",
+                        marginTop: "4px",
+                      }}
                     >
-                      {markdownConfig.enabled ? "Disable" : "Enable"}
-                    </Button>
-                    <Button
-                      size="slim"
-                      onClick={() => setCustomizeMarkdownOpen(true)}
-                    >
-                      Customize
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
+                      <div><strong>Badge:</strong> {markdownConfig.badgeText || "{discount}% OFF"}</div>
+                      <div><strong>Strikethrough:</strong> {markdownConfig.showStrikethroughPrice !== false ? "Visible" : "Hidden"}</div>
+                    </div>
+                  </BlockStack>
+
+                  <BlockStack gap="200">
+                    <Divider />
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Button
+                        size="slim"
+                        variant="plain"
+                        tone={markdownConfig.enabled ? "critical" : "success"}
+                        onClick={handleToggleMarkdownStatus}
+                        loading={togglingMarkdown}
+                        disabled={loading}
+                      >
+                        {markdownConfig.enabled ? "Disable" : "Enable"}
+                      </Button>
+                      <Button
+                        size="slim"
+                        onClick={() => setCustomizeMarkdownOpen(true)}
+                      >
+                        Customize
+                      </Button>
+                    </InlineStack>
+                  </BlockStack>
+                </div>
               </div>
             </Card>
 
             {/* LOW STOCK BADGE CARD */}
             <Card padding="400">
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  height: "100%",
-                  minHeight: "240px",
-                  gap: "16px",
-                }}
-              >
-                <BlockStack gap="200">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Low stock badge
+              <div style={{ position: "relative", height: "100%", minHeight: "240px" }}>
+                {(currentPlan === "free" || currentPlan === "basic") && (
+                  <LockedFeatureOverlay requiredPlan="Pro" />
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    height: "100%",
+                    minHeight: "240px",
+                    gap: "16px",
+                  }}
+                >
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingSm" as="h3" fontWeight="semibold">
+                        Low stock badge
+                      </Text>
+                      <Badge tone={lowStockConfig.enabled ? "success" : "subdued"}>
+                        {lowStockConfig.enabled ? "Active" : "Disabled"}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="bodySm" tone="subdued">
+                      Displays an urgency badge and remaining inventory count on low-stock items.
                     </Text>
-                    <Badge tone={lowStockConfig.enabled ? "success" : "subdued"}>
-                      {lowStockConfig.enabled ? "Active" : "Disabled"}
-                    </Badge>
-                  </InlineStack>
 
-                  <Text variant="bodySm" tone="subdued">
-                    Displays an urgency badge and remaining inventory count on low-stock items.
-                  </Text>
-
-                  <div
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      backgroundColor: "#F6F6F7",
-                      fontSize: "12px",
-                      color: "#475569",
-                      marginTop: "4px",
-                    }}
-                  >
-                    <div><strong>Message:</strong> {lowStockConfig.badgeText || "Only {stock} left in stock!"}</div>
-                    <div><strong>Threshold:</strong> Stock ≤ {lowStockConfig.threshold || 5} units</div>
-                  </div>
-                </BlockStack>
-
-                <BlockStack gap="200">
-                  <Divider />
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Button
-                      size="slim"
-                      variant="plain"
-                      tone={lowStockConfig.enabled ? "critical" : "success"}
-                      onClick={handleToggleLowStockStatus}
-                      loading={togglingLowStock}
-                      disabled={loading}
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "6px",
+                        backgroundColor: "#F6F6F7",
+                        fontSize: "12px",
+                        color: "#475569",
+                        marginTop: "4px",
+                      }}
                     >
-                      {lowStockConfig.enabled ? "Disable" : "Enable"}
-                    </Button>
-                    <Button
-                      size="slim"
-                      onClick={() => setCustomizeLowStockOpen(true)}
-                    >
-                      Customize
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
+                      <div><strong>Message:</strong> {lowStockConfig.badgeText || "Only {stock} left in stock!"}</div>
+                      <div><strong>Threshold:</strong> Stock ≤ {lowStockConfig.threshold || 5} units</div>
+                    </div>
+                  </BlockStack>
+
+                  <BlockStack gap="200">
+                    <Divider />
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Button
+                        size="slim"
+                        variant="plain"
+                        tone={lowStockConfig.enabled ? "critical" : "success"}
+                        onClick={handleToggleLowStockStatus}
+                        loading={togglingLowStock}
+                        disabled={loading}
+                      >
+                        {lowStockConfig.enabled ? "Disable" : "Enable"}
+                      </Button>
+                      <Button
+                        size="slim"
+                        onClick={() => setCustomizeLowStockOpen(true)}
+                      >
+                        Customize
+                      </Button>
+                    </InlineStack>
+                  </BlockStack>
+                </div>
               </div>
             </Card>
 
             {/* PRE-ORDER CARD */}
             <Card padding="400">
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  height: "100%",
-                  minHeight: "240px",
-                  gap: "16px",
-                }}
-              >
-                <BlockStack gap="200">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Pre-orders
+              <div style={{ position: "relative", height: "100%", minHeight: "240px" }}>
+                {currentPlan !== "premium" && (
+                  <LockedFeatureOverlay requiredPlan="Premium" />
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    height: "100%",
+                    minHeight: "240px",
+                    gap: "16px",
+                  }}
+                >
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingSm" as="h3" fontWeight="semibold">
+                        Pre-orders
+                      </Text>
+                      <Badge tone={preOrderConfig.enabled ? "success" : "subdued"}>
+                        {preOrderConfig.enabled ? "Active" : "Disabled"}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="bodySm" tone="subdued">
+                      Allows customers to pre-order upcoming new product launches.
                     </Text>
-                    <Badge tone={preOrderConfig.enabled ? "success" : "subdued"}>
-                      {preOrderConfig.enabled ? "Active" : "Disabled"}
-                    </Badge>
-                  </InlineStack>
 
-                  <Text variant="bodySm" tone="subdued">
-                    Allows customers to pre-order upcoming new product launches.
-                  </Text>
-
-                  <div
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      backgroundColor: "#F6F6F7",
-                      fontSize: "12px",
-                      color: "#475569",
-                      marginTop: "4px",
-                    }}
-                  >
-                    <div><strong>Button:</strong> {preOrderConfig.buttonText || "Pre-order now"}</div>
-                    <div><strong>Badge:</strong> {preOrderConfig.badgeText || "Pre-order"}</div>
-                  </div>
-                </BlockStack>
-
-                <BlockStack gap="200">
-                  <Divider />
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Button
-                      size="slim"
-                      variant="plain"
-                      tone={preOrderConfig.enabled ? "critical" : "success"}
-                      onClick={handleTogglePreOrderStatus}
-                      loading={togglingPreOrder}
-                      disabled={loading}
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "6px",
+                        backgroundColor: "#F6F6F7",
+                        fontSize: "12px",
+                        color: "#475569",
+                        marginTop: "4px",
+                      }}
                     >
-                      {preOrderConfig.enabled ? "Disable" : "Enable"}
-                    </Button>
-                    <Button
-                      size="slim"
-                      onClick={() => setCustomizePreOrderOpen(true)}
-                    >
-                      Customize
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
+                      <div><strong>Button:</strong> {preOrderConfig.buttonText || "Pre-order now"}</div>
+                      <div><strong>Badge:</strong> {preOrderConfig.badgeText || "Pre-order"}</div>
+                    </div>
+                  </BlockStack>
+
+                  <BlockStack gap="200">
+                    <Divider />
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Button
+                        size="slim"
+                        variant="plain"
+                        tone={preOrderConfig.enabled ? "critical" : "success"}
+                        onClick={handleTogglePreOrderStatus}
+                        loading={togglingPreOrder}
+                        disabled={loading}
+                      >
+                        {preOrderConfig.enabled ? "Disable" : "Enable"}
+                      </Button>
+                      <Button
+                        size="slim"
+                        onClick={() => setCustomizePreOrderOpen(true)}
+                      >
+                        Customize
+                      </Button>
+                    </InlineStack>
+                  </BlockStack>
+                </div>
               </div>
             </Card>
           </InlineGrid>

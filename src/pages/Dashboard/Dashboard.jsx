@@ -35,7 +35,7 @@ const getInitialTrends = () => {
   }
 
   const weeklyTrend = [];
-  for (let i = 3; i >= 0; i--) {
+  for (let i = 5; i >= 0; i--) {
     const dEnd = new Date();
     dEnd.setDate(dEnd.getDate() - i * 7);
     const dStart = new Date(dEnd);
@@ -43,16 +43,17 @@ const getInitialTrends = () => {
     const dStartStr = dStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const dEndStr = dEnd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     weeklyTrend.push({
-      label: i === 0 ? "This Wk" : `Wk ${4 - i}`,
+      label: i === 0 ? "This Wk" : `Wk ${6 - i}`,
       dateRange: `${dStartStr} - ${dEndStr}`,
-      recovered: Math.round(16800 + (3 - i) * 3800),
-      count: Math.round(180 + (3 - i) * 40),
+      recovered: Math.round(16800 + (5 - i) * 3800),
+      count: Math.round(180 + (5 - i) * 40),
     });
   }
 
   const monthlyTrend = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
+    d.setDate(1);
     d.setMonth(d.getMonth() - i);
     const monthName = monthNames[d.getMonth()];
     const monthYear = d.getFullYear();
@@ -264,18 +265,18 @@ export default function Dashboard({ shopDomain = "" }) {
             <Card padding="400">
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "105px" }}>
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="bodySm" tone="subdued" fontWeight="medium">
+                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#000000" }}>
                     Total cash recovered
-                  </Text>
+                  </span>
                   <Badge tone="success">{`+${data.growthPercentage}%`}</Badge>
                 </InlineStack>
-                <div>
-                  <Text variant="heading2xl" as="p" fontWeight="bold">
+                <div style={{ marginTop: "8px" }}>
+                  <div style={{ fontSize: "28px", fontWeight: "800", color: "#000000", lineHeight: "1.2" }}>
                     {formatCurrency(data.totalCashRecovered)}
-                  </Text>
-                  <Text variant="bodyXs" tone="subdued">
+                  </div>
+                  <div style={{ fontSize: "11px", fontWeight: "500", color: "#000000", marginTop: "4px" }}>
                     Across all active promotions
-                  </Text>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -284,49 +285,43 @@ export default function Dashboard({ shopDomain = "" }) {
             <Card padding="400">
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "105px" }}>
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="bodySm" tone="subdued" fontWeight="medium">
+                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#000000" }}>
                     Dead stock cash tied up
-                  </Text>
+                  </span>
                   <Badge tone="critical">{`${data.deadStockSkuCount} SKUs`}</Badge>
                 </InlineStack>
-                <div>
-                  <Text variant="heading2xl" as="p" fontWeight="bold">
+                <div style={{ marginTop: "8px" }}>
+                  <div style={{ fontSize: "28px", fontWeight: "800", color: "#000000", lineHeight: "1.2" }}>
                     {formatCurrency(data.deadStockCashTiedUp)}
-                  </Text>
-                  <div style={{ paddingTop: "2px" }}>
-                    <Button
-                      variant="plain"
-                      size="slim"
-                      onClick={() => navigate("/app/dead-stock")}
-                    >
-                      View dead stock →
-                    </Button>
+                  </div>
+                  <div
+                    style={{ fontSize: "12px", fontWeight: "600", color: "#000000", marginTop: "4px", cursor: "pointer", textDecoration: "underline" }}
+                    onClick={() => navigate("/app/dead-stock")}
+                  >
+                    View dead stock →
                   </div>
                 </div>
-              </div>
-            </Card>
-
+              </div>                    
+            </Card>    
+                  
             {/* Metric 3 */}
             <Card padding="400">
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "105px" }}>
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="bodySm" tone="subdued" fontWeight="medium">
+                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#000000" }}>
                     Revenue at risk
-                  </Text>
+                  </span>
                   <Badge tone="attention">High demand</Badge>
                 </InlineStack>
-                <div>
-                  <Text variant="heading2xl" as="p" fontWeight="bold">
+                <div style={{ marginTop: "8px" }}>
+                  <div style={{ fontSize: "28px", fontWeight: "800", color: "#000000", lineHeight: "1.2" }}>
                     {formatCurrency(data.revenueAtRisk)}
-                  </Text>
-                  <div style={{ paddingTop: "2px" }}>
-                    <Button
-                      variant="plain"
-                      size="slim"
-                      onClick={() => navigate("/app/high-demand")}
-                    >
-                      {data.highDemandRiskCount || 0} items at risk →
-                    </Button>
+                  </div>
+                  <div
+                    style={{ fontSize: "12px", fontWeight: "600", color: "#000000", marginTop: "4px", cursor: "pointer", textDecoration: "underline" }}
+                    onClick={() => navigate("/app/high-demand")}
+                  >
+                    {data.highDemandRiskCount || 0} items at risk →
                   </div>
                 </div>
               </div>
@@ -336,18 +331,18 @@ export default function Dashboard({ shopDomain = "" }) {
             <Card padding="400">
               <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "105px" }}>
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="bodySm" tone="subdued" fontWeight="medium">
+                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#000000" }}>
                     Active automations
-                  </Text>
+                  </span>
                   <Badge tone="info">Running</Badge>
                 </InlineStack>
-                <div>
-                  <Text variant="heading2xl" as="p" fontWeight="bold">
+                <div style={{ marginTop: "8px" }}>
+                  <div style={{ fontSize: "28px", fontWeight: "800", color: "#000000", lineHeight: "1.2" }}>
                     {data.totalActiveAutomations ?? (data.badgeBreakdown || []).reduce((s, b) => s + (b.badgesUsed || 0), 0)}
-                  </Text>
-                  <Text variant="bodyXs" tone="subdued">
+                  </div>
+                  <div style={{ fontSize: "11px", fontWeight: "500", color: "#000000", marginTop: "4px" }}>
                     Badges & discount rules active
-                  </Text>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -365,9 +360,9 @@ export default function Dashboard({ shopDomain = "" }) {
               gap: "16px",
             }}
           >
-            {/* Chart: Clean Minimalist Bar Chart */}
+            {/* Chart: Modern Clean Line Chart */}
             <Card padding="400">
-              <BlockStack gap="400">
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", minHeight: "380px", gap: "16px" }}>
                 {/* Header */}
                 <InlineStack align="space-between" blockAlign="center">
                   <BlockStack gap="050">
@@ -399,7 +394,10 @@ export default function Dashboard({ shopDomain = "" }) {
                         <button
                           key={item.id}
                           type="button"
-                          onClick={() => setTimeframe(item.id)}
+                          onClick={() => {
+                            setHoveredIdx(null);
+                            setTimeframe(item.id);
+                          }}
                           style={{
                             border: "none",
                             background: isActive ? "#FFFFFF" : "transparent",
@@ -420,15 +418,15 @@ export default function Dashboard({ shopDomain = "" }) {
                   </div>
                 </InlineStack>
 
-                {/* Pixel-Perfect SVG Line Chart Container */}
-                <div style={{ position: "relative", width: "100%", height: "250px" }}>
+                {/* Perfect Responsive Chart Container */}
+                <div style={{ width: "100%", position: "relative", flex: 1, minHeight: "270px" }}>
                   {(() => {
                     const trendLen = (activeTrendData || []).length;
-                    const plotLeft = 45;
-                    const plotRight = 485;
+                    const plotLeft = 70;
+                    const plotRight = 480;
                     const plotWidth = plotRight - plotLeft;
                     const plotTop = 20;
-                    const plotBottom = 155;
+                    const plotBottom = 245;
                     const plotHeight = plotBottom - plotTop;
 
                     const points = (activeTrendData || []).map((item, idx) => {
@@ -439,19 +437,21 @@ export default function Dashboard({ shopDomain = "" }) {
                       return { ...item, x, y, idx };
                     });
 
-                    // Build smooth curve path with boundary clamping
+                    // Smooth Bezier path passing through all points
                     const createSmoothPath = (pts) => {
-                      if (pts.length === 0) return "";
-                      if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+                      if (!pts || pts.length === 0) return "";
+                      if (pts.length === 1) return `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+
                       let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
                       for (let i = 0; i < pts.length - 1; i++) {
                         const p0 = pts[i];
                         const p1 = pts[i + 1];
-                        const cpX1 = p0.x + (p1.x - p0.x) * 0.45;
-                        const cpY1 = Math.min(plotBottom, Math.max(plotTop, p0.y));
-                        const cpX2 = p1.x - (p1.x - p0.x) * 0.45;
-                        const cpY2 = Math.min(plotBottom, Math.max(plotTop, p1.y));
-                        d += ` C ${cpX1.toFixed(1)} ${cpY1.toFixed(1)}, ${cpX2.toFixed(1)} ${cpY2.toFixed(1)}, ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
+                        const dx = p1.x - p0.x;
+                        const cp1x = p0.x + dx * 0.45;
+                        const cp1y = p0.y;
+                        const cp2x = p1.x - dx * 0.45;
+                        const cp2y = p1.y;
+                        d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
                       }
                       return d;
                     };
@@ -462,7 +462,7 @@ export default function Dashboard({ shopDomain = "" }) {
                         ? `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${plotBottom} L ${points[0].x.toFixed(1)} ${plotBottom} Z`
                         : "";
 
-                    const hoveredPoint = hoveredIdx !== null ? points[hoveredIdx] : null;
+                    const hoveredPoint = hoveredIdx !== null && hoveredIdx < points.length ? points[hoveredIdx] : null;
 
                     const gridLevels = [
                       { val: activeMax, y: plotTop },
@@ -473,161 +473,168 @@ export default function Dashboard({ shopDomain = "" }) {
                     ];
 
                     return (
-                      <div style={{ width: "100%", height: "100%", position: "relative" }}>
-                        <svg
-                          viewBox="0 0 520 195"
-                          preserveAspectRatio="none"
-                          style={{ width: "100%", height: "100%", overflow: "visible" }}
-                        >
-                          <defs>
-                            <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#2C6ECB" stopOpacity="0.22" />
-                              <stop offset="100%" stopColor="#2C6ECB" stopOpacity="0.0" />
-                            </linearGradient>
-                          </defs>
+                      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                        <div style={{ width: "100%", height: "270px", position: "relative" }}>
+                          <svg
+                            viewBox="0 0 520 270"
+                            style={{ width: "100%", height: "100%", overflow: "visible" }}
+                          >
+                            <defs>
+                              <linearGradient id={`chartGrad-${timeframe}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#008060" stopOpacity="0.22" />
+                                <stop offset="100%" stopColor="#008060" stopOpacity="0.0" />
+                              </linearGradient>
+                              <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+                                <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#008060" floodOpacity="0.3" />
+                              </filter>
+                            </defs>
 
-                          {/* Horizontal Gridlines & Y-Axis Labels */}
-                          {gridLevels.map((lvl, i) => (
-                            <g key={i}>
-                              <line
-                                x1={plotLeft}
-                                y1={lvl.y}
-                                x2={plotRight}
-                                y2={lvl.y}
-                                stroke={i === gridLevels.length - 1 ? "#D2D5D8" : "#E5E7EB"}
-                                strokeDasharray={i === gridLevels.length - 1 ? "none" : "3 3"}
-                                strokeWidth="1"
+                            {/* Horizontal Gridlines & Y-Axis Labels */}
+                            {gridLevels.map((lvl, i) => (
+                              <g key={`grid-${i}`}>
+                                <line
+                                  x1={55}
+                                  y1={lvl.y}
+                                  x2={495}
+                                  y2={lvl.y}
+                                  stroke={i === gridLevels.length - 1 ? "#D2D5D8" : "#F1F2F4"}
+                                  strokeDasharray={i === gridLevels.length - 1 ? "none" : "4 4"}
+                                  strokeWidth="1"
+                                />
+                                <text
+                                  x={48}
+                                  y={lvl.y + 4}
+                                  textAnchor="end"
+                                  fill="#8C9196"
+                                  fontSize="11"
+                                  fontWeight="400"
+                                >
+                                  {formatScale(lvl.val)}
+                                </text>
+                              </g>
+                            ))}
+
+                            {/* Gradient Area Fill */}
+                            {areaPath && <path d={areaPath} fill={`url(#chartGrad-${timeframe})`} />}
+
+                            {/* Main Smooth Line */}
+                            {linePath && (
+                              <path
+                                d={linePath}
+                                fill="none"
+                                stroke="#008060"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                filter="url(#shadow)"
                               />
-                              <text
-                                x={plotLeft - 8}
-                                y={lvl.y + 4}
-                                textAnchor="end"
-                                fill="#8C9196"
-                                fontSize="11"
-                                fontWeight="400"
-                              >
-                                {formatScale(lvl.val)}
-                              </text>
-                            </g>
-                          ))}
+                            )}
 
-                          {/* Gradient Area */}
-                          {areaPath && <path d={areaPath} fill="url(#chartGrad)" />}
+                            {/* Hover Vertical Line */}
+                            {hoveredPoint && (
+                              <line
+                                x1={hoveredPoint.x}
+                                y1={plotTop}
+                                x2={hoveredPoint.x}
+                                y2={plotBottom}
+                                stroke="#008060"
+                                strokeDasharray="3 3"
+                                strokeWidth="1.5"
+                                opacity="0.6"
+                              />
+                            )}
 
-                          {/* Hover Vertical Guide Line */}
-                          {hoveredPoint && (
-                            <line
-                              x1={hoveredPoint.x}
-                              y1={plotTop}
-                              x2={hoveredPoint.x}
-                              y2={plotBottom}
-                              stroke="#2C6ECB"
-                              strokeDasharray="2 2"
-                              strokeWidth="1.5"
-                              opacity="0.6"
-                            />
-                          )}
-
-                          {/* Main Smooth Line */}
-                          {linePath && (
-                            <path
-                              d={linePath}
-                              fill="none"
-                              stroke="#2C6ECB"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          )}
-
-                          {/* Data Points and X-Axis Labels */}
-                          {points.map((p) => {
-                            const isHovered = hoveredIdx === p.idx;
-                            return (
-                              <g key={p.label || p.idx}>
-                                {isHovered && (
+                            {/* Data Points and X-Axis Labels */}
+                            {points.map((p) => {
+                              const isHovered = hoveredIdx === p.idx;
+                              return (
+                                <g key={`pt-${timeframe}-${p.idx}`}>
+                                  {isHovered && (
+                                    <circle
+                                      cx={p.x}
+                                      cy={p.y}
+                                      r="8"
+                                      fill="#008060"
+                                      fillOpacity="0.2"
+                                    />
+                                  )}
                                   <circle
                                     cx={p.x}
                                     cy={p.y}
-                                    r="8"
-                                    fill="#2C6ECB"
-                                    fillOpacity="0.2"
+                                    r={isHovered ? 5.5 : 4}
+                                    fill="#FFFFFF"
+                                    stroke="#008060"
+                                    strokeWidth={isHovered ? 2.5 : 2}
                                   />
-                                )}
-                                <circle
-                                  cx={p.x}
-                                  cy={p.y}
-                                  r={isHovered ? 5.5 : 4}
-                                  fill="#FFFFFF"
-                                  stroke="#2C6ECB"
-                                  strokeWidth={isHovered ? 2.5 : 2}
+                                  <text
+                                    x={p.x}
+                                    y={plotBottom + 21}
+                                    textAnchor="middle"
+                                    fill={isHovered ? "#202223" : "#6D7175"}
+                                    fontSize="12"
+                                    fontWeight={isHovered ? "600" : "500"}
+                                  >
+                                    {p.label}
+                                  </text>
+                                </g>
+                              );
+                            })}
+
+                            {/* Invisible Mouse Hover Target Zones */}
+                            {points.map((p) => {
+                              const stepX = trendLen > 1 ? plotWidth / (trendLen - 1) : plotWidth;
+                              const rectX = p.x - stepX / 2;
+                              return (
+                                <rect
+                                  key={`target-${timeframe}-${p.idx}`}
+                                  x={Math.max(0, rectX)}
+                                  y="0"
+                                  width={stepX}
+                                  height="270"
+                                  fill="transparent"
+                                  cursor="pointer"
+                                  onMouseEnter={() => setHoveredIdx(p.idx)}
+                                  onMouseLeave={() => setHoveredIdx(null)}
                                 />
-                                <text
-                                  x={p.x}
-                                  y="178"
-                                  textAnchor="middle"
-                                  fill={isHovered ? "#202223" : "#6D7175"}
-                                  fontSize="11"
-                                  fontWeight={isHovered ? "600" : "500"}
-                                >
-                                  {p.label}
-                                </text>
-                              </g>
-                            );
-                          })}
+                              );
+                            })}
+                          </svg>
 
-                          {/* Hover Trigger Rectangles */}
-                          {points.map((p) => {
-                            const stepX = trendLen > 1 ? plotWidth / (trendLen - 1) : plotWidth;
-                            const rectX = p.x - stepX / 2;
-                            return (
-                              <rect
-                                key={`zone-${p.label || p.idx}`}
-                                x={Math.max(0, rectX)}
-                                y="0"
-                                width={stepX}
-                                height="195"
-                                fill="transparent"
-                                cursor="pointer"
-                                onMouseEnter={() => setHoveredIdx(p.idx)}
-                                onMouseLeave={() => setHoveredIdx(null)}
-                              />
-                            );
-                          })}
-                        </svg>
-
-                        {/* Floating Tooltip */}
-                        {hoveredPoint && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              left: `${(hoveredPoint.x / 520) * 100}%`,
-                              top: `${(hoveredPoint.y / 195) * 100}%`,
-                              transform: "translate(-50%, -125%)",
-                              backgroundColor: "#1A1A1A",
-                              color: "#FFFFFF",
-                              padding: "6px 10px",
-                              borderRadius: "6px",
-                              fontSize: "11px",
-                              fontWeight: "500",
-                              whiteSpace: "nowrap",
-                              zIndex: 40,
-                              pointerEvents: "none",
-                              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                            }}
-                          >
-                            <div style={{ fontWeight: "700" }}>
-                              {hoveredPoint.fullDate
-                                ? `${hoveredPoint.dayName || hoveredPoint.label} (${hoveredPoint.fullDate})`
-                                : hoveredPoint.dateRange
-                                ? `${hoveredPoint.label} • ${hoveredPoint.dateRange}`
-                                : hoveredPoint.month && hoveredPoint.year
-                                ? `${hoveredPoint.month} ${hoveredPoint.year}`
-                                : hoveredPoint.label}
+                          {/* Rich Floating Tooltip */}
+                          {hoveredPoint && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: `${(hoveredPoint.x / 520) * 100}%`,
+                                top: `${(hoveredPoint.y / 270) * 100}%`,
+                                transform: "translate(-50%, -120%)",
+                                backgroundColor: "#1A1A1A",
+                                color: "#FFFFFF",
+                                padding: "8px 12px",
+                                borderRadius: "8px",
+                                fontSize: "11px",
+                                fontWeight: "500",
+                                whiteSpace: "nowrap",
+                                zIndex: 40,
+                                pointerEvents: "none",
+                                boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+                              }}
+                            >
+                              <div style={{ fontWeight: "700", marginBottom: "2px" }}>
+                                {hoveredPoint.fullDate
+                                  ? `${hoveredPoint.dayName || hoveredPoint.label} (${hoveredPoint.fullDate})`
+                                  : hoveredPoint.dateRange
+                                  ? `${hoveredPoint.label} • ${hoveredPoint.dateRange}`
+                                  : hoveredPoint.month && hoveredPoint.year
+                                  ? `${hoveredPoint.month} ${hoveredPoint.year}`
+                                  : hoveredPoint.label}
+                              </div>
+                              <div style={{ color: "#34D399", fontWeight: "600" }}>
+                                {formatCurrency(hoveredPoint.recovered)} <span style={{ color: "#9CA3AF", fontWeight: "400" }}>• {hoveredPoint.count || 0} orders</span>
+                              </div>
                             </div>
-                            <div>{formatCurrency(hoveredPoint.recovered)} • {hoveredPoint.count || 0} orders</div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     );
                   })()}
@@ -636,14 +643,14 @@ export default function Dashboard({ shopDomain = "" }) {
                 {/* Minimal Legend */}
                 <InlineStack align="space-between" blockAlign="center">
                   <InlineStack gap="150" blockAlign="center">
-                    <span style={{ display: "inline-block", width: "8px", height: "8px", backgroundColor: "#2C6ECB", borderRadius: "50%" }} />
+                    <span style={{ display: "inline-block", width: "8px", height: "8px", backgroundColor: "#008060", borderRadius: "50%" }} />
                     <Text variant="bodyXs" tone="subdued">Cash recovered through automations</Text>
                   </InlineStack>
                   <Text variant="bodyXs" tone="subdued">
-                    {timeframe === "daily" ? "Past 7 days" : timeframe === "weekly" ? "Past 4 weeks" : "Past 6 months"}
+                    {timeframe === "daily" ? "Past 7 days" : timeframe === "weekly" ? "Past 6 weeks" : "Past 6 months"}
                   </Text>
                 </InlineStack>
-              </BlockStack>
+              </div>
             </Card>
 
             {/* Performance by Strategy */}

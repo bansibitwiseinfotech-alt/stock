@@ -41,11 +41,11 @@ async function runTests() {
 
   // 1. Verify Plans Config
   assert(SHOPIFY_BILLING_PLANS.basic.monthly.price === 19, 'Basic monthly price is $19');
-  assert(SHOPIFY_BILLING_PLANS.basic.yearly.price === 190, 'Basic yearly price is $190');
+  assert(SHOPIFY_BILLING_PLANS.basic.yearly.price === 99, 'Basic yearly price is $99');
   assert(SHOPIFY_BILLING_PLANS.pro.monthly.price === 49, 'Pro monthly price is $49');
-  assert(SHOPIFY_BILLING_PLANS.pro.yearly.price === 490, 'Pro yearly price is $490');
+  assert(SHOPIFY_BILLING_PLANS.pro.yearly.price === 249, 'Pro yearly price is $249');
   assert(SHOPIFY_BILLING_PLANS.premium.monthly.price === 99, 'Premium monthly price is $99');
-  assert(SHOPIFY_BILLING_PLANS.premium.yearly.price === 990, 'Premium yearly price is $990');
+  assert(SHOPIFY_BILLING_PLANS.premium.yearly.price === 499, 'Premium yearly price is $499');
   assert(SHOPIFY_BILLING_PLANS.basic.monthly.interval === 'EVERY_30_DAYS', 'Monthly interval is EVERY_30_DAYS');
   assert(SHOPIFY_BILLING_PLANS.basic.yearly.interval === 'ANNUAL', 'Yearly interval is ANNUAL');
 

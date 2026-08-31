@@ -45,7 +45,7 @@ const getOrCreateSubscription = async (shop) => {
 };
 
 // =====================================================
-// CHECK FEATURE USAGE LIMIT
+// CHECK FEATURE USAGE LIMIT    
 // =====================================================
 
 const checkPlanLimit = (feature) => {
@@ -322,7 +322,7 @@ const incrementFeatureUsage = async (subscriptionOrShop, feature) => {
         {
             $inc: { [`usage.${feature}`]: 1 },
         },
-        { new: true }
+        { returnDocument: "after" }
     );
 
     if (updated && subscriptionOrShop && typeof subscriptionOrShop === "object") {

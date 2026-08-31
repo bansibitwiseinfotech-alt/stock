@@ -48,7 +48,11 @@ router.post(
   requirePremiumFeature("collectionBulkSale"),
   saveCollectionSaleRecords
 );
-router.post("/collection-sale-records/delete", deleteCollectionSaleRecords);
+router.post(
+  "/collection-sale-records/delete",
+  requirePremiumFeature("collectionBulkSale"),
+  deleteCollectionSaleRecords
+);
 
 // Product-specific routes
 router.get("/:variantId/actions", getProductActions);

@@ -28,7 +28,10 @@ export default function DeadStockFilters({
 
   // Collection Bulk Sale
   onCollectionBulkSale,
+  currentPlan = "free",
 }) {
+  const isLocked = String(currentPlan || "free").toLowerCase() !== "premium";
+
   const handleLocationChange = (val) => {
     setLocation(val);
   };
@@ -122,7 +125,7 @@ export default function DeadStockFilters({
             icon={DiscountIcon}
             onClick={onCollectionBulkSale}
           >
-            Collection Bulk Sale
+            {isLocked ? "Collection Bulk Sale 🔒" : "Collection Bulk Sale"}
           </Button>
         </InlineStack>
       </InlineStack>

@@ -27,6 +27,8 @@ import {
   saveLaunchPreOrderApi,
   deleteLaunchPreOrderApi,
 } from "../../services/appApi";
+import LockedFeatureOverlay from "../../components/LockedFeatureOverlay";
+import { fetchSubscription } from "../../services/subscriptionApi";
 import LowStockCustomizeModal from "../../components/LowStockCustomizeModal";
 import PreOrderCustomizeModal from "../../components/PreOrderCustomizeModal";
 
@@ -224,6 +226,20 @@ export default function HighDemandProduct({
       loadDetail();
     }
   }, [variantId, shop, productId]);
+
+  const [currentPlan, setCurrentPlan] = useState("free");
+
+  useEffect(() => {
+    if (shop) {
+      fetchSubscription(shop)
+        .then((data) => {
+          if (data?.subscription?.plan) {
+            setCurrentPlan(data.subscription.plan.toLowerCase());
+          }
+        })
+        .catch(() => null);
+    }
+  }, [shop]);
 
   const handleSaveLaunch = async () => {
     const targetProdId = product?.productId || productId;
@@ -932,103 +948,113 @@ const dynamicAnalysis = getDynamicAnalysis(
                 >
                   {/* LOW STOCK BADGE */}
                   <Card padding="400">
-                    <BlockStack gap="300">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text variant="headingSm" as="h4" fontWeight="semibold">
-                          🔥 Low Stock Badge
+                    <div style={{ position: "relative", height: "100%", minHeight: "180px" }}>
+                      {(currentPlan === "free" || currentPlan === "basic") && (
+                        <LockedFeatureOverlay requiredPlan="Pro" />
+                      )}
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="headingSm" as="h4" fontWeight="semibold">
+                            🔥 Low Stock Badge
+                          </Text>
+                          <Badge
+                            tone={
+                              (item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
+                                ? "success"
+                                : "subdued"
+                            }
+                          >
+                            {(item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
+                              ? "Status: ON"
+                              : "Status: OFF"}
+                          </Badge>
+                        </InlineStack>
+
+                        <Text variant="bodySm" tone="subdued">
+                          Display dynamic urgency stock count on customer storefront to protect margins & drive conversion.
                         </Text>
-                        <Badge
-                          tone={
-                            (item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
-                              ? "success"
-                              : "subdued"
-                          }
-                        >
-                          {(item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
-                            ? "Status: ON"
-                            : "Status: OFF"}
-                        </Badge>
-                      </InlineStack>
 
-                      <Text variant="bodySm" tone="subdued">
-                        Display dynamic urgency stock count on customer storefront to protect margins & drive conversion.
-                      </Text>
-
-                      <InlineStack gap="200" align="start">
-                        <Button
-                          onClick={handleToggleBadge}
-                          loading={badgeLoading}
-                          variant={
-                            (item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
-                              ? "secondary"
-                              : "primary"
-                          }
-                        >
-                          {(item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
-                            ? "Disable Badge"
-                            : "Enable Badge"}
-                        </Button>
-                        <Button
-                          variant="plain"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate("/app/customization");
-                          }}
-                        >
-                          Customize
-                        </Button>
-                      </InlineStack>
-                    </BlockStack>
+                        <InlineStack gap="200" align="start">
+                          <Button
+                            onClick={handleToggleBadge}
+                            loading={badgeLoading}
+                            variant={
+                              (item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
+                                ? "secondary"
+                                : "primary"
+                            }
+                          >
+                            {(item.lowStockBadge?.enabled ?? item.urgencyBadgeEnabled)
+                              ? "Disable Badge"
+                              : "Enable Badge"}
+                          </Button>
+                          <Button
+                            variant="plain"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate("/app/customization");
+                            }}
+                          >
+                            Customize
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </div>
                   </Card>
 
                   {/* PRE-ORDER */}
                   <Card padding="400">
-                    <BlockStack gap="300">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text variant="headingSm" as="h4" fontWeight="semibold">
-                          📦 Launch Pre-Order
+                    <div style={{ position: "relative", height: "100%", minHeight: "180px" }}>
+                      {currentPlan !== "premium" && (
+                        <LockedFeatureOverlay requiredPlan="Premium" />
+                      )}
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="headingSm" as="h4" fontWeight="semibold">
+                            📦 Launch Pre-Order
+                          </Text>
+                          <Badge
+                            tone={
+                              (launchConfig?.preOrderEnabled ?? false)
+                                ? "success"
+                                : "subdued"
+                            }
+                          >
+                            {(launchConfig?.preOrderEnabled ?? false)
+                              ? "Status: ON"
+                              : "Status: OFF"}
+                          </Badge>
+                        </InlineStack>
+
+                        <Text variant="bodySm" tone="subdued">
+                          Accept customer pre-orders and deposit payments for this item before official inventory release.
                         </Text>
-                        <Badge
-                          tone={
-                            (launchConfig?.preOrderEnabled ?? false)
-                              ? "success"
-                              : "subdued"
-                          }
-                        >
-                          {(launchConfig?.preOrderEnabled ?? false)
-                            ? "Status: ON"
-                            : "Status: OFF"}
-                        </Badge>
-                      </InlineStack>
 
-                      <Text variant="bodySm" tone="subdued">
-                        Accept customer pre-orders and deposit payments for this item before official inventory release.
-                      </Text>
-
-                      <InlineStack gap="200" align="start">
-                        <Button
-                          onClick={() => setLaunchModalOpen(true)}
-                          variant={
-                            (launchConfig?.preOrderEnabled ?? false)
-                              ? "secondary"
-                              : "primary"
-                          }
-                        >
-                          {(launchConfig?.preOrderEnabled ?? false)
-                            ? "Configure Pre-Order"
-                            : "Setup Pre-Order"}
-                        </Button>
-                        <Button
-                          variant="plain"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate("/app/customization");
-                          }}
-                        >
-                          Customize
-                        </Button>
-                      </InlineStack>
-                    </BlockStack>
+                        <InlineStack gap="200" align="start">
+                          <Button
+                            onClick={() => setLaunchModalOpen(true)}
+                            variant={
+                              (launchConfig?.preOrderEnabled ?? false)
+                                ? "secondary"
+                                : "primary"
+                            }
+                          >
+                            {(launchConfig?.preOrderEnabled ?? false)
+                              ? "Configure Pre-Order"
+                              : "Setup Pre-Order"}
+                          </Button>
+                          <Button
+                            variant="plain"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate("/app/customization");
+                            }}
+                          >
+                            Customize
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </div>
                   </Card>
                 </div>
               </BlockStack>

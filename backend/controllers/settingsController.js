@@ -48,7 +48,7 @@ async function updateSettings(req, res) {
           markdownRule: markdownRule || "10% every 14 days",
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
 
     return res.status(200).json({ success: true, data: updated, message: "Settings saved successfully!" });

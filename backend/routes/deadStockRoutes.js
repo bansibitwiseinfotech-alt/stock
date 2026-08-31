@@ -4,6 +4,7 @@ const deadStockController = require("../controllers/deadStockController");
 const { authenticateShop } = require("../middleware/auth");
 const {
     checkPlanLimit,
+    requirePremiumFeature,
 } = require("../middleware/checkPlanLimit");
 
 
@@ -23,7 +24,8 @@ router.post("/sync", deadStockController.syncDeadStockData);
 router.post("/bulk-sale", deadStockController.createBulkSale);
 
 // Collection bulk sale — save ClearanceSale records for storefront widget
-router.post("/collection-sale-records", deadStockController.saveCollectionSaleRecords);
+router.post("/collection-sale-records", requirePremiumFeature("collectionBulkSale"), deadStockController.saveCollectionSaleRecords);
+router.post("/collection-sale-records/delete", requirePremiumFeature("collectionBulkSale"), deadStockController.deleteCollectionSaleRecords);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PRIMARY: Shopify GraphQL cursor-paginated product listing

@@ -1,5 +1,5 @@
 const express = require("express");
-
+const { authenticateShop } = require("../middleware/auth");
 const {
     getSubscription,
     upgradeSubscription,
@@ -15,18 +15,18 @@ const router = express.Router();
 // =====================================================
 
 // GET /api/subscription?shop=store.myshopify.com
-router.get("/", getSubscription);
+router.get("/", authenticateShop, getSubscription);
 
 // POST /api/subscription/upgrade
-router.post("/upgrade", upgradeSubscription);
+router.post("/upgrade", authenticateShop, upgradeSubscription);
 
 // GET /api/subscription/confirm (Shopify redirect callback)
 router.get("/confirm", confirmSubscription);
 
 // POST /api/subscription/verify (in-app fallback verification)
-router.post("/verify", verifySubscription);
+router.post("/verify", authenticateShop, verifySubscription);
 
 // POST /api/subscription/switch-free (cancel paid Shopify sub and revert to free)
-router.post("/switch-free", switchFree);
+router.post("/switch-free", authenticateShop, switchFree);
 
 module.exports = router;

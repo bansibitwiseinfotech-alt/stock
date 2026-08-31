@@ -24,6 +24,8 @@ import {
   SearchIcon,
   RefreshIcon,
 } from "@shopify/polaris-icons";
+import LockedFeatureOverlay from "../../components/LockedFeatureOverlay";
+import { fetchSubscription } from "../../services/subscriptionApi";
 import {
   scanSmartBadgesApi,
   fetchSmartBadgeRecommendationsApi,
@@ -164,6 +166,20 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
       }
     } finally {
       setLoading(false);
+    }
+  }, [shop]);
+
+  const [currentPlan, setCurrentPlan] = useState("free");
+
+  useEffect(() => {
+    if (shop) {
+      fetchSubscription(shop)
+        .then((data) => {
+          if (data?.subscription?.plan) {
+            setCurrentPlan(data.subscription.plan.toLowerCase());
+          }
+        })
+        .catch(() => null);
     }
   }, [shop]);
 
@@ -422,24 +438,27 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
         fullWidth
         title="Smart Badges"
         subtitle="Automated badge recommendations to boost sales velocity."
-      
       >
-        <BlockStack gap="400">
-          {/* ERROR BANNER */}
-          {errorMsg && (
-            <Banner
-              title="Scan Failed"
-              tone="critical"
-              onDismiss={() => setErrorMsg(null)}
-            >
-              <p>{errorMsg}</p>
-              <div style={{ marginTop: "8px" }}>
-                <Button onClick={handleScanProducts} size="slim">
-                  Try Again
-                </Button>
-              </div>
-            </Banner>
+        <div style={{ position: "relative", minHeight: "450px" }}>
+          {currentPlan !== "premium" && (
+            <LockedFeatureOverlay requiredPlan="Premium" />
           )}
+          <BlockStack gap="400">
+            {/* ERROR BANNER */}
+            {errorMsg && currentPlan === "premium" && !errorMsg.includes("Upgrade to") && !errorMsg.includes("Basic plan") && (
+              <Banner
+                title="Scan Failed"
+                tone="critical"
+                onDismiss={() => setErrorMsg(null)}
+              >
+                <p>{errorMsg}</p>
+                <div style={{ marginTop: "8px" }}>
+                  <Button onClick={handleScanProducts} size="slim">
+                    Try Again
+                  </Button>
+                </div>
+              </Banner>
+            )}
 
           {/* SCANNING STATE */}
           {scanning && (
@@ -752,7 +771,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
             </Card>
           )}
         </BlockStack>
-
+        </div>
 
         {/* TOAST NOTIFICATION */}
         {toastMsg && (

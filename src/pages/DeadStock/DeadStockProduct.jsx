@@ -29,6 +29,8 @@ import {
   fetchProductActions,
   executeDeleteClearanceSale,
 } from "../../services/deadStockApi";
+import LockedFeatureOverlay from "../../components/LockedFeatureOverlay";
+import { fetchSubscription } from "../../services/subscriptionApi";
 import { fetchClearanceSaleConfigApi } from "../../services/appApi";
 import CreateDeadStockBundleModal from "../../components/DeadStock/CreateDeadStockBundleModal";
 
@@ -92,6 +94,20 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
   const [maximumDiscount, setMaximumDiscount] = useState("50");
 
   const [actionNotification, setActionNotification] = useState(null);
+
+  const [currentPlan, setCurrentPlan] = useState("free");
+
+  useEffect(() => {
+    if (activeShop) {
+      fetchSubscription(activeShop)
+        .then((data) => {
+          if (data?.subscription?.plan) {
+            setCurrentPlan(data.subscription.plan.toLowerCase());
+          }
+        })
+        .catch(() => null);
+    }
+  }, [activeShop]);
 
   const loadDetail = useCallback(
     async (showSpinner = false) => {
@@ -707,76 +723,86 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
 
               {/* Action 2: Dead Stock Bundle */}
               <Card padding="400">
-                <BlockStack gap="300">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      📦 Dead Stock Bundle
+                <div style={{ position: "relative", height: "100%", minHeight: "200px" }}>
+                  {currentPlan === "free" && (
+                    <LockedFeatureOverlay requiredPlan="Basic" />
+                  )}
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingSm" as="h3" fontWeight="semibold">
+                        📦 Dead Stock Bundle
+                      </Text>
+                      <Badge tone={product?.activeBundle ? "success" : "subdued"}>
+                        {product?.activeBundle ? "● Active Bundle" : "○ Not Configured"}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="bodySm" tone="subdued">
+                      Bundle this slow-moving item with a popular companion product to increase perceived value and volume.
                     </Text>
-                    <Badge tone={product?.activeBundle ? "success" : "subdued"}>
-                      {product?.activeBundle ? "● Active Bundle" : "○ Not Configured"}
-                    </Badge>
-                  </InlineStack>
 
-                  <Text variant="bodySm" tone="subdued">
-                    Bundle this slow-moving item with a popular companion product to increase perceived value and volume.
-                  </Text>
-
-                  <InlineStack gap="200" align="start">
-                    <Button
-                      variant={product?.activeBundle ? "secondary" : "primary"}
-                      onClick={() => openModal("bundle")}
-                    >
-                      {product?.activeBundle ? "Edit Bundle" : "Create Bundle"}
-                    </Button>
-                    <Button
-                      variant="plain"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate("/app/customization/clearance-sale");
-                      }}
-                    >
-                      Customize
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
+                    <InlineStack gap="200" align="start">
+                      <Button
+                        variant={product?.activeBundle ? "secondary" : "primary"}
+                        onClick={() => openModal("bundle")}
+                      >
+                        {product?.activeBundle ? "Edit Bundle" : "Create Bundle"}
+                      </Button>
+                      <Button
+                        variant="plain"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate("/app/customization/clearance-sale");
+                        }}
+                      >
+                        Customize
+                      </Button>
+                    </InlineStack>
+                  </BlockStack>
+                </div>
               </Card>
 
               {/* Action 3: Progressive Markdown */}
               <Card padding="400">
-                <BlockStack gap="300">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      📉 Progressive Markdown
-                    </Text>
-                    <Badge tone={product?.activeMarkdownRule ? "success" : "subdued"}>
-                      {product?.activeMarkdownRule
-                        ? `● Active (${product.activeMarkdownRule.currentDiscount}% OFF)`
-                        : "○ Not Configured"}
-                    </Badge>
-                  </InlineStack>
+                <div style={{ position: "relative", height: "100%", minHeight: "200px" }}>
+                  {currentPlan !== "premium" && (
+                    <LockedFeatureOverlay requiredPlan="Premium" />
+                  )}
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingSm" as="h3" fontWeight="semibold">
+                        📉 Progressive Markdown
+                      </Text>
+                      <Badge tone={product?.activeMarkdownRule ? "success" : "subdued"}>
+                        {product?.activeMarkdownRule
+                          ? `● Active (${product.activeMarkdownRule.currentDiscount}% OFF)`
+                          : "○ Not Configured"}
+                      </Badge>
+                    </InlineStack>
 
-                  <Text variant="bodySm" tone="subdued">
-                    Automatically step down discounts at set time intervals to achieve sales while maximizing revenue.
-                  </Text> 
+                    <Text variant="bodySm" tone="subdued">
+                      Automatically step down discounts at set time intervals to achieve sales while maximizing revenue.
+                    </Text> 
 
-                  <InlineStack gap="200" align="start">
-                    <Button
-                      variant={product?.activeMarkdownRule ? "secondary" : "primary"}
-                      onClick={() => openModal("markdown")}
-                    >
-                      {product?.activeMarkdownRule ? "Manage Rule" : "Create Markdown"}
-                    </Button>
-                    <Button
-                      variant="plain"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate("/app/customization/clearance-sale");
-                      }}
-                    >
-                      Customize
-                    </Button>
-                  </InlineStack>
-                </BlockStack>
+                    <InlineStack gap="200" align="start">
+                      <Button
+                        variant={product?.activeMarkdownRule ? "secondary" : "primary"}
+                        onClick={() => openModal("markdown")}
+                      >
+                        {product?.activeMarkdownRule ? "Manage Rule" : "Create Markdown"}
+                      </Button>
+                      <Button
+                        variant="plain"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate("/app/customization/clearance-sale");
+                        }}
+                      >
+                        Customize
+                      </Button>
+                    </InlineStack>
+                  </BlockStack>
+                </div>
               </Card>
             </InlineGrid>
           </BlockStack>

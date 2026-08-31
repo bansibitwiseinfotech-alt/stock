@@ -24,7 +24,7 @@ async function processClearanceSales(now = new Date()) {
     const updated = await ClearanceSale.findOneAndUpdate(
       { _id: sale._id, status: "SCHEDULED" },
       { $set: { status: "ACTIVE" } },
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
     if (updated) await updateSaleActionStatus(updated, "ACTIVE");
   }
@@ -38,7 +38,7 @@ async function processClearanceSales(now = new Date()) {
     const updated = await ClearanceSale.findOneAndUpdate(
       { _id: sale._id, status: { $in: ["SCHEDULED", "ACTIVE"] } },
       { $set: { status: "EXPIRED" } },
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
     if (updated) await updateSaleActionStatus(updated, "EXPIRED");
   }

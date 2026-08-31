@@ -1,5 +1,16 @@
 const path = require("path");
 
+// Suppress Node & Mongoose deprecation warnings from cluttering terminal log
+process.on("warning", (warning) => {
+  if (
+    warning.name === "DeprecationWarning" ||
+    warning.message?.includes("findOneAndUpdate") ||
+    warning.message?.includes("findOneAndReplace")
+  ) {
+    return;
+  }
+});
+
 // ==================================================
 // ENVIRONMENT
 // ==================================================

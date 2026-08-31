@@ -3,25 +3,43 @@
 // =====================================================
 // Source of truth for real Shopify AppSubscription charges.
 
+const PLAN_PRICES = {
+  free: {
+    monthly: 0,
+    yearly: 0,
+  },
+  basic: {
+    monthly: 19,
+    yearly: 99,
+  },
+  pro: {
+    monthly: 49,
+    yearly: 249,
+  },
+  premium: {
+    monthly: 99,
+    yearly: 499,
+  },
+};
+
 const SHOPIFY_BILLING_PLANS = {
   basic: {
     id: "basic",
     name: "Smart Stock Basic",
     planName: "Basic",
     monthly: {
-      price: 19.0,
+      price: PLAN_PRICES.basic.monthly,
       currencyCode: "USD",
       interval: "EVERY_30_DAYS",
-      formattedPrice: "$19",
+      formattedPrice: `$${PLAN_PRICES.basic.monthly}`,
       periodLabel: "/ month",
     },
     yearly: {
-      price: 190.0,
+      price: PLAN_PRICES.basic.yearly,
       currencyCode: "USD",
       interval: "ANNUAL",
-      formattedPrice: "$190",
+      formattedPrice: `$${PLAN_PRICES.basic.yearly}`,
       periodLabel: "/ year",
-      discountNotice: "Save $38 (2 months free)",
     },
   },
 
@@ -30,19 +48,18 @@ const SHOPIFY_BILLING_PLANS = {
     name: "Smart Stock Pro",
     planName: "Pro",
     monthly: {
-      price: 49.0,
+      price: PLAN_PRICES.pro.monthly,
       currencyCode: "USD",
       interval: "EVERY_30_DAYS",
-      formattedPrice: "$49",
+      formattedPrice: `$${PLAN_PRICES.pro.monthly}`,
       periodLabel: "/ month",
     },
     yearly: {
-      price: 490.0,
+      price: PLAN_PRICES.pro.yearly,
       currencyCode: "USD",
       interval: "ANNUAL",
-      formattedPrice: "$490",
+      formattedPrice: `$${PLAN_PRICES.pro.yearly}`,
       periodLabel: "/ year",
-      discountNotice: "Save $98 (2 months free)",
     },
   },
 
@@ -51,21 +68,23 @@ const SHOPIFY_BILLING_PLANS = {
     name: "Smart Stock Premium",
     planName: "Premium",
     monthly: {
-      price: 99.0,
+      price: PLAN_PRICES.premium.monthly,
       currencyCode: "USD",
       interval: "EVERY_30_DAYS",
-      formattedPrice: "$99",
+      formattedPrice: `$${PLAN_PRICES.premium.monthly}`,
       periodLabel: "/ month",
     },
     yearly: {
-      price: 990.0,
+      price: PLAN_PRICES.premium.yearly,
       currencyCode: "USD",
       interval: "ANNUAL",
-      formattedPrice: "$990",
+      formattedPrice: `$${PLAN_PRICES.premium.yearly}`,
       periodLabel: "/ year",
-      discountNotice: "Save $198 (2 months free)",
     },
   },
 };
 
+SHOPIFY_BILLING_PLANS.PLAN_PRICES = PLAN_PRICES;
+
 module.exports = SHOPIFY_BILLING_PLANS;
+

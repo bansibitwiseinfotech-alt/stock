@@ -87,8 +87,38 @@ const GET_COLLECTION_PRODUCTS = `#graphql
 
 export async function action({ request }) {
   try {
+    const { admin, session } = await authenticate.admin(request);
+    const shop = session?.shop || "";
+    const backendBaseUrl = process.env.BACKEND_URL || "http://localhost:5000";
+
+    // Verify merchant subscription plan is Premium
+    try {
+      const subRes = await fetch(
+        `${backendBaseUrl}/api/subscription?shop=${encodeURIComponent(shop)}`
+      );
+      if (subRes.ok) {
+        const subData = await subRes.json();
+        const currentPlan = String(
+          subData?.subscription?.plan || "free"
+        ).toLowerCase();
+
+        if (currentPlan !== "premium") {
+          return json(
+            {
+              success: false,
+              error:
+                "Collection Bulk Sale is a Premium feature. Please upgrade your subscription plan to Premium.",
+              upgradeRequired: true,
+            },
+            { status: 403 }
+          );
+        }
+      }
+    } catch (e) {
+      console.warn("Subscription check warning:", e.message);
+    }
+
     if (request.method === "DELETE") {
-      const { admin, session } = await authenticate.admin(request);
       const body = await request.json().catch(() => ({}));
       const { collectionId, collectionTitle } = body;
 
@@ -99,9 +129,6 @@ export async function action({ request }) {
       const collectionGid = collectionId.startsWith("gid://shopify/Collection/")
         ? collectionId
         : `gid://shopify/Collection/${collectionId}`;
-
-      const shop = session?.shop || "";
-      const backendBaseUrl = process.env.BACKEND_URL || "http://localhost:5000";
 
       const deleteResponse = await fetch(
         `${backendBaseUrl}/api/dead-stock/collection-sale-records/delete`,
@@ -138,8 +165,6 @@ export async function action({ request }) {
         collectionId: collectionGid,
       });
     }
-
-    const { admin, session } = await authenticate.admin(request);
 
     const body = await request.json();
 

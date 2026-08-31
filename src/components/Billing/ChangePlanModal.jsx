@@ -54,7 +54,7 @@ export default function ChangePlanModal({
       primaryAction={{
         content: loading
           ? "Creating secure Shopify checkout..."
-          : `Subscribe to ${selectedPlan.name} — ${priceInfo.formattedPrice}${priceInfo.periodLabel}`,
+          : `Apply to ${selectedPlan.name} — ${priceInfo.formattedPrice}${priceInfo.periodLabel}`,
         onAction: handleSubscribe,
         loading: loading,
         disabled: loading,
@@ -79,14 +79,13 @@ export default function ChangePlanModal({
             </Banner>
           )}
 
-          {/* ONLY DISPLAY THE SELECTED PLAN DETAILS */}
+          {/* SELECTED PLAN DETAILS */}
           <div
             style={{
-              border: "2px solid #008060",
+              border: "1.5px solid #008060",
               backgroundColor: "#f6fdfa",
-              borderRadius: "8px",
-              padding: "16px",
-              transition: "all 0.15s ease-in-out",
+              borderRadius: "10px",
+              padding: "16px 20px",
             }}
           >
             <InlineStack align="space-between" blockAlign="center">
@@ -95,9 +94,6 @@ export default function ChangePlanModal({
                   <Text variant="headingMd" as="h4" fontWeight="bold">
                     {selectedPlan.name} Plan
                   </Text>
-                  {selectedPlan.highlight && (
-                    <Badge tone="attention">Popular</Badge>
-                  )}
                   <Badge tone="success">✓ Selected</Badge>
                 </InlineStack>
 
@@ -123,8 +119,6 @@ export default function ChangePlanModal({
               </BlockStack>
             </InlineStack>
           </div>
-
-          <Divider />
 
           {/* BILLING SUMMARY */}
           <Box
@@ -168,20 +162,11 @@ export default function ChangePlanModal({
                   {priceInfo.formattedPrice} {priceInfo.periodLabel}
                 </Text>
               </InlineStack>
-
-              <InlineStack align="space-between">
-                <Text variant="bodySm" tone="subdued" as="span">
-                  Trial Period
-                </Text>
-                <Text variant="bodySm" tone="subdued" as="span">
-                  None
-                </Text>
-              </InlineStack>
             </BlockStack>
           </Box>
 
           <Text variant="bodyXs" tone="subdued" as="p">
-            Clicking Subscribe will redirect you to Shopify's secure approval
+            Clicking Apply will redirect you to Shopify's secure approval
             page to confirm your recurring subscription.
           </Text>
         </BlockStack>

@@ -15,6 +15,8 @@ import {
   Box,
   Divider,
 } from "@shopify/polaris";
+import LockedFeatureOverlay from "./LockedFeatureOverlay";
+import { fetchSubscription } from "../services/subscriptionApi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CollectionBulkSaleModal
@@ -24,6 +26,7 @@ export default function CollectionBulkSaleModal({
   open,
   onClose,
   onSuccess,
+  currentPlan = "free",
 }) {
   const [collections, setCollections] = useState([]);
 
@@ -51,18 +54,25 @@ const [duration, setDuration] = useState("14");
   const [error, setError] = useState("");
 
   const [success, setSuccess] = useState("");
+  const [effectivePlan, setEffectivePlan] = useState(currentPlan);
+
+  useEffect(() => {
+    setEffectivePlan(currentPlan);
+  }, [currentPlan]);
+
+  const isLocked = String(effectivePlan || "free").toLowerCase() !== "premium";
 
   // ───────────────────────────────────────────────────────────────────────────
   // Load collections
   // ───────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!open) {
+    if (!open || isLocked) {
       return;
     }
 
     loadCollections();
-  }, [open]);
+  }, [open, isLocked]);
 
   async function loadCollections() {
     try {
@@ -244,6 +254,23 @@ const [duration, setDuration] = useState("14");
   // ───────────────────────────────────────────────────────────────────────────
   // Render
   // ───────────────────────────────────────────────────────────────────────────
+
+  if (isLocked) {
+    return (
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Collection Bulk Sale"
+        large
+      >
+        <Modal.Section>
+          <div style={{ position: "relative", minHeight: "360px" }}>
+            <LockedFeatureOverlay requiredPlan="Premium" />
+          </div>
+        </Modal.Section>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

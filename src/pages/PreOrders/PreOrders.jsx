@@ -22,6 +22,8 @@ import {
   EmptyState,
 } from "@shopify/polaris";
 import { useSearchParams } from "react-router";
+import LockedFeatureOverlay from "../../components/LockedFeatureOverlay";
+import { fetchSubscription } from "../../services/subscriptionApi";
 import {
   fetchPreOrdersApi,
   syncPreOrdersApi,
@@ -255,6 +257,20 @@ export default function PreOrders({ shopDomain } = {}) {
     },
     [shop, currentOrderStatus, orderSearchQuery]
   );
+
+  const [currentPlan, setCurrentPlan] = useState("free");
+
+  useEffect(() => {
+    if (shop) {
+      fetchSubscription(shop)
+        .then((data) => {
+          if (data?.subscription?.plan) {
+            setCurrentPlan(data.subscription.plan.toLowerCase());
+          }
+        })
+        .catch(() => null);
+    }
+  }, [shop]);
 
   useEffect(() => {
     if (shop && mainView === 1) {
@@ -507,9 +523,12 @@ export default function PreOrders({ shopDomain } = {}) {
       fullWidth
       title="Pre-Orders"
       subtitle="Manage new upcoming product launches and track customer pre-orders placed through Shopify Checkout."
-     
     >
-      <BlockStack gap="500">
+      <div style={{ position: "relative", minHeight: "450px" }}>
+        {currentPlan !== "premium" && (
+          <LockedFeatureOverlay requiredPlan="Premium" />
+        )}
+        <BlockStack gap="500">
         {notice && (
           <Banner tone={notice.tone} onDismiss={() => setNotice(null)}>
             <p>{notice.message}</p>
@@ -1735,6 +1754,7 @@ export default function PreOrders({ shopDomain } = {}) {
           <Text variant="bodyMd">{confirmModal.message}</Text>
         </Modal.Section>
       </Modal>
+      </div>
     </Page>
   );
 }

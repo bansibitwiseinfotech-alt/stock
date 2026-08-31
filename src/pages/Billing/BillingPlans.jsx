@@ -21,7 +21,6 @@ import {
   verifySubscriptionApi,
    } from "../../services/subscriptionApi";
 import { BILLING_PLANS } from "../../config/billingPlans";
-import CurrentPlanCard from "../../components/Billing/CurrentPlanCard";
 import PlanCard from "../../components/Billing/PlanCard";
 import ChangePlanModal from "../../components/Billing/ChangePlanModal";
 import SwitchFreeModal from "../../components/Billing/SwitchFreeModal";
@@ -224,12 +223,6 @@ export default function BillingPlans({ shopDomain = "" }) {
     }
   };
 
-  const scrollToComparison = () => {
-    if (comparisonSectionRef.current) {
-      comparisonSectionRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
   // Skeleton loading state
   if (loading && !subscription) {
     return (
@@ -276,7 +269,7 @@ export default function BillingPlans({ shopDomain = "" }) {
       subtitle="Manage your Smart Stock subscription and unlock more inventory automation features."
       fullWidth
     >
-      <BlockStack gap="600">
+      <BlockStack gap="400">
         {/* 1. URL FEEDBACK BANNER (SUCCESS / FREE / CANCELLED / ERROR) */}
         {urlBanner && (
           <Banner
@@ -299,24 +292,9 @@ export default function BillingPlans({ shopDomain = "" }) {
           </Banner>
         )}
 
-        {/* 3. CURRENT PLAN DASHBOARD */}
-        <CurrentPlanCard
-          subscription={subscription}
-          onUpgradeClick={scrollToComparison}
-        />
-
-        {/* 4. PLAN COMPARISON HEADER & ACCESSIBLE MONTHLY / YEARLY TOGGLE */}
-        <Box paddingTop="300" ref={comparisonSectionRef}>
-          <InlineStack align="space-between" blockAlign="center">
-            <BlockStack gap="050">
-              <Text variant="headingLg" as="h2" fontWeight="bold">
-                Available Subscription Tiers
-              </Text>
-              <Text variant="bodyMd" tone="subdued" as="p">
-                Choose the right plan to scale your store's inventory velocity and dead-stock recovery.
-              </Text>
-            </BlockStack>
-
+        {/* 4. ACCESSIBLE MONTHLY / YEARLY TOGGLE */}
+        <Box ref={comparisonSectionRef}>
+          <InlineStack align="end" blockAlign="center">
             {/* MONTHLY / YEARLY BILLING TOGGLE */}
             <div
               role="group"
@@ -326,7 +304,7 @@ export default function BillingPlans({ shopDomain = "" }) {
                 alignItems: "center",
                 backgroundColor: "#f1f2f3",
                 borderRadius: "8px",
-                padding: "4px",
+                padding: "4px",  
                 border: "1px solid #e1e3e5",
               }}
             >
@@ -377,7 +355,7 @@ export default function BillingPlans({ shopDomain = "" }) {
                   outline: "none",
                 }}
               >
-                Yearly (Save ~17%)
+                Yearly (Best Value)
               </button>
             </div>
           </InlineStack>
@@ -390,6 +368,7 @@ export default function BillingPlans({ shopDomain = "" }) {
               <PlanCard
                 plan={plan}
                 currentPlanId={currentPlanId}
+                currentBillingCycle={subscription?.billingCycle || "monthly"}
                 billingCycle={billingCycle}
                 onSelectUpgrade={handleOpenUpgrade}
                 onSelectSwitchFree={handleOpenSwitchFree}
@@ -399,38 +378,7 @@ export default function BillingPlans({ shopDomain = "" }) {
         </Grid>
 
         {/* 6. FAQ SECTION */}
-        <Box paddingBlock="300">
-          <Card>
-            <BlockStack gap="300">
-              <Text variant="headingMd" as="h3" fontWeight="bold">
-                Frequently Asked Questions
-              </Text>
-              <Divider />
-              <Grid columns={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 2 }}>
-                <Grid.Cell>
-                  <BlockStack gap="100">
-                    <Text variant="bodyMd" fontWeight="semibold" as="h4">
-                      How do usage limits work?
-                    </Text>
-                    <Text variant="bodySm" tone="subdued" as="p">
-                      Limits are counted only upon successful creation of an automation (e.g. a clearance sale or bundle). Viewing, editing, or deleting existing setups never consumes usage.
-                    </Text>
-                  </BlockStack>
-                </Grid.Cell>
-                <Grid.Cell>
-                  <BlockStack gap="100">
-                    <Text variant="bodyMd" fontWeight="semibold" as="h4">
-                      Can I upgrade, downgrade, or cancel anytime?
-                    </Text>
-                    <Text variant="bodySm" tone="subdued" as="p">
-                      Yes. All plan upgrades take effect immediately and are securely billed through Shopify's standard Subscription API. Switching to Free cancels your active recurring charge instantly.
-                    </Text>
-                  </BlockStack>
-                </Grid.Cell>
-              </Grid>
-            </BlockStack>
-          </Card>
-        </Box>
+  ``
       </BlockStack>
 
       {/* CHANGE YOUR PLAN MODAL */}

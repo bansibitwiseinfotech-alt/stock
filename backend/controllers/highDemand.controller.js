@@ -16,7 +16,9 @@ const {
 const shopifyGraphQL = require("../services/shopifyGraphql");
 const {
   incrementFeatureUsage,
+  getOrCreateSubscription,
 } = require("../middleware/checkPlanLimit");
+const PLAN_LIMITS = require("../config/planLimits");
 
 async function ensureConnected() {
   if (mongoose.connection.readyState !== 1) {
@@ -103,8 +105,15 @@ async function analyzeHighDemand(req, res) {
       });
     }
 
-    const { products } = await fetchHighDemandProducts(shop, accessToken);
+    const { products: rawProducts } = await fetchHighDemandProducts(shop, accessToken);
     const salesMap = await fetchLast30DaysSalesMap(shop, accessToken);
+
+    const subscription = await getOrCreateSubscription(shop);
+    const currentPlan = subscription?.plan || "free";
+    const planLimits = PLAN_LIMITS[currentPlan] || PLAN_LIMITS.free;
+    const productLimit = typeof planLimits.products === "number" ? planLimits.products : Infinity;
+
+    const products = (rawProducts || []).slice(0, productLimit);
 
     const results = [];
 
@@ -162,7 +171,7 @@ async function analyzeHighDemand(req, res) {
         },
         {
           upsert: true,
-          new: true,
+          returnDocument: "after",
           setDefaultsOnInsert: true,
         }
       ).lean();

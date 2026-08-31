@@ -4,6 +4,25 @@
 // Note: This configuration is used for UI rendering and comparison.
 // The backend subscription API remains the source of truth.
 
+export const PLAN_PRICES = {
+  free: {
+    monthly: 0,
+    yearly: 0,
+  },
+  basic: {
+    monthly: 19,
+    yearly: 99,
+  },
+  pro: {
+    monthly: 49,
+    yearly: 249,
+  },
+  premium: {
+    monthly: 99,
+    yearly: 499,
+  },
+};
+
 export const BILLING_PLANS = [
   {
     id: "free",
@@ -13,13 +32,13 @@ export const BILLING_PLANS = [
     products: "10 Products",
     productLimit: 10,
     monthly: {
-      price: 0,
-      formattedPrice: "$0",
+      price: PLAN_PRICES.free.monthly,
+      formattedPrice: `$${PLAN_PRICES.free.monthly}`,
       periodLabel: "Free Forever",
     },
     yearly: {
-      price: 0,
-      formattedPrice: "$0",
+      price: PLAN_PRICES.free.yearly,
+      formattedPrice: `$${PLAN_PRICES.free.yearly}`,
       periodLabel: "Free Forever",
     },
     highlight: false,
@@ -27,13 +46,7 @@ export const BILLING_PLANS = [
       { name: "10 Products Catalog Limit", included: true },
       { name: "3 Clearance Sales", included: true },
       { name: "Clearance Sale Customization", included: true },
-      { name: "Dead Stock Bundle", included: false, lockedIn: "Basic" },
-      { name: "Low Stock Badge", included: false, lockedIn: "Pro" },
-      { name: "Progressive Markdown", included: false, lockedIn: "Premium" },
-      { name: "Launch Pre-Order", included: false, lockedIn: "Premium" },
-      { name: "Collection Bulk Sale", included: false, lockedIn: "Premium" },
-      { name: "Email Schedule (Weekly Digest)", included: false, lockedIn: "Premium" },
-      { name: "Smart Badges Auto-Assignment", included: false, lockedIn: "Premium" },
+
     ],
   },
   {
@@ -44,15 +57,14 @@ export const BILLING_PLANS = [
     products: "25 Products",
     productLimit: 25,
     monthly: {
-      price: 19,
-      formattedPrice: "$19",
+      price: PLAN_PRICES.basic.monthly,
+      formattedPrice: `$${PLAN_PRICES.basic.monthly}`,
       periodLabel: "/ month",
     },
     yearly: {
-      price: 190,
-      formattedPrice: "$190",
+      price: PLAN_PRICES.basic.yearly,
+      formattedPrice: `$${PLAN_PRICES.basic.yearly}`,
       periodLabel: "/ year",
-      discountNotice: "Save $38 (2 months free)",
     },
     highlight: false,
     features: [
@@ -61,12 +73,7 @@ export const BILLING_PLANS = [
       { name: "10 Dead Stock Bundles (BOGO)", included: true },
       { name: "Clearance Sale Customization", included: true },
       { name: "Bundle Customization", included: true },
-      { name: "Low Stock Badge", included: false, lockedIn: "Pro" },
-      { name: "Progressive Markdown", included: false, lockedIn: "Premium" },
-      { name: "Launch Pre-Order", included: false, lockedIn: "Premium" },
-      { name: "Collection Bulk Sale", included: false, lockedIn: "Premium" },
-      { name: "Email Schedule (Weekly Digest)", included: false, lockedIn: "Premium" },
-      { name: "Smart Badges Auto-Assignment", included: false, lockedIn: "Premium" },
+
     ],
   },
   {
@@ -77,15 +84,14 @@ export const BILLING_PLANS = [
     products: "50 Products",
     productLimit: 50,
     monthly: {
-      price: 49,
-      formattedPrice: "$49",
+      price: PLAN_PRICES.pro.monthly,
+      formattedPrice: `$${PLAN_PRICES.pro.monthly}`,
       periodLabel: "/ month",
     },
     yearly: {
-      price: 490,
-      formattedPrice: "$490",
+      price: PLAN_PRICES.pro.yearly,
+      formattedPrice: `$${PLAN_PRICES.pro.yearly}`,
       periodLabel: "/ year",
-      discountNotice: "Save $98 (2 months free)",
     },
     highlight: true,
     features: [
@@ -96,11 +102,7 @@ export const BILLING_PLANS = [
       { name: "Clearance Sale Customization", included: true },
       { name: "Bundle Customization", included: true },
       { name: "Low Stock Badge Customization", included: true },
-      { name: "Progressive Markdown", included: false, lockedIn: "Premium" },
-      { name: "Launch Pre-Order", included: false, lockedIn: "Premium" },
-      { name: "Collection Bulk Sale", included: false, lockedIn: "Premium" },
-      { name: "Email Schedule (Weekly Digest)", included: false, lockedIn: "Premium" },
-      { name: "Smart Badges Auto-Assignment", included: false, lockedIn: "Premium" },
+
     ],
   },
   {
@@ -111,15 +113,14 @@ export const BILLING_PLANS = [
     products: "Unlimited Products",
     productLimit: Infinity,
     monthly: {
-      price: 99,
-      formattedPrice: "$99",
+      price: PLAN_PRICES.premium.monthly,
+      formattedPrice: `$${PLAN_PRICES.premium.monthly}`,
       periodLabel: "/ month",
     },
     yearly: {
-      price: 990,
-      formattedPrice: "$990",
+      price: PLAN_PRICES.premium.yearly,
+      formattedPrice: `$${PLAN_PRICES.premium.yearly}`,
       periodLabel: "/ year",
-      discountNotice: "Save $198 (2 months free)",
     },
     highlight: false,
     features: [
@@ -129,10 +130,10 @@ export const BILLING_PLANS = [
       { name: "Unlimited Low Stock Badges", included: true },
       { name: "Unlimited Progressive Markdown", included: true },
       { name: "Unlimited Launch Pre-Orders", included: true },
-      { name: "Full Customization Suite", included: true },
+      { name: "All Customization Suite", included: true },
       { name: "Collection Bulk Sale", included: true },
       { name: "Email Schedule (Weekly Digest)", included: true },
-      { name: "Smart Badges Auto-Assignment", included: true },
+      { name: "Smart Badges  recommendations", included: true },
     ],
   },
 ];

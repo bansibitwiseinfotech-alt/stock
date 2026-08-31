@@ -18,7 +18,7 @@ async function toggleAutomation(req, res) {
     const updated = await Automation.findOneAndUpdate(
       { shopId, _id: id },
       { $set: { enabled: Boolean(enabled) } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     return res.status(200).json({ success: true, data: updated });

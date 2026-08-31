@@ -696,7 +696,7 @@ async function processActiveMarkdownRules(shop = null) {
             lastProcessingAt: now,
           },
         },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (!rule) {
@@ -1133,7 +1133,7 @@ async function pauseMarkdownRule(shop, ruleIdOrVariantId) {
           lastError: "",
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!rule) {

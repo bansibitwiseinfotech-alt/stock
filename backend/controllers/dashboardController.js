@@ -247,9 +247,9 @@ async function getDashboardMetrics(req, res) {
       });
     }
 
-    // 7b. Past 4 calendar weeks ending this week (Exact real orders)
+    // 7b. Past 6 calendar weeks ending this week (Exact real orders)
     const weeklyTrend = [];
-    for (let i = 3; i >= 0; i--) {
+    for (let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i * 7);
 
@@ -273,7 +273,7 @@ async function getDashboardMetrics(req, res) {
       const endLabel = weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
       weeklyTrend.push({
-        label: i === 0 ? "This Wk" : `Wk ${4 - i}`,
+        label: i === 0 ? "This Wk" : `Wk ${6 - i}`,
         dateRange: `${startLabel} – ${endLabel}`,
         recovered: Math.round(weekRevenue),
         count: ordersOnWeek.length,
@@ -284,6 +284,7 @@ async function getDashboardMetrics(req, res) {
     const monthlyTrend = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
+      d.setDate(1); // Set to 1st of month first to prevent day 31 rollover
       d.setMonth(d.getMonth() - i);
       const monthName = monthNames[d.getMonth()];
       const monthYear = d.getFullYear();

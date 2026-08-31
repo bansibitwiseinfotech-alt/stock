@@ -152,7 +152,7 @@ async function updateClearanceSaleConfig(req, res) {
     const updated = await ClearanceSaleConfig.findOneAndUpdate(
       { shopId },
       { $set: sanitized },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     ).lean();
 
     return res.status(200).json({
@@ -181,7 +181,7 @@ async function resetClearanceSaleConfig(req, res) {
     const updated = await ClearanceSaleConfig.findOneAndUpdate(
       { shopId },
       { $set: DEFAULT_CONFIG },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     ).lean();
 
     return res.status(200).json({

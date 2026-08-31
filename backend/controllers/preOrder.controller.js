@@ -515,7 +515,7 @@ async function updatePreOrderStatus(req, res) {
     const updated = await PreOrder.findByIdAndUpdate(
       id,
       { $set: { status: status.toUpperCase() } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updated) {
@@ -884,7 +884,7 @@ async function saveLaunchConfig(req, res) {
     const updated = await LaunchPreOrder.findOneAndUpdate(
       { shop, productId: cleanProductId },
       { $set: updatePayload },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
 
     // Synchronize Shopify Automatic Discount for partial deposit
@@ -926,7 +926,7 @@ async function toggleLaunchConfig(req, res) {
     const updated = await LaunchPreOrder.findOneAndUpdate(
       { shop, productId: cleanId },
       { $set: { preOrderEnabled: Boolean(enabled) } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updated) {
