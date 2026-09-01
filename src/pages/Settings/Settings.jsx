@@ -30,10 +30,6 @@ import {
 
 const TIMEZONE_OPTIONS = [
   {
-    label: "India Standard Time (Asia/Kolkata)",
-    value: "Asia/Kolkata",
-  },
-  {
     label: "Eastern Time (America/New_York)",
     value: "America/New_York",
   },
@@ -41,38 +37,10 @@ const TIMEZONE_OPTIONS = [
     label: "Central Time (America/Chicago)",
     value: "America/Chicago",
   },
+
   {
-    label: "Mountain Time (America/Denver)",
-    value: "America/Denver",
-  },
-  {
-    label: "Pacific Time (America/Los_Angeles)",
-    value: "America/Los_Angeles",
-  },
-  {
-    label: "UK Time (Europe/London)",
-    value: "Europe/London",
-  },
-  {
-    label: "Central European Time (Europe/Paris)",
-    value: "Europe/Paris",
-  },
-  {
-    label: "Japan Standard Time (Asia/Tokyo)",
-    value: "Asia/Tokyo",
-  },
-  {
-    label: "Gulf Standard Time (Asia/Dubai)",
-    value: "Asia/Dubai",
-  },
-  {
-    label: "Singapore Time (Asia/Singapore)",
-    value: "Asia/Singapore",
-  },
-  {
-    label:
-      "Australian Eastern Time (Australia/Sydney)",
-    value: "Australia/Sydney",
+    label: "India Standard Time (Asia/Kolkata)",
+    value: "Asia/Kolkata",
   },
 ];
 
