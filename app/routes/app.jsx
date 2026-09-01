@@ -3,11 +3,10 @@ import {
   useLoaderData,
   useRouteError,
 } from "react-router";
-//import App from "../../src/App";
 import {
   boundary,
 } from "@shopify/shopify-app-react-router/server";
-
+import App from "../../src/App";
 import {
   AppProvider as ShopifyAppProvider,
 } from "@shopify/shopify-app-react-router/react";
@@ -79,7 +78,7 @@ export const loader = async ({ request }) => {
 // APP LAYOUT
 // ======================================================
 
-export default function App() {
+export default function AppLayout() {
   const { apiKey } = useLoaderData();
 
   return (
@@ -113,9 +112,11 @@ export default function App() {
         </s-app-nav>
 
         {/* ==================================================
-            CURRENT PAGE
+            CURRENT PAGE WRAPPED IN SRC/APP
         ================================================== */}
-        <Outlet />
+        <App>
+          <Outlet />
+        </App>
       </PolarisProvider>
     </ShopifyAppProvider>
   );
