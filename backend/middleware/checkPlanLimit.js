@@ -125,6 +125,41 @@ const checkPlanLimit = (feature) => {
                 return next();
             }
 
+            // Check if this is an EDIT / UPDATE of an already active clearance sale
+            if (feature === "clearanceSale") {
+                try {
+                    const ClearanceSale = require("../models/ClearanceSale");
+                    const targetId = req.params?.variantId || req.params?.productId || req.body?.variantId || req.body?.productId || "";
+                    if (targetId) {
+                        const cleanId = String(targetId).replace("gid://shopify/ProductVariant/", "").replace("gid://shopify/Product/", "");
+                        const existing = await ClearanceSale.findOne({
+                            shop: normalizedShop,
+                            status: { $in: ["SCHEDULED", "ACTIVE"] },
+                            $or: [
+                                { variantId: targetId },
+                                { variantId: `gid://shopify/ProductVariant/${cleanId}` },
+                                { variantId: cleanId },
+                                { productId: targetId },
+                                { productId: `gid://shopify/Product/${cleanId}` },
+                                { productId: cleanId },
+                            ],
+                        }).lean();
+
+                        if (existing) {
+                            req.subscription = subscription;
+                            req.planLimits = planLimits;
+                            req.feature = feature;
+                            req.featureLimit = limit;
+                            req.currentUsage = subscription.usage?.[feature] || 0;
+                            req.isExistingItem = true;
+                            return next();
+                        }
+                    }
+                } catch (checkErr) {
+                    console.warn("[checkPlanLimit] Clearance check warn:", checkErr.message);
+                }
+            }
+
             // Get current usage
             const currentUsage = subscription.usage?.[feature] || 0;
 
@@ -132,7 +167,7 @@ const checkPlanLimit = (feature) => {
             if (currentUsage >= limit) {
                 return res.status(403).json({
                     success: false,
-                    message: "Plan limit reached",
+                    message: `Plan limit reached for ${planLimits.name} plan. You have used ${currentUsage}/${limit} ${feature}s. Please upgrade your plan to unlock more.`,
                     feature,
                     currentPlan: subscription.plan,
                     limit,
@@ -334,6 +369,41 @@ const incrementFeatureUsage = async (subscriptionOrShop, feature) => {
     return updated || sub;
 };
 
+// =====================================================
+// DECREMENT FEATURE USAGE
+// =====================================================
+
+const decrementFeatureUsage = async (subscriptionOrShop, feature) => {
+    const shop =
+        typeof subscriptionOrShop === "string"
+            ? subscriptionOrShop.trim().toLowerCase()
+            : subscriptionOrShop?.shop?.trim()?.toLowerCase();
+
+    if (!shop) return null;
+
+    const sub = await Subscription.findOne({ shop });
+    if (!sub) return null;
+
+    const updated = await Subscription.findOneAndUpdate(
+        {
+            shop,
+            [`usage.${feature}`]: { $gt: 0 },
+        },
+        {
+            $inc: { [`usage.${feature}`]: -1 },
+        },
+        { returnDocument: "after" }
+    );
+
+    if (updated && subscriptionOrShop && typeof subscriptionOrShop === "object") {
+        if (subscriptionOrShop.usage) {
+            subscriptionOrShop.usage[feature] = updated.usage[feature];
+        }
+    }
+
+    return updated || sub;
+};
+
 module.exports = {
     resolveShop,
     getOrCreateSubscription,
@@ -341,4 +411,5 @@ module.exports = {
     checkCustomizationPermission,
     requirePremiumFeature,
     incrementFeatureUsage,
+    decrementFeatureUsage,
 };

@@ -125,6 +125,26 @@ export default function PreOrders({ shopDomain } = {}) {
   const [launchConfigs, setLaunchConfigs] = useState([]);
   const [launchMetrics, setLaunchMetrics] = useState({ total: 0, active: 0, scheduled: 0 });
   const [launchLoading, setLaunchLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedConfigs = sessionStorage.getItem("preorder_launch_configs");
+        if (cachedConfigs) {
+          const parsed = JSON.parse(cachedConfigs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLaunchConfigs(parsed);
+            setLaunchLoading(false);
+          }
+        }
+
+        const cachedMetrics = sessionStorage.getItem("preorder_launch_metrics");
+        if (cachedMetrics) {
+          setLaunchMetrics(JSON.parse(cachedMetrics));
+        }
+      } catch (_) {}
+    }
+  }, []);
   const [launchSearch, setLaunchSearch] = useState("");
   const [launchStatusFilter, setLaunchStatusFilter] = useState("ALL");
   const [modalOpen, setModalOpen] = useState(false);
@@ -176,11 +196,15 @@ export default function PreOrders({ shopDomain } = {}) {
   // ====================================================
   const loadLaunchConfigs = useCallback(async () => {
     try {
-      setLaunchLoading(true);
+      if (launchConfigs.length === 0) setLaunchLoading(true);
       const res = await fetchLaunchPreOrdersApi(shop);
       if (res?.success) {
         setLaunchConfigs(res.data || []);
         if (res.metrics) setLaunchMetrics(res.metrics);
+        try {
+          sessionStorage.setItem("preorder_launch_configs", JSON.stringify(res.data || []));
+          if (res.metrics) sessionStorage.setItem("preorder_launch_metrics", JSON.stringify(res.metrics));
+        } catch (_) {}
       }
     } catch (err) {
       console.error("Failed to load launch configs:", err);
@@ -261,11 +285,19 @@ export default function PreOrders({ shopDomain } = {}) {
   const [currentPlan, setCurrentPlan] = useState("free");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("smart_stock_user_plan");
+      if (cached) setCurrentPlan(cached.toLowerCase());
+    }
     if (shop) {
       fetchSubscription(shop)
         .then((data) => {
           if (data?.subscription?.plan) {
-            setCurrentPlan(data.subscription.plan.toLowerCase());
+            const plan = data.subscription.plan.toLowerCase();
+            setCurrentPlan(plan);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("smart_stock_user_plan", plan);
+            }
           }
         })
         .catch(() => null);
@@ -523,6 +555,10 @@ export default function PreOrders({ shopDomain } = {}) {
       fullWidth
       title="Pre-Orders"
       subtitle="Manage new upcoming product launches and track customer pre-orders placed through Shopify Checkout."
+      primaryAction={{
+        content: "+ Add Launch Pre-Order",
+        onAction: handleOpenCreateModal,
+      }}
     >
       <div style={{ position: "relative", minHeight: "450px" }}>
         {currentPlan !== "premium" && (
@@ -549,7 +585,7 @@ export default function PreOrders({ shopDomain } = {}) {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
                 gap: "16px",
               }}
             >
@@ -590,8 +626,8 @@ export default function PreOrders({ shopDomain } = {}) {
             {/* LAUNCH PRODUCTS TABLE */}
             <Card padding="0">
               <Box padding="400">
-                <InlineStack align="space-between" blockAlign="center" gap="300">
-                  <div style={{ flex: 1, maxWidth: 400 }}>
+                <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
+                  <div style={{ flex: "1 1 240px", minWidth: "min(100%, 200px)" }}>
                     <TextField
                       placeholder="Search launch product..."
                       value={launchSearch}
@@ -601,19 +637,24 @@ export default function PreOrders({ shopDomain } = {}) {
                       autoComplete="off"
                     />
                   </div>
-                  <div style={{ width: 180 }}>
-                    <Select
-                      options={[
-                        { label: "All Statuses", value: "ALL" },
-                        { label: "Active Live", value: "ACTIVE" },
-                        { label: "Scheduled", value: "SCHEDULED" },
-                        { label: "Launched (Expired)", value: "LAUNCHED" },
-                        { label: "Disabled", value: "DISABLED" },
-                      ]}
-                      value={launchStatusFilter}
-                      onChange={(val) => setLaunchStatusFilter(val)}
-                    />
-                  </div>
+                  <InlineStack gap="200" blockAlign="center" wrap>
+                    <div style={{ minWidth: "min(100%, 150px)" }}>
+                      <Select
+                        options={[
+                          { label: "All Statuses", value: "ALL" },
+                          { label: "Active Live", value: "ACTIVE" },
+                          { label: "Scheduled", value: "SCHEDULED" },
+                          { label: "Launched (Expired)", value: "LAUNCHED" },
+                          { label: "Disabled", value: "DISABLED" },
+                        ]}
+                        value={launchStatusFilter}
+                        onChange={(val) => setLaunchStatusFilter(val)}
+                      />
+                    </div>
+                    <Button variant="primary" onClick={handleOpenCreateModal}>
+                      + Add Launch Pre-Order
+                    </Button>
+                  </InlineStack>
                 </InlineStack>
               </Box>
 
@@ -741,6 +782,12 @@ export default function PreOrders({ shopDomain } = {}) {
                           <InlineStack gap="150" align="end">
                             <Button
                               size="micro"
+                              onClick={() => handleOpenEditModal(item)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="micro"
                               tone="critical"
                               onClick={() =>
                                 setConfirmModal({
@@ -775,7 +822,7 @@ export default function PreOrders({ shopDomain } = {}) {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
                 gap: "16px",
               }}
             >
@@ -1092,7 +1139,7 @@ export default function PreOrders({ shopDomain } = {}) {
         ]}
       >
         <Modal.Section>
-          <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: "24px", alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: "24px", alignItems: "start" }}>
             {/* LEFT COLUMN: FORM INPUTS */}
             <BlockStack gap="400">
               {/* PRODUCT SELECTOR */}

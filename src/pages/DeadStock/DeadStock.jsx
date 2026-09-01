@@ -118,11 +118,19 @@ export default function DeadStock({
 
   // Fetch subscription plan
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("smart_stock_user_plan");
+      if (cached) setCurrentPlan(cached.toLowerCase());
+    }
     if (activeShop) {
       fetchSubscription(activeShop)
         .then((data) => {
           if (data?.subscription?.plan) {
-            setCurrentPlan(data.subscription.plan.toLowerCase());
+            const plan = data.subscription.plan.toLowerCase();
+            setCurrentPlan(plan);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("smart_stock_user_plan", plan);
+            }
           }
         })
         .catch((e) => console.error("Failed to fetch subscription:", e));

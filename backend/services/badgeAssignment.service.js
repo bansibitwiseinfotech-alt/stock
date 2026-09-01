@@ -25,7 +25,24 @@ async function getAppliedBadgesMap(shop) {
 
   const map = {};
 
-  // 1. Real Storefront Pre-Orders (LaunchPreOrder)
+  // 1. Explicit SmartBadgeAssignments (Lowest priority fallback)
+  try {
+    const assignments = await SmartBadgeAssignment.find({
+      $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+      status: "ACTIVE",
+    }).lean();
+
+    for (const item of assignments) {
+      if (item.productId) {
+        const { rawId, cleanId, gid } = normalizeProductId(item.productId);
+        map[rawId] = item.badgeType;
+        map[cleanId] = item.badgeType;
+        map[gid] = item.badgeType;
+      }
+    }
+  } catch (_) {}
+
+  // 2. Real Storefront Pre-Orders (LaunchPreOrder)
   try {
     const launchPreOrders = await LaunchPreOrder.find({
       $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
@@ -34,8 +51,9 @@ async function getAppliedBadgesMap(shop) {
     }).lean();
 
     for (const lpo of launchPreOrders) {
-      if (lpo.productId) {
-        const { rawId, cleanId, gid } = normalizeProductId(lpo.productId);
+      const idsToMap = [lpo.productId, lpo.variantId].filter(Boolean);
+      for (const id of idsToMap) {
+        const { rawId, cleanId, gid } = normalizeProductId(id);
         map[rawId] = "PRE_ORDER";
         map[cleanId] = "PRE_ORDER";
         map[gid] = "PRE_ORDER";
@@ -43,7 +61,7 @@ async function getAppliedBadgesMap(shop) {
     }
   } catch (_) {}
 
-  // 2. Active Bundles (Only on primary deadStockProductId)
+  // 3. Active Bundles (High priority — includes deadStockProductId & companionProductId)
   try {
     const activeBundles = await Bundle.find({
       $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
@@ -51,9 +69,17 @@ async function getAppliedBadgesMap(shop) {
     }).lean();
 
     for (const b of activeBundles) {
-      const primaryId = b.deadStockProductId || b.shopifyProductId || b.buyProductId;
-      if (primaryId) {
-        const { rawId, cleanId, gid } = normalizeProductId(primaryId);
+      const idsToMap = [
+        b.deadStockProductId,
+        b.deadStockVariantId,
+        b.companionProductId,
+        b.companionVariantId,
+        b.shopifyProductId,
+        b.buyProductId,
+      ].filter(Boolean);
+
+      for (const id of idsToMap) {
+        const { rawId, cleanId, gid } = normalizeProductId(id);
         map[rawId] = "BUNDLE";
         map[cleanId] = "BUNDLE";
         map[gid] = "BUNDLE";
@@ -61,7 +87,7 @@ async function getAppliedBadgesMap(shop) {
     }
   } catch (_) {}
 
-  // 3. Active Clearance Sales
+  // 4. Active Clearance Sales
   try {
     const now = new Date();
     const activeClearances = await ClearanceSale.find({
@@ -74,8 +100,9 @@ async function getAppliedBadgesMap(shop) {
     }).lean();
 
     for (const c of activeClearances) {
-      if (c.productId) {
-        const { rawId, cleanId, gid } = normalizeProductId(c.productId);
+      const idsToMap = [c.productId, c.variantId].filter(Boolean);
+      for (const id of idsToMap) {
+        const { rawId, cleanId, gid } = normalizeProductId(id);
         map[rawId] = "CLEARANCE";
         map[cleanId] = "CLEARANCE";
         map[gid] = "CLEARANCE";
@@ -83,7 +110,26 @@ async function getAppliedBadgesMap(shop) {
     }
   } catch (_) {}
 
-  // 4. Active HighDemandStorefront Urgency/Low Stock badges
+  // 5. Active Progressive Markdown Rules
+  try {
+    const MarkdownRule = require("../models/MarkdownRule");
+    const activeMarkdowns = await MarkdownRule.find({
+      $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+      $or: [{ status: "ACTIVE" }, { active: true }],
+    }).lean();
+
+    for (const m of activeMarkdowns) {
+      const idsToMap = [m.productId, m.variantId, m.deadStockProductId, m.deadStockVariantId].filter(Boolean);
+      for (const id of idsToMap) {
+        const { rawId, cleanId, gid } = normalizeProductId(id);
+        map[rawId] = "PROGRESSIVE_MARKDOWN";
+        map[cleanId] = "PROGRESSIVE_MARKDOWN";
+        map[gid] = "PROGRESSIVE_MARKDOWN";
+      }
+    }
+  } catch (_) {}
+
+  // 6. Active HighDemandStorefront Urgency/Low Stock badges
   try {
     const hdsRecords = await HighDemandStorefront.find({
       $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
@@ -94,27 +140,13 @@ async function getAppliedBadgesMap(shop) {
     }).lean();
 
     for (const hds of hdsRecords) {
-      if (hds.productId) {
-        const { rawId, cleanId, gid } = normalizeProductId(hds.productId);
+      const idsToMap = [hds.productId, hds.variantId].filter(Boolean);
+      for (const id of idsToMap) {
+        const { rawId, cleanId, gid } = normalizeProductId(id);
         map[rawId] = "LOW_STOCK";
         map[cleanId] = "LOW_STOCK";
         map[gid] = "LOW_STOCK";
       }
-    }
-  } catch (_) {}
-
-  // 5. Explicit SmartBadgeAssignments
-  try {
-    const assignments = await SmartBadgeAssignment.find({
-      $or: [{ shop: cleanShop }, { shopId: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
-      status: "ACTIVE",
-    }).lean();
-
-    for (const item of assignments) {
-      const { rawId, cleanId, gid } = normalizeProductId(item.productId);
-      map[rawId] = item.badgeType;
-      map[cleanId] = item.badgeType;
-      map[gid] = item.badgeType;
     }
   } catch (_) {}
 

@@ -37,6 +37,16 @@ router.get(
   highDemandController.getHighDemandVariantDetail
 );
 
+router.get(
+  "/variant/:variantId/actions",
+  highDemandController.getHighDemandProductActions
+);
+
+router.get(
+  "/:variantId/actions",
+  highDemandController.getHighDemandProductActions
+);
+
 // ==================================================
 // REORDER REQUESTS
 // ==================================================

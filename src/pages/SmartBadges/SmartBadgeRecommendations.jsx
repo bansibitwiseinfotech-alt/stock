@@ -19,6 +19,7 @@ import {
   Modal,
   Toast,
   Frame,
+  Pagination,
 } from "@shopify/polaris";
 import {
   SearchIcon,
@@ -115,14 +116,33 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
       : "") ||
     "";
 
-  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [applyingSingleId, setApplyingSingleId] = useState(null);
 
-  const [products, setProducts] = useState([]);
   const [summary, setSummary] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null);
   const [lastScannedAt, setLastScannedAt] = useState(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedProducts = sessionStorage.getItem("smart_badge_products");
+        if (cachedProducts) {
+          const parsed = JSON.parse(cachedProducts);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProducts(parsed);
+            setLoading(false);
+          }
+        }
+        const cachedSummary = sessionStorage.getItem("smart_badge_summary");
+        if (cachedSummary) {
+          setSummary(JSON.parse(cachedSummary));
+        }
+      } catch (_) {}
+    }
+  }, []);
   const [errorMsg, setErrorMsg] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
 
@@ -141,7 +161,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
   // ----------------------------------------------------
   const loadInitialData = useCallback(async () => {
     if (!shop) return;
-    setLoading(true);
+    if (products.length === 0) setLoading(true);
     setErrorMsg(null);
     try {
       const [recRes, settingsRes] = await Promise.all([
@@ -154,6 +174,13 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
         setSummary(recRes.summary || null);
         if (recRes.settings) setStoreSettings(recRes.settings);
         setLastScannedAt(new Date());
+
+        try {
+          sessionStorage.setItem("smart_badge_products", JSON.stringify(recRes.products));
+          if (recRes.summary) {
+            sessionStorage.setItem("smart_badge_summary", JSON.stringify(recRes.summary));
+          }
+        } catch (_) {}
       }
       if (settingsRes) {
         setStoreSettings(settingsRes);
@@ -172,11 +199,19 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
   const [currentPlan, setCurrentPlan] = useState("free");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("smart_stock_user_plan");
+      if (cached) setCurrentPlan(cached.toLowerCase());
+    }
     if (shop) {
       fetchSubscription(shop)
         .then((data) => {
           if (data?.subscription?.plan) {
-            setCurrentPlan(data.subscription.plan.toLowerCase());
+            const plan = data.subscription.plan.toLowerCase();
+            setCurrentPlan(plan);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("smart_stock_user_plan", plan);
+            }
           }
         })
         .catch(() => null);
@@ -329,6 +364,22 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
     });
   }, [products, selectedTabIndex, searchQuery, selectedConfidence, selectedRisk]);
 
+  // Pagination State (50 products per page)
+  const ITEMS_PER_PAGE = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedTabIndex, searchQuery, selectedConfidence, selectedRisk]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
+
   // ----------------------------------------------------
   // RENDER METRIC CARDS (WITH MERCHANT GUIDANCE)
   // ----------------------------------------------------
@@ -340,7 +391,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
     const appliedCount = products.filter((p) => p.isApplied).length;
 
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: "16px" }}>
         {/* CARD 1: PRODUCTS SCANNED */}
         <Card padding="400">
           <BlockStack gap="100">
@@ -476,8 +527,20 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
             </Card>
           )}
 
+          {/* LOADING INITIAL STATE */}
+          {loading && products.length === 0 && !scanning && (
+            <Card>
+              <BlockStack gap="300" align="center">
+                <Spinner size="small" />
+                <Text variant="bodyMd" as="p" alignment="center" tone="subdued">
+                  Loading Smart Badge recommendations...
+                </Text>
+              </BlockStack>
+            </Card>
+          )}
+
           {/* SUMMARY METRIC CARDS */}
-          {!scanning && renderSummaryCards()}
+          {!scanning && products.length > 0 && renderSummaryCards()}
 
           {/* MAIN PRODUCT TABLE CONTAINER */}
           {!scanning && products.length > 0 && (
@@ -542,7 +605,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
               {/* SEARCH & FILTERS BAR */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(240px, 2fr) minmax(140px, 1fr) minmax(140px, 1fr)",
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
                 gap: "12px",
                 padding: "12px 16px",
                 borderBottom: "1px solid #E1E3E5",
@@ -617,7 +680,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                         </td>
                       </tr>
                     ) : (
-                      filteredProducts.map((product, idx) => {
+                      paginatedProducts.map((product, idx) => {
                         const {
                           productId,
                           title,
@@ -749,6 +812,30 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                   </tbody>
                 </table>
               </div>
+
+              {/* PAGINATION FOOTER */}
+              {filteredProducts.length > 0 && (
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 16px",
+                  borderTop: "1px solid #E1E3E5",
+                  background: "#F7F8F9",
+                }}>
+                  <Text variant="bodySm" tone="subdued" as="span">
+                    Showing {filteredProducts.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                    {Math.min(filteredProducts.length, currentPage * ITEMS_PER_PAGE)} of {filteredProducts.length} products
+                  </Text>
+                  <Pagination
+                    hasPrevious={currentPage > 1}
+                    onPrevious={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    hasNext={currentPage < totalPages}
+                    onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    label={`Page ${currentPage} of ${totalPages}`}
+                  />
+                </div>
+              )}
             </div>
           )}
 

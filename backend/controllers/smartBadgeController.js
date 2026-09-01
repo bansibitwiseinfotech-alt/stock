@@ -150,10 +150,12 @@ async function runSmartBadgeAnalysis({ shop, accessToken, specificProducts = nul
       stockRisk,
 
       recommendation: {
-        badge: recommendation.badge,
+        badge: appliedBadgeType || recommendation.badge,
         score: recommendation.score,
         confidence: recommendation.confidence,
-        reason: recommendation.reason,
+        reason: appliedBadgeType
+          ? `Active ${appliedBadgeType.toLowerCase().replace(/_/g, " ")} strategy active in database.`
+          : recommendation.reason,
       },
 
       appliedBadge: appliedBadgeType,
@@ -258,6 +260,31 @@ async function getRecommendations(req, res) {
       });
     }
 
+    const forceRefresh = req.query.refresh === "true" || req.query.scan === "true";
+
+    // 1. Instant Cache Check from MongoDB (< 30ms response time)
+    if (!forceRefresh) {
+      const cached = await SmartBadgeRecommendation.findOne({
+        $or: [{ shop }, { shop: new RegExp(`^${shop}$`, "i") }],
+      })
+        .sort({ scannedAt: -1 })
+        .lean()
+        .catch(() => null);
+
+      if (cached && Array.isArray(cached.products) && cached.products.length > 0) {
+        return res.json({
+          success: true,
+          scanned: cached.scanned || cached.products.length,
+          summary: cached.summary,
+          products: cached.products,
+          settings: cached.settings || {},
+          cached: true,
+          scannedAt: cached.scannedAt,
+        });
+      }
+    }
+
+    // 2. Fallback to live scan if forceRefresh or no snapshot exists in DB
     const result = await runSmartBadgeAnalysis({ shop, accessToken });
 
     return res.json({
@@ -266,6 +293,7 @@ async function getRecommendations(req, res) {
       summary: result.summary,
       products: result.products,
       settings: result.settings,
+      cached: false,
     });
   } catch (error) {
     console.error("[SmartBadge Recommendations Error]:", error.message);

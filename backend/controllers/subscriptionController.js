@@ -51,38 +51,50 @@ const getSubscription = async (req, res) => {
         // Prepare feature usage information
         const usage = {
             clearanceSale: {
-                used: subscription.usage.clearanceSale,
+                used: subscription.usage?.clearanceSale || 0,
                 limit:
                     planLimits.clearanceSale === Infinity
                         ? "unlimited"
                         : planLimits.clearanceSale,
                 remaining: getRemainingUsage(
                     planLimits.clearanceSale,
-                    subscription.usage.clearanceSale
+                    subscription.usage?.clearanceSale || 0
                 ),
             },
 
             deadStockBundle: {
-                used: subscription.usage.deadStockBundle,
+                used: subscription.usage?.deadStockBundle || 0,
                 limit:
                     planLimits.deadStockBundle === Infinity
                         ? "unlimited"
                         : planLimits.deadStockBundle,
                 remaining: getRemainingUsage(
                     planLimits.deadStockBundle,
-                    subscription.usage.deadStockBundle
+                    subscription.usage?.deadStockBundle || 0
                 ),
             },
 
             lowStockBadge: {
-                used: subscription.usage.lowStockBadge,
+                used: subscription.usage?.lowStockBadge || 0,
                 limit:
                     planLimits.lowStockBadge === Infinity
                         ? "unlimited"
                         : planLimits.lowStockBadge,
                 remaining: getRemainingUsage(
                     planLimits.lowStockBadge,
-                    subscription.usage.lowStockBadge
+                    subscription.usage?.lowStockBadge || 0
+                ),
+            },
+
+            progressiveMarkdown: {
+                used: subscription.usage?.progressiveMarkdown || 0,
+                limit:
+                    planLimits.progressiveMarkdown === Infinity
+                        ? "unlimited"
+                        : planLimits.progressiveMarkdown,
+                remaining: getRemainingUsage(
+                    planLimits.progressiveMarkdown,
+                    subscription.usage?.progressiveMarkdown || 0
                 ),
             },
         };
@@ -105,19 +117,21 @@ const getSubscription = async (req, res) => {
 
                 features: {
                     progressiveMarkdown:
-                        planLimits.progressiveMarkdown === Infinity,
+                        planLimits.progressiveMarkdown === Infinity ||
+                        planLimits.progressiveMarkdown > 0,
 
                     launchPreOrder:
-                        planLimits.launchPreOrder === Infinity,
+                        planLimits.launchPreOrder === Infinity ||
+                        planLimits.launchPreOrder > 0,
 
                     collectionBulkSale:
-                        planLimits.collectionBulkSale,
+                        Boolean(planLimits.collectionBulkSale),
 
                     emailSchedule:
-                        planLimits.emailSchedule,
+                        Boolean(planLimits.emailSchedule),
 
                     smartBadges:
-                        planLimits.smartBadges,
+                        Boolean(planLimits.smartBadges),
                 },
 
                 customization: planLimits.customization,

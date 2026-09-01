@@ -156,8 +156,10 @@ export default function HighDemandProduct({
     badgeTextColor: "#FFFFFF",
   });
 
+  const [actionsLog, setActionsLog] = useState([]);
+
   // ==================================================
-  // LOAD PRODUCT & LAUNCH PRE-ORDER
+  // LOAD PRODUCT & LAUNCH PRE-ORDER & ACTIONS LOG
   // ==================================================
 
   useEffect(() => {
@@ -210,6 +212,15 @@ export default function HighDemandProduct({
             }
           } catch (_) {}
         }
+
+        // Fetch High Demand Action Logs
+        try {
+          const actRes = await fetch(`/api/high-demand/${encodeURIComponent(variantId)}/actions?shop=${encodeURIComponent(shop)}`);
+          const actData = await actRes.json();
+          if (actData.success && Array.isArray(actData.data)) {
+            setActionsLog(actData.data);
+          }
+        } catch (_) {}
       } catch (err) {
         console.error(
           "Failed to load high-demand detail:",
@@ -230,11 +241,19 @@ export default function HighDemandProduct({
   const [currentPlan, setCurrentPlan] = useState("free");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("smart_stock_user_plan");
+      if (cached) setCurrentPlan(cached.toLowerCase());
+    }
     if (shop) {
       fetchSubscription(shop)
         .then((data) => {
           if (data?.subscription?.plan) {
-            setCurrentPlan(data.subscription.plan.toLowerCase());
+            const plan = data.subscription.plan.toLowerCase();
+            setCurrentPlan(plan);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("smart_stock_user_plan", plan);
+            }
           }
         })
         .catch(() => null);
@@ -895,44 +914,6 @@ const dynamicAnalysis = getDynamicAnalysis(
                 </Card>
               </div>
 
-              {/* STOCKOUT SHIELD ANALYSIS */}
-              <Card padding="400">
-                <BlockStack gap="300">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingMd" as="h3" fontWeight="semibold">
-                      🛡️ Stockout & Demand Analysis
-                    </Text>
-                    <Badge tone={dynamicAnalysis.riskTone}>
-                      {dynamicAnalysis.statusBadge}
-                    </Badge>
-                  </InlineStack>
-
-                  <Text variant="bodyMd" as="p">
-                    {dynamicAnalysis.prediction}
-                  </Text>
-
-                  <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
-                    <InlineStack gap="200" blockAlign="center">
-                      <Badge tone={dynamicAnalysis.riskTone}>
-                        Recommended Action: {dynamicAnalysis.actionLabel}
-                      </Badge>
-
-                      {recommendedQuantity > 0 && (
-                        <Badge tone="info">
-                          Suggested Restock: {recommendedQuantity} units
-                        </Badge>
-                      )}
-                    </InlineStack>
-
-                    {dynamicAnalysis.needsReorder && (
-                      <Button variant="primary" onClick={openReorderModal}>
-                        Create Reorder Request
-                      </Button>
-                    )}
-                  </InlineStack>
-                </BlockStack>
-              </Card>
-
               {/* PROTECTION CONTROLS & RECOMMENDED ACTIONS */}
               <BlockStack gap="300">
                 <Text variant="headingMd" as="h3" fontWeight="semibold">
@@ -1058,6 +1039,45 @@ const dynamicAnalysis = getDynamicAnalysis(
                   </Card>
                 </div>
               </BlockStack>
+
+              {/* ACTION LOG TABLE */}
+              {actionsLog.length > 0 && (
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingSm" as="h3">Action Log</Text>
+                      {actionsLog.length > 3 && (
+                        <Text variant="bodySm" tone="subdued" as="span">
+                          Showing latest 3 of {actionsLog.length} actions
+                        </Text>
+                      )}
+                    </InlineStack>
+                    {actionsLog.slice(0, 3).map((log) => (
+                      <div
+                        key={log._id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px 16px",
+                          backgroundColor: "#F8FAFC",
+                          borderRadius: "8px",
+                          fontSize: "13px",
+                          border: "1px solid #E2E8F0",
+                        }}
+                      >
+                        <div>
+                          <strong>{log.actionType}</strong> — {new Date(log.createdAt).toLocaleString()}
+                          {log.error && <div style={{ color: "#EF4444", marginTop: "2px" }}>Error: {log.error}</div>}
+                        </div>
+                        <Badge tone={log.status === "COMPLETED" || log.status === "ACTIVE" ? "success" : "critical"}>
+                          {log.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </BlockStack>
+                </Card>
+              )}
             </BlockStack>
           </Layout.Section>
         </Layout>

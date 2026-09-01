@@ -54,10 +54,16 @@ const [duration, setDuration] = useState("14");
   const [error, setError] = useState("");
 
   const [success, setSuccess] = useState("");
-  const [effectivePlan, setEffectivePlan] = useState(currentPlan);
+  const [effectivePlan, setEffectivePlan] = useState(currentPlan || "free");
 
   useEffect(() => {
-    setEffectivePlan(currentPlan);
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("smart_stock_user_plan");
+      if (cached) setEffectivePlan(cached.toLowerCase());
+    }
+    if (currentPlan) {
+      setEffectivePlan(currentPlan);
+    }
   }, [currentPlan]);
 
   const isLocked = String(effectivePlan || "free").toLowerCase() !== "premium";

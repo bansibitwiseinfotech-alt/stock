@@ -105,19 +105,56 @@ async function analyzeHighDemand(req, res) {
       });
     }
 
-    const { products: rawProducts } = await fetchHighDemandProducts(shop, accessToken);
-    const salesMap = await fetchLast30DaysSalesMap(shop, accessToken);
+    const cleanShop = normalizeShop(shop);
 
-    const subscription = await getOrCreateSubscription(shop);
+    // Parallel fetch direct live GraphQL API data & Storefront settings
+    const HighDemandStorefront = require("../models/HighDemandStorefront");
+    const [rawProductsData, salesMap, hdsList, subscription] = await Promise.all([
+      fetchHighDemandProducts(shop, accessToken).catch((e) => {
+        console.error("fetchHighDemandProducts error:", e.message);
+        return { products: [] };
+      }),
+      fetchLast30DaysSalesMap(shop, accessToken).catch(() => new Map()),
+      HighDemandStorefront.find({
+        $or: [{ shop }, { shop: cleanShop }],
+      }).lean().catch(() => []),
+      getOrCreateSubscription(shop).catch(() => null),
+    ]);
+
+    const hdsMap = {};
+    for (const hds of hdsList || []) {
+      if (hds.variantId) hdsMap[hds.variantId] = hds;
+    }
+
     const currentPlan = subscription?.plan || "free";
     const planLimits = PLAN_LIMITS[currentPlan] || PLAN_LIMITS.free;
     const productLimit = typeof planLimits.products === "number" ? planLimits.products : Infinity;
 
-    const products = (rawProducts || []).slice(0, productLimit);
+    const rawProducts = rawProductsData?.products || [];
 
+    // Fallback to MongoDB if GraphQL returns empty (e.g. rate limit)
+    let productsToAnalyze = rawProducts;
+    if (productsToAnalyze.length === 0) {
+      const cached = await HighDemand.find({
+        $or: [{ shop }, { shop: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+      }).lean().catch(() => []);
+
+      productsToAnalyze = cached.map((c) => ({
+        productId: c.productId,
+        variantId: c.variantId,
+        productName: c.productName,
+        variantTitle: c.variantTitle,
+        currentStock: c.currentStock,
+        sku: c.sku,
+        image: c.image,
+      }));
+    }
+
+    const products = productsToAnalyze.slice(0, productLimit);
     const results = [];
+    const bulkOps = [];
 
-    for (const product of products || []) {
+    for (const product of products) {
       const cleanVariantId = String(product.variantId || "").replace(/\D/g, "");
       const last30DaysSales = Number(
         salesMap.get(product.variantId) ||
@@ -144,67 +181,81 @@ async function analyzeHighDemand(req, res) {
         reorderQuantity,
       });
 
-      const saved = await HighDemand.findOneAndUpdate(
-        {
-          shop,
-          variantId: product.variantId,
-        },
-        {
-          $set: {
-            productId: product.productId,
-            productName: product.productName,
-            variantTitle: product.variantTitle,
-            sku: product.sku || "",
-            currentStock: product.currentStock,
-            last30DaysSales,
-            salesVelocity,
-            daysUntilStockout,
-            riskLevel,
-            recommendedAction: shieldAction.recommendedAction,
-            actionLabel: shieldAction.actionLabel,
-            actionPriority: shieldAction.actionPriority,
-            actionMessage: shieldAction.actionMessage,
-            reorderQuantity,
-            targetCoverageDays,
-            analyzedAt: new Date(),
-          },
-        },
-        {
-          upsert: true,
-          returnDocument: "after",
-          setDefaultsOnInsert: true,
-        }
-      ).lean();
+      const hds = hdsMap[product.variantId] || {};
 
-      results.push({
-        productId: saved?.productId || product.productId,
-        variantId: saved?.variantId || product.variantId,
-        productName: saved?.productName || product.productName,
-        variantTitle: saved?.variantTitle || product.variantTitle,
-        sku: saved?.sku || product.sku || "",
+      const item = {
+        productId: product.productId,
+        variantId: product.variantId,
+        productName: product.productName,
+        variantTitle: product.variantTitle,
+        sku: product.sku || "",
         image: product.image || "",
-        currentStock: saved?.currentStock ?? product.currentStock,
-        last30DaysSales: saved?.last30DaysSales ?? last30DaysSales,
-        salesVelocity: saved?.salesVelocity ?? salesVelocity,
-        daysUntilStockout: saved?.daysUntilStockout ?? daysUntilStockout,
-        riskLevel: saved?.riskLevel || riskLevel,
-        recommendedAction: saved?.recommendedAction || shieldAction.recommendedAction,
-        actionLabel: saved?.actionLabel || shieldAction.actionLabel,
-        actionPriority: saved?.actionPriority || shieldAction.actionPriority,
-        actionMessage: saved?.actionMessage || shieldAction.actionMessage,
-        reorderQuantity: saved?.reorderQuantity ?? reorderQuantity,
-        targetCoverageDays: saved?.targetCoverageDays ?? targetCoverageDays,
+        currentStock: product.currentStock,
+        last30DaysSales,
+        salesVelocity,
+        daysUntilStockout,
+        daysLeftToStockout: daysUntilStockout,
+        riskLevel,
+        recommendedAction: shieldAction.recommendedAction,
+        actionLabel: shieldAction.actionLabel,
+        actionPriority: shieldAction.actionPriority,
+        actionMessage: shieldAction.actionMessage,
+        reorderQuantity,
+        targetCoverageDays,
+        urgencyBadgeEnabled: Boolean(hds.urgencyBadgeEnabled || hds.lowStockBadge?.enabled),
+        preOrderEnabled: Boolean(hds.preOrderEnabled),
+        notifyMeEnabled: Boolean(hds.notifyMeEnabled),
+        monitorEnabled: Boolean(hds.monitorEnabled !== false),
+      };
+
+      results.push(item);
+
+      bulkOps.push({
+        updateOne: {
+          filter: { shop: cleanShop, variantId: product.variantId },
+          update: {
+            $set: {
+              shop: cleanShop,
+              productId: product.productId,
+              productName: product.productName,
+              variantTitle: product.variantTitle,
+              sku: product.sku || "",
+              image: product.image || "",
+              currentStock: product.currentStock,
+              last30DaysSales,
+              salesVelocity,
+              daysUntilStockout,
+              riskLevel,
+              recommendedAction: shieldAction.recommendedAction,
+              actionLabel: shieldAction.actionLabel,
+              actionPriority: shieldAction.actionPriority,
+              actionMessage: shieldAction.actionMessage,
+              reorderQuantity,
+              targetCoverageDays,
+              analyzedAt: new Date(),
+            },
+          },
+          upsert: true,
+        },
       });
+    }
+
+    // Non-blocking background sync to MongoDB
+    if (bulkOps.length > 0) {
+      HighDemand.bulkWrite(bulkOps, { ordered: false }).catch((e) =>
+        console.warn("HighDemand bulkWrite notice:", e.message)
+      );
     }
 
     return res.status(200).json({
       success: true,
+      shop: cleanShop,
+      analyzedCount: results.length,
       count: results.length,
       products: results,
     });
   } catch (error) {
     console.error("High Demand Analysis Error:", error);
-
     const isAuthError =
       error.response?.status === 401 ||
       (error.message && error.message.includes("401")) ||
@@ -937,11 +988,119 @@ async function updateStorefrontConfig(req, res) {
   }
 }
 
+async function getHighDemandProductActions(req, res) {
+  try {
+    await ensureConnected();
+    const rawVariantId = String(req.params.variantId || "");
+    const cleanNumericId = rawVariantId.replace("gid://shopify/ProductVariant/", "").replace(/\D/g, "");
+    const canonicalGid = rawVariantId.startsWith("gid://shopify/ProductVariant/")
+      ? rawVariantId
+      : `gid://shopify/ProductVariant/${cleanNumericId}`;
+
+    const shop = normalizeShop(req.query.shop || req.headers["x-shopify-shop-domain"]);
+
+    const resultActions = [];
+
+    // 1. Fetch High Demand item details to get productId
+    const hdItem = await HighDemand.findOne({
+      $or: [
+        { variantId: canonicalGid },
+        { variantId: cleanNumericId },
+        { variantId: rawVariantId },
+      ],
+    }).lean().catch(() => null);
+
+    const productId = hdItem?.productId || "";
+    const cleanProdId = String(productId).replace(/\D/g, "");
+    const prodGid = productId.startsWith("gid://shopify/Product/")
+      ? productId
+      : cleanProdId
+      ? `gid://shopify/Product/${cleanProdId}`
+      : "";
+
+    // 2. Low Stock Urgency Badge Record
+    const HighDemandStorefront = require("../models/HighDemandStorefront");
+    const badgeItem = await HighDemandStorefront.findOne({
+      $or: [
+        { variantId: canonicalGid },
+        { variantId: cleanNumericId },
+        { variantId: rawVariantId },
+      ],
+    }).lean().catch(() => null);
+
+    if (badgeItem) {
+      resultActions.push({
+        _id: `badge-${badgeItem._id}`,
+        actionType: "LOW_STOCK_BADGE",
+        status: badgeItem.urgencyBadgeEnabled || badgeItem.lowStockBadge?.enabled ? "ACTIVE" : "DISABLED",
+        createdAt: badgeItem.updatedAt || badgeItem.createdAt || new Date(),
+      });
+    }
+
+    // 3. Launch Pre-Order Record
+    const LaunchPreOrder = require("../models/LaunchPreOrder");
+    const preorderItem = await LaunchPreOrder.findOne({
+      $or: [
+        { variantId: canonicalGid },
+        { variantId: cleanNumericId },
+        { productId: prodGid },
+        { productId: cleanProdId },
+      ],
+    }).lean().catch(() => null);
+
+    if (preorderItem) {
+      resultActions.push({
+        _id: `po-${preorderItem._id}`,
+        actionType: "LAUNCH_PRE_ORDER",
+        status: preorderItem.preOrderEnabled ? "ACTIVE" : "DISABLED",
+        createdAt: preorderItem.updatedAt || preorderItem.createdAt || new Date(),
+      });
+    }
+
+    // 4. Reorder Purchase Orders
+    const HighDemandReorder = require("../models/highDemandReorder");
+    const reorderItems = await HighDemandReorder.find({
+      $or: [
+        { variantId: canonicalGid },
+        { variantId: cleanNumericId },
+        { productId: prodGid },
+        { productId: cleanProdId },
+      ],
+    }).sort({ createdAt: -1 }).lean().catch(() => []);
+
+    for (const po of reorderItems || []) {
+      resultActions.push({
+        _id: `reorder-${po._id}`,
+        actionType: `REORDER_PO_CREATED (${po.quantity || 0} units)`,
+        status: String(po.status || "PENDING").toUpperCase(),
+        createdAt: po.createdAt || new Date(),
+      });
+    }
+
+    // 5. Stockout Risk Analysis Record
+    resultActions.push({
+      _id: `audit-hd-${cleanNumericId || "item"}`,
+      actionType: `STOCKOUT_RISK_ANALYSIS (${hdItem?.riskLevel || "CRITICAL"})`,
+      status: "COMPLETED",
+      createdAt: hdItem?.analyzedAt || hdItem?.updatedAt || new Date(),
+    });
+
+    // Sort descending by date
+    resultActions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return res.status(200).json({ success: true, data: resultActions });
+  } catch (error) {
+    console.error("GET /api/high-demand/:variantId/actions Error:", error);
+    return res.status(500).json({ success: false, message: "Unable to fetch high demand product actions." });
+  }
+}
+
 module.exports = {
   analyzeHighDemand,
   getHighDemandProducts: analyzeHighDemand,
   getHighDemandVariantDetail,
   getHighDemandVariant: getHighDemandVariantDetail,
+  getHighDemandProductActions,
   toggleUrgencyBadge,
   togglePreOrder,
   toggleNotifyMe,

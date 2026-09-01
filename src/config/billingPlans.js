@@ -70,10 +70,11 @@ export const BILLING_PLANS = [
     features: [
       { name: "25 Products Catalog Limit", included: true },
       { name: "10 Clearance Sales", included: true },
-      { name: "10 Dead Stock Bundles (BOGO)", included: true },
       { name: "Clearance Sale Customization", included: true },
+      { name: "10 Dead Stock Bundles (BOGO)", included: true },
       { name: "Bundle Customization", included: true },
-
+      { name: "10 Progressive Markdown", included: true },
+      { name: "Progressive markdown customize", included: true },
     ],
   },
   {
@@ -97,10 +98,12 @@ export const BILLING_PLANS = [
     features: [
       { name: "50 Products Catalog Limit", included: true },
       { name: "15 Clearance Sales", included: true },
-      { name: "15 Dead Stock Bundles", included: true },
+      { name: "15 Dead Stock Bundles(BOGO)", included: true },
+      { name: "15 Progressive Markdown", included: true },
       { name: "15 Low Stock Badge Uses", included: true },
       { name: "Clearance Sale Customization", included: true },
       { name: "Bundle Customization", included: true },
+      { name: "Progressive markdown customize", included: true },
       { name: "Low Stock Badge Customization", included: true },
 
     ],
@@ -124,12 +127,12 @@ export const BILLING_PLANS = [
     },
     highlight: false,
     features: [
-      { name: "Unlimited Products Catalog", included: true },
-      { name: "Unlimited Clearance Sales", included: true },
-      { name: "Unlimited Dead Stock Bundles", included: true },
-      { name: "Unlimited Low Stock Badges", included: true },
-      { name: "Unlimited Progressive Markdown", included: true },
-      { name: "Unlimited Launch Pre-Orders", included: true },
+      { name: "100000 Products Catalog", included: true },
+      { name: " Clearance Sales", included: true },
+      { name: " Dead Stock Bundles(BOGO)", included: true },
+      { name: " Low Stock Badges", included: true },
+      { name: "Progressive Markdown", included: true },
+      { name: "Launch Pre-Orders", included: true },
       { name: "All Customization Suite", included: true },
       { name: "Collection Bulk Sale", included: true },
       { name: "Email Schedule (Weekly Digest)", included: true },

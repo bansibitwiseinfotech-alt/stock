@@ -116,10 +116,12 @@ async function runSmartBadgeAnalysis({ shop, accessToken, specificProducts = nul
       stockRisk,
 
       recommendation: {
-        badge: recommendation.badge,
+        badge: appliedBadgeType || recommendation.badge,
         score: recommendation.score,
         confidence: recommendation.confidence,
-        reason: recommendation.reason,
+        reason: appliedBadgeType
+          ? `Active ${appliedBadgeType.toLowerCase().replace(/_/g, " ")} strategy active in database.`
+          : recommendation.reason,
       },
 
       appliedBadge: appliedBadgeType,

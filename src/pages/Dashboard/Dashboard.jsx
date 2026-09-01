@@ -71,10 +71,18 @@ const getInitialTrends = () => {
 
 export default function Dashboard({ shopDomain = "" }) {
   const navigate = useNavigate();
+
+  const navigateWithParams = (path) => {
+    if (!path) return;
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const target = search && !path.includes("?") ? `${path}${search}` : path;
+    navigate(target);
+  };
+
   const [loading, setLoading] = useState(true);
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [timeframe, setTimeframe] = useState("monthly"); // "daily" | "weekly" | "monthly"
-  const initialTrends = getInitialTrends();
+  const initialTrends = getInitialTrends();   
   const [data, setData] = useState({
     totalCashRecovered: 0,
     growthPercentage: 0,
@@ -257,7 +265,7 @@ export default function Dashboard({ shopDomain = "" }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
               gap: "16px",
             }}
           >
@@ -296,7 +304,7 @@ export default function Dashboard({ shopDomain = "" }) {
                   </div>
                   <div
                     style={{ fontSize: "12px", fontWeight: "600", color: "#000000", marginTop: "4px", cursor: "pointer", textDecoration: "underline" }}
-                    onClick={() => navigate("/app/dead-stock")}
+                    onClick={() => navigateWithParams("/app/dead-stock")}
                   >
                     View dead stock →
                   </div>
@@ -319,7 +327,7 @@ export default function Dashboard({ shopDomain = "" }) {
                   </div>
                   <div
                     style={{ fontSize: "12px", fontWeight: "600", color: "#000000", marginTop: "4px", cursor: "pointer", textDecoration: "underline" }}
-                    onClick={() => navigate("/app/high-demand")}
+                    onClick={() => navigateWithParams("/app/high-demand")}
                   >
                     {data.highDemandRiskCount || 0} items at risk →
                   </div>
@@ -356,7 +364,7 @@ export default function Dashboard({ shopDomain = "" }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
               gap: "16px",
             }}
           >
@@ -705,7 +713,7 @@ export default function Dashboard({ shopDomain = "" }) {
                         <span>{item.badgesUsed.toLocaleString()} products enrolled</span>
                         <span
                           style={{ color: "#2C6ECB", cursor: "pointer", fontWeight: "500" }}
-                          onClick={() => item.link && navigate(item.link)}
+                          onClick={() => item.link && navigateWithParams(item.link)}
                         >
                           Manage →
                         </span>
@@ -747,7 +755,7 @@ export default function Dashboard({ shopDomain = "" }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
               gap: "16px",
             }}
           >
@@ -772,7 +780,7 @@ export default function Dashboard({ shopDomain = "" }) {
                     <div style={{ paddingTop: "4px" }}>
                       <Button
                         variant="primary"
-                        onClick={() => rec.link && navigate(rec.link)}
+                        onClick={() => rec.link && navigateWithParams(rec.link)}
                       >
                         {rec.actionText}
                       </Button>
@@ -788,29 +796,35 @@ export default function Dashboard({ shopDomain = "" }) {
                 Recent activity
               </Text>
 
-              <Card padding="300">
-                <BlockStack gap="200">
-                  {(data.activityFeed || []).map((act, index) => (
-                    <div
-                      key={act.id}
-                      style={{
-                        paddingBottom: index < data.activityFeed.length - 1 ? "10px" : "0",
-                        borderBottom: index < data.activityFeed.length - 1 ? "1px solid #F1F2F4" : "none",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <Text variant="bodySm" fontWeight="semibold">
-                          {act.title}
-                        </Text>
-                        <Text variant="bodyXs" tone="subdued">
-                          {act.time}
-                        </Text>
+              <Card padding="400">
+                <BlockStack gap="250">
+                  {(data.activityFeed || []).slice(0, 5).map((act, index, arr) => {
+                    const isLast = index === arr.length - 1;
+
+                    return (
+                      <div
+                        key={act.id || index}
+                        style={{
+                          paddingBottom: isLast ? "0" : "12px",
+                          borderBottom: isLast ? "none" : "1px solid #F1F2F4",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+                          <Text variant="bodySm" fontWeight="bold" as="p">
+                            {act.title}
+                          </Text>
+                          <Text variant="bodyXs" tone="subdued" as="span" style={{ whiteSpace: "nowrap" }}>
+                            {act.time}
+                          </Text>
+                        </div>
+                        <div style={{ marginTop: "2px" }}>
+                          <Text variant="bodyXs" tone="subdued" as="p">
+                            {act.description}
+                          </Text>
+                        </div>
                       </div>
-                      <Text variant="bodyXs" tone="subdued">
-                        {act.description}
-                      </Text>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </BlockStack>
               </Card>
             </BlockStack>

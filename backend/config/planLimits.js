@@ -39,7 +39,7 @@ const PLAN_LIMITS = {
         clearanceSale: 10,
         deadStockBundle: 10,
         lowStockBadge: 0,
-        progressiveMarkdown: 0,
+        progressiveMarkdown: 10,
         launchPreOrder: 0,
 
         collectionBulkSale: false,
@@ -49,7 +49,7 @@ const PLAN_LIMITS = {
         customization: {
             clearanceSale: true,
             deadStockBundle: true,
-            progressiveMarkdown: false,
+            progressiveMarkdown: true,
             lowStockBadge: false,
             launchPreOrder: false,
         },
@@ -63,7 +63,7 @@ const PLAN_LIMITS = {
         clearanceSale: 15,
         deadStockBundle: 15,
         lowStockBadge: 15,
-        progressiveMarkdown: 0,
+        progressiveMarkdown: 15,
         launchPreOrder: 0,
 
         collectionBulkSale: false,
@@ -73,7 +73,7 @@ const PLAN_LIMITS = {
         customization: {
             clearanceSale: true,
             deadStockBundle: true,
-            progressiveMarkdown: false,
+            progressiveMarkdown: true,
             lowStockBadge: true,
             launchPreOrder: false,
         },

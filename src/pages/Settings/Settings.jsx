@@ -242,11 +242,19 @@ export default function Settings({
   const [currentPlan, setCurrentPlan] = useState("free");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("smart_stock_user_plan");
+      if (cached) setCurrentPlan(cached.toLowerCase());
+    }
     if (shopDomain) {
       fetchSubscription(shopDomain)
         .then((data) => {
           if (data?.subscription?.plan) {
-            setCurrentPlan(data.subscription.plan.toLowerCase());
+            const plan = data.subscription.plan.toLowerCase();
+            setCurrentPlan(plan);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("smart_stock_user_plan", plan);
+            }
           }
         })
         .catch(() => null);
@@ -393,7 +401,7 @@ export default function Settings({
   return (
     <Page
       fullWidth
-      title="Settings"
+      title="Email Schedule"
       subtitle="Manage your weekly inventory email digest preferences."
     >
       <Layout>

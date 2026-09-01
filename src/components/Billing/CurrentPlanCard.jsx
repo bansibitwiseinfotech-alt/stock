@@ -91,7 +91,7 @@ export default function CurrentPlanCard({ subscription, onUpgradeClick }) {
               </BlockStack>
 
               {!isPremium && onUpgradeClick && (
-                <Box paddingTop="100">
+                <Box paddingBlockStart="100">
                   <Button
                     size="slim"
                     variant="primary"
@@ -313,7 +313,7 @@ export default function CurrentPlanCard({ subscription, onUpgradeClick }) {
                     </>
                   )}
 
-                  <Box paddingTop="100">
+                  <Box paddingBlockStart="100">
                     <Banner tone="info">
                       <Text variant="bodySm" as="p">
                         Upgrading increases your <strong>product catalog limit</strong> and unlocks full design customization for all storefront widgets.

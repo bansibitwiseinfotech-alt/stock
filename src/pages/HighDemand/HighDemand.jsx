@@ -15,6 +15,7 @@ import {
   BlockStack,
   Box,
   Spinner,
+  Pagination,
 } from "@shopify/polaris";
 
 import HighDemandProduct from "./HighDemandProduct";
@@ -23,7 +24,22 @@ export default function HighDemand({
   shopDomain = "",
 }) {
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("high_demand_products");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProducts(parsed);
+            setLoading(false);
+          }
+        }
+      } catch (_) {}
+    }
+  }, []);
   const [error, setError] = useState("");
   const [selectedVariantId, setSelectedVariantId] =
     useState(null);
@@ -32,6 +48,13 @@ export default function HighDemand({
 
   const [riskLevelFilter, setRiskLevelFilter] =
     useState("all");
+
+  const ITEMS_PER_PAGE = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [riskLevelFilter]);
 
   // ==================================================
   // LOAD HIGH-DEMAND DATA
@@ -44,7 +67,7 @@ export default function HighDemand({
     }
 
     try {
-      setLoading(true);
+      if (products.length === 0) setLoading(true);
       setError("");
 
       const response = await fetch(
@@ -63,11 +86,12 @@ export default function HighDemand({
         );
       }
 
-      setProducts(
-        Array.isArray(data.products)
-          ? data.products
-          : []
-      );
+      if (Array.isArray(data.products)) {
+        setProducts(data.products);
+        try {
+          sessionStorage.setItem("high_demand_products", JSON.stringify(data.products));
+        } catch (_) {}
+      }
     } catch (err) {
       console.error(
         "Failed to load high demand data:",
@@ -242,7 +266,13 @@ export default function HighDemand({
     plural: "products",
   };
 
-  const rowMarkup = filteredProducts.map((item, index) => {
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const rowMarkup = paginatedProducts.map((item, index) => {
     const title = item.productName || item.title || "Product";
     const variantTitle =
       item.variantTitle && item.variantTitle !== "Default Title"
@@ -274,7 +304,7 @@ export default function HighDemand({
             <InlineStack gap="300" blockAlign="center" wrap={false}>
               <div style={{ flexShrink: 0 }}>
                 <Thumbnail
-                  source={item.image || ""}
+                  source={item.image || "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_large.png"}
                   alt={title}
                   size="small"
                 />
@@ -452,7 +482,8 @@ export default function HighDemand({
               </div>
 
               <Text variant="bodySm" tone="subdued" as="span">
-                Showing {filteredProducts.length} of {products.length} products
+                Showing {filteredProducts.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                {Math.min(filteredProducts.length, currentPage * ITEMS_PER_PAGE)} of {filteredProducts.length} products
               </Text>
             </InlineStack>
           </Box>
@@ -481,22 +512,43 @@ export default function HighDemand({
               </BlockStack>
             </Box>
           ) : (
-            <IndexTable
-              resourceName={resourceName}
-              itemCount={filteredProducts.length}
-              headings={[
-                { title: "Product / SKU" },
-                { title: "Stock Units" },
-                { title: "Sold (30D)" },
-                { title: "Sales Velocity" },
-                { title: "Days Left" },
-                { title: "Risk Level" },
-                { title: "Action" },
-              ]}
-              selectable={false}
-            >
-              {rowMarkup}
-            </IndexTable>
+            <>
+              <IndexTable
+                resourceName={resourceName}
+                itemCount={paginatedProducts.length}
+                headings={[
+                  { title: "Product / SKU" },
+                  { title: "Stock Units" },
+                  { title: "Sold (30D)" },
+                  { title: "Sales Velocity" },
+                  { title: "Days Left" },
+                  { title: "Risk Level" },
+                  { title: "Action" },
+                ]}
+                selectable={false}
+              >
+                {rowMarkup}
+              </IndexTable>
+
+              {/* PAGINATION FOOTER */}
+              {filteredProducts.length > 0 && (
+                <Box padding="300" borderBlockStartWidth="025" borderColor="border">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="bodySm" tone="subdued" as="span">
+                      Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                      {Math.min(filteredProducts.length, currentPage * ITEMS_PER_PAGE)} of {filteredProducts.length} products
+                    </Text>
+                    <Pagination
+                      hasPrevious={currentPage > 1}
+                      onPrevious={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      hasNext={currentPage < totalPages}
+                      onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      label={`Page ${currentPage} of ${totalPages}`}
+                    />
+                  </InlineStack>
+                </Box>
+              )}
+            </>
           )}
         </Card>
       </BlockStack>

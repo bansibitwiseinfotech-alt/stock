@@ -94,12 +94,20 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
   const [currentPlan, setCurrentPlan] = useState("free");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("smart_stock_user_plan");
+      if (cached) setCurrentPlan(cached.toLowerCase());
+    }
     if (shopDomain) {
       setLoading(true);
       fetchSubscription(shopDomain)
         .then((data) => {
           if (data?.subscription?.plan) {
-            setCurrentPlan(data.subscription.plan.toLowerCase());
+            const plan = data.subscription.plan.toLowerCase();
+            setCurrentPlan(plan);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("smart_stock_user_plan", plan);
+            }
           }
         })
         .catch(() => null);
@@ -457,8 +465,8 @@ export default function CustomizationIndex({ shopDomain = "", initialConfig = nu
             {/* PROGRESSIVE MARKDOWN CARD */}
             <Card padding="400">
               <div style={{ position: "relative", height: "100%", minHeight: "240px" }}>
-                {currentPlan !== "premium" && (
-                  <LockedFeatureOverlay requiredPlan="Premium" />
+                {currentPlan === "free" && (
+                  <LockedFeatureOverlay requiredPlan="Basic" />
                 )}
                 <div
                   style={{

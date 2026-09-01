@@ -176,10 +176,41 @@ export default function BillingPlans({ shopDomain = "" }) {
       if (result?.confirmationUrl) {
         // Break out of Shopify Admin iframe for top-level approval
         if (typeof window !== "undefined") {
-          if (window.top) {
-            window.top.location.href = result.confirmationUrl;
-          } else {
-            window.location.assign(result.confirmationUrl);
+          try {
+            if (window.shopify?.navigation?.open) {
+              window.shopify.navigation.open(result.confirmationUrl, "_top");
+              return;
+            }
+          } catch (e) {
+            console.warn("shopify.navigation.open failed:", e);
+          }
+
+          try {
+            if (typeof open === "function") {
+              open(result.confirmationUrl, "_top");
+              return;
+            }
+          } catch (e) {
+            console.warn("open(_top) failed:", e);
+          }
+
+          try {
+            if (typeof window.open === "function") {
+              window.open(result.confirmationUrl, "_top");
+              return;
+            }
+          } catch (e) {
+            console.warn("window.open(_top) failed:", e);
+          }
+
+          try {
+            if (window.top) {
+              window.top.location.href = result.confirmationUrl;
+            } else {
+              window.location.href = result.confirmationUrl;
+            }
+          } catch (e) {
+            window.location.href = result.confirmationUrl;
           }
         }
       } else {
@@ -355,7 +386,7 @@ export default function BillingPlans({ shopDomain = "" }) {
                   outline: "none",
                 }}
               >
-                Yearly (Best Value)
+                Yearly
               </button>
             </div>
           </InlineStack>
@@ -378,7 +409,7 @@ export default function BillingPlans({ shopDomain = "" }) {
         </Grid>
 
         {/* 6. FAQ SECTION */}
-  ``
+  
       </BlockStack>
 
       {/* CHANGE YOUR PLAN MODAL */}

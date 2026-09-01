@@ -5,9 +5,8 @@ import {
   Card,
   Text,
   BlockStack,
-  InlineStack,
+  InlineGrid,
   Badge,
-  Box,
 } from "@shopify/polaris";
 import { fetchReportsData } from "../../services/appApi";
 
@@ -40,47 +39,39 @@ export default function Reports({ shopDomain = "" }) {
     >
       <Layout>
         <Layout.Section>
-          <InlineStack gap="400" wrap={false}>
-            <Box flex="1">
-              <Card>
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued" fontWeight="bold">CASH RECOVERED</Text>
-                  <Text variant="headingLg" as="h2">${data.totalCashRecovered.toLocaleString()}</Text>
-                  <Badge tone="success">+{data.growthPercentage}% vs last 30d</Badge>
-                </BlockStack>
-              </Card>
-            </Box>
+          <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
+            <Card>
+              <BlockStack gap="200">
+                <Text variant="bodySm" tone="subdued" fontWeight="bold">CASH RECOVERED</Text>
+                <Text variant="headingLg" as="h2">${data.totalCashRecovered.toLocaleString()}</Text>
+                <Badge tone="success">+{data.growthPercentage}% vs last 30d</Badge>
+              </BlockStack>
+            </Card>
 
-            <Box flex="1">
-              <Card>
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued" fontWeight="bold">SALES GENERATED</Text>
-                  <Text variant="headingLg" as="h2">${data.salesGenerated.toLocaleString()}</Text>
-                  <Badge tone="success">+15.2% vs last 30d</Badge>
-                </BlockStack>
-              </Card>
-            </Box>
+            <Card>
+              <BlockStack gap="200">
+                <Text variant="bodySm" tone="subdued" fontWeight="bold">SALES GENERATED</Text>
+                <Text variant="headingLg" as="h2">${data.salesGenerated.toLocaleString()}</Text>
+                <Badge tone="success">+15.2% vs last 30d</Badge>
+              </BlockStack>
+            </Card>
 
-            <Box flex="1">
-              <Card>
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued" fontWeight="bold">ORDERS</Text>
-                  <Text variant="headingLg" as="h2">{data.ordersCount}</Text>
-                  <Badge tone="success">+10.3% vs last 30d</Badge>
-                </BlockStack>
-              </Card>
-            </Box>
+            <Card>
+              <BlockStack gap="200">
+                <Text variant="bodySm" tone="subdued" fontWeight="bold">ORDERS</Text>
+                <Text variant="headingLg" as="h2">{data.ordersCount}</Text>
+                <Badge tone="success">+10.3% vs last 30d</Badge>
+              </BlockStack>
+            </Card>
 
-            <Box flex="1">
-              <Card>
-                <BlockStack gap="200">
-                  <Text variant="bodySm" tone="subdued" fontWeight="bold">PRODUCTS SOLD</Text>
-                  <Text variant="headingLg" as="h2">{data.productsSold}</Text>
-                  <Badge tone="success">+18.5% vs last 30d</Badge>
-                </BlockStack>
-              </Card>
-            </Box>
-          </InlineStack>
+            <Card>
+              <BlockStack gap="200">
+                <Text variant="bodySm" tone="subdued" fontWeight="bold">PRODUCTS SOLD</Text>
+                <Text variant="headingLg" as="h2">{data.productsSold}</Text>
+                <Badge tone="success">+18.5% vs last 30d</Badge>
+              </BlockStack>
+            </Card>
+          </InlineGrid>
         </Layout.Section>
       </Layout>
     </Page>

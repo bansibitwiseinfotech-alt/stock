@@ -34,6 +34,11 @@ const highDemandSchema = new mongoose.Schema(
       default: "",
     },
 
+    image: {
+      type: String,
+      default: "",
+    },
+
     currentStock: {
       type: Number,
       default: 0,

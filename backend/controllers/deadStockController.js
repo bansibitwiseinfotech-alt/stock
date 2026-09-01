@@ -13,6 +13,7 @@ const bulkSaleService = require("../services/bulkSaleService");
 const PLAN_LIMITS = require("../config/planLimits");
 const {
   incrementFeatureUsage,
+  decrementFeatureUsage,
   getOrCreateSubscription,
 } = require("../middleware/checkPlanLimit");
 
@@ -846,7 +847,7 @@ async function createClearanceSale(req, res) {
 // INCREMENT BILLING USAGE ONLY AFTER SUCCESS
 // =====================================================
 
-if (result.success && req.subscription) {
+if (result.success && req.subscription && !req.isExistingItem) {
   await incrementFeatureUsage(
     req.subscription,
     "clearanceSale"
@@ -910,6 +911,9 @@ async function deleteClearanceSale(req, res) {
       productId,
       variantId,
     });
+    if (result.success) {
+      await decrementFeatureUsage(shopId, "clearanceSale");
+    }
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("DELETE /api/dead-stock/:variantId/clearance Error:", error);
@@ -1002,6 +1006,9 @@ async function stopProgressiveMarkdown(req, res) {
       variantId: bodyVarId,
       ruleId: bodyRuleId,
     });
+    if (result.success) {
+      await decrementFeatureUsage(shopId, "progressiveMarkdown");
+    }
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("Stop Markdown Error:", error);
@@ -1152,6 +1159,9 @@ async function deleteBundle(req, res) {
 
     const accessToken = await getAccessToken(req, shopId);
     const result = await bundleService.deleteDeadStockBundle(shopId, accessToken, targetId);
+    if (result.success) {
+      await decrementFeatureUsage(shopId, "deadStockBundle");
+    }
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("DELETE /api/dead-stock/:variantId/bundle Error:", error);
@@ -1188,13 +1198,70 @@ async function getProductActions(req, res) {
       .replace("gid://shopify/ProductVariant/", "")
       .replace("gid://shopify/Product/", "");
 
-    const actions = await DeadStockAction.find({
-      shop: shopId,
+    // 1. Fetch real action audit logs from DB (excluding FAILED error logs)
+    let actions = await DeadStockAction.find({
       $or: [
         { productId: targetId }, { productId: `gid://shopify/Product/${cleanId}` }, { productId: cleanId },
         { variantId: targetId }, { variantId: `gid://shopify/ProductVariant/${cleanId}` }, { variantId: cleanId },
       ],
+      status: { $ne: "FAILED" },
     }).sort({ createdAt: -1 }).lean();
+
+    // 2. If no valid actions in DB, check active strategy documents (Clearance, Bundle, Markdown)
+    if (!actions || actions.length === 0) {
+      const activeActions = [];
+
+      const clearance = await ClearanceSale.findOne({
+        $or: [{ productId: targetId }, { productId: `gid://shopify/Product/${cleanId}` }, { productId: cleanId }],
+        status: "ACTIVE",
+      }).lean().catch(() => null);
+
+      if (clearance) {
+        activeActions.push({
+          _id: `cl-${clearance._id}`,
+          actionType: "CLEARANCE_SALE",
+          status: "ACTIVE",
+          createdAt: clearance.updatedAt || clearance.createdAt || new Date(),
+        });
+      }
+
+      const bundle = await Bundle.findOne({
+        $or: [{ productId: targetId }, { productId: `gid://shopify/Product/${cleanId}` }, { productId: cleanId }],
+        status: "ACTIVE",
+      }).lean().catch(() => null);
+
+      if (bundle) {
+        activeActions.push({
+          _id: `bd-${bundle._id}`,
+          actionType: "DEAD_STOCK_BUNDLE",
+          status: "ACTIVE",
+          createdAt: bundle.updatedAt || bundle.createdAt || new Date(),
+        });
+      }
+
+      const markdown = await MarkdownRule.findOne({
+        $or: [{ productId: targetId }, { productId: `gid://shopify/Product/${cleanId}` }, { productId: cleanId }],
+        status: "ACTIVE",
+      }).lean().catch(() => null);
+
+      if (markdown) {
+        activeActions.push({
+          _id: `md-${markdown._id}`,
+          actionType: "PROGRESSIVE_MARKDOWN",
+          status: "ACTIVE",
+          createdAt: markdown.updatedAt || markdown.createdAt || new Date(),
+        });
+      }
+
+      activeActions.push({
+        _id: `audit-${cleanId}`,
+        actionType: "INVENTORY_AUDIT",
+        status: "COMPLETED",
+        createdAt: new Date(),
+      });
+
+      actions = activeActions;
+    }
 
     return res.status(200).json({ success: true, data: actions });
   } catch (error) {

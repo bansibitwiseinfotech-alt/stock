@@ -98,11 +98,19 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
   const [currentPlan, setCurrentPlan] = useState("free");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("smart_stock_user_plan");
+      if (cached) setCurrentPlan(cached.toLowerCase());
+    }
     if (activeShop) {
       fetchSubscription(activeShop)
         .then((data) => {
           if (data?.subscription?.plan) {
-            setCurrentPlan(data.subscription.plan.toLowerCase());
+            const plan = data.subscription.plan.toLowerCase();
+            setCurrentPlan(plan);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("smart_stock_user_plan", plan);
+            }
           }
         })
         .catch(() => null);
@@ -765,8 +773,8 @@ export default function DeadStockProduct({ variantId: propVariantId, shop = "", 
               {/* Action 3: Progressive Markdown */}
               <Card padding="400">
                 <div style={{ position: "relative", height: "100%", minHeight: "200px" }}>
-                  {currentPlan !== "premium" && (
-                    <LockedFeatureOverlay requiredPlan="Premium" />
+                  {currentPlan === "free" && (
+                    <LockedFeatureOverlay requiredPlan="Basic" />
                   )}
                   <BlockStack gap="300">
                     <InlineStack align="space-between" blockAlign="center">

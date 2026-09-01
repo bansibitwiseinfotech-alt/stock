@@ -65,9 +65,9 @@ export default function DeadStockFilters({
   return (
     <Box paddingBlockEnd="200">
       <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
-        <div style={{ flex: 1, minWidth: "280px" }}>
-          <InlineStack gap="300" blockAlign="center">
-            <div style={{ flex: 1, maxWidth: "9855px" }}>
+        <div style={{ flex: 1, minWidth: "min(100%, 260px)" }}>
+          <InlineStack gap="300" blockAlign="center" wrap>
+            <div style={{ flex: 1, minWidth: "min(100%, 200px)" }}>
               <TextField
                 label="Search products"
                 labelHidden
@@ -88,7 +88,7 @@ export default function DeadStockFilters({
             </div>
 
             {!showStoreProducts && (
-              <div style={{ minWidth: "150px" }}>
+              <div style={{ minWidth: "min(100%, 140px)" }}>
                 <Select
                   label="Unsold Days"
                   labelHidden

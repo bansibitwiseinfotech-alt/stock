@@ -247,7 +247,7 @@ export default function ClearanceSaleCustomization({ shopDomain = "", initialCon
                     helpText="Default: 10%"
                   />
 
-                  <InlineGrid columns={2} gap="400">
+                  <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                     <Checkbox
                       label="Show icon"
                       checked={formState.showIcon}
@@ -314,7 +314,7 @@ export default function ClearanceSaleCustomization({ shopDomain = "", initialCon
             <Card>
               <BlockStack gap="400">
                 <Text variant="headingSm" as="h3">Colors</Text>
-                <InlineGrid columns={2} gap="400">
+                <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                   <ColorPickerInput
                     label="Background color"
                     value={formState.backgroundColor}
@@ -357,7 +357,7 @@ export default function ClearanceSaleCustomization({ shopDomain = "", initialCon
                     output
                   />
 
-                  <InlineGrid columns={2} gap="400">
+                  <InlineGrid columns={{ xs: 1, sm: 2 }} gap="400">
                     <RangeSlider
                       label={`Padding top: ${formState.paddingTop}px`}
                       value={formState.paddingTop}
