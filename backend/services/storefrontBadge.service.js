@@ -13,6 +13,31 @@ async function getStorefrontProductBadge({ shop, productId, variantId = null }) 
   const assignment = await getBadgeAssignment(cleanShop, productId);
 
   if (!assignment || assignment.status !== "ACTIVE" || assignment.badgeType === BADGES.NONE) {
+    // 1b. Check if active LaunchPreOrder exists for this product
+    try {
+      const LaunchPreOrder = require("../models/LaunchPreOrder");
+      const cleanProdId = String(productId).replace(/^gid:\/\/shopify\/Product\//, "").trim();
+      const lpo = await LaunchPreOrder.findOne({
+        shop: cleanShop,
+        productId: { $in: [cleanProdId, `gid://shopify/Product/${cleanProdId}`] },
+        preOrderEnabled: true,
+      }).lean();
+
+      if (lpo) {
+        return {
+          badgeType: BADGES.PRE_ORDER,
+          badgeText: lpo.badgeText || "🛒 PRE-ORDER",
+          launchLabel: lpo.launchLabel || "NEW LAUNCH",
+          buttonText: lpo.buttonText || "PRE-ORDER NOW",
+          depositPercentage: typeof lpo.depositPercentage === "number" ? lpo.depositPercentage : 50,
+          backgroundColor: lpo.badgeBackgroundColor || "#0F172A",
+          textColor: lpo.badgeTextColor || "#FFFFFF",
+          accentColor: lpo.accentColor || "#4F46E5",
+          showStrikethrough: false,
+        };
+      }
+    } catch (_) {}
+
     return null;
   }
 

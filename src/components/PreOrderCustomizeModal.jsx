@@ -257,7 +257,7 @@ export default function PreOrderCustomizeModal({
                       color: settings.textColor || "#111827",
                     }}
                   >
-                    🚀 New Product Launch
+                     New Product Launch
                   </span>
                   <div style={{ display: "flex", gap: "6px" }}>
                     <span

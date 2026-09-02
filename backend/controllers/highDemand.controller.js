@@ -331,6 +331,7 @@ async function getHighDemandVariantDetail(req, res) {
                   product {
                     id
                     title
+                    handle
                     featuredImage { url }
                   }
                 }
@@ -355,6 +356,8 @@ async function getHighDemandVariantDetail(req, res) {
               productId: variantNode.product?.id || "",
               variantId: variantNode.id,
               productName: variantNode.product?.title || "",
+              productTitle: variantNode.product?.title || "",
+              handle: variantNode.product?.handle || "",
               variantTitle: variantNode.title || "",
               sku: variantNode.sku || "",
               image: variantNode.image?.url || variantNode.product?.featuredImage?.url || "",

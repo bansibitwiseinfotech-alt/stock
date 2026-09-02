@@ -226,17 +226,6 @@
     var cleanVarId = String(variantId || "").replace(/^gid:\/\/shopify\/ProductVariant\//, "").trim();
     var cleanHandle = String(handle || "").trim();
 
-    var cacheKey = "ss_preorder_" + shop + "_" + cleanProductId + "_" + cleanVarId;
-    try {
-      var raw = sessionStorage.getItem(cacheKey);
-      if (raw) {
-        var cached = JSON.parse(raw);
-        if (cached && typeof cached.enabled !== "undefined") {
-          return cached;
-        }
-      }
-    } catch (_) {}
-
     var ts = Date.now();
     var queryParams = "shop=" + encodeURIComponent(shop) +
       "&productId=" + encodeURIComponent(cleanProductId) +
@@ -261,9 +250,10 @@
           },
         });
         if (res.ok) {
+          var contentType = res.headers.get("content-type") || "";
+          if (contentType && contentType.indexOf("json") === -1) continue;
           var data = await res.json();
-          if (data && typeof data.enabled !== "undefined") {
-            try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch (_) {}
+          if (data && data.enabled === true) {
             return data;
           }
         }
@@ -276,6 +266,16 @@
     var cards = document.querySelectorAll("." + CARD_CLASS);
     for (var j = 0; j < cards.length; j++) {
       cards[j].remove();
+    }
+
+    var titleBadges = document.querySelectorAll(".smart-stock-storefront-preorder-badge");
+    for (var k = 0; k < titleBadges.length; k++) {
+      titleBadges[k].remove();
+    }
+
+    var priceBadges = document.querySelectorAll(".smart-stock-price-preorder-badge");
+    for (var l = 0; l < priceBadges.length; l++) {
+      priceBadges[l].remove();
     }
 
     // Restore any hidden default theme submit and buy-it-now buttons
@@ -332,18 +332,26 @@
 
     var now = new Date();
     var launchDate = config.launchDate ? new Date(config.launchDate) : null;
-    if (launchDate && !isNaN(launchDate.getTime())) {
-      if (launchDate.getUTCHours() === 0 && launchDate.getUTCMinutes() === 0 && launchDate.getUTCSeconds() === 0) {
-        launchDate.setUTCHours(23, 59, 59, 999);
+    var shippingDate = config.shippingDate ? new Date(config.shippingDate) : null;
+    var opensAt = config.preOrderOpensAt ? new Date(config.preOrderOpensAt) : null;
+
+    var cutoffDate = launchDate;
+    if (shippingDate && !isNaN(shippingDate.getTime()) && shippingDate > cutoffDate) {
+      cutoffDate = shippingDate;
+    }
+
+    if (cutoffDate && !isNaN(cutoffDate.getTime())) {
+      cutoffDate.setHours(23, 59, 59, 999);
+      if (cutoffDate.getUTCHours() === 0 && cutoffDate.getUTCMinutes() === 0) {
+        cutoffDate.setUTCHours(23, 59, 59, 999);
       }
     }
-    var opensAt = config.preOrderOpensAt ? new Date(config.preOrderOpensAt) : null;
 
     var isPreOrderActive =
       config.preOrderEnabled !== false &&
-      launchDate &&
-      !isNaN(launchDate.getTime()) &&
-      now <= launchDate &&
+      cutoffDate &&
+      !isNaN(cutoffDate.getTime()) &&
+      now <= cutoffDate &&
       (!opensAt || isNaN(opensAt.getTime()) || now >= opensAt);
 
     if (!isPreOrderActive) {
@@ -388,37 +396,46 @@
     var cardEl = document.createElement("div");
     cardEl.className = CARD_CLASS;
 
-    if (config.cardBackgroundColor) {
-      cardEl.style.setProperty("background-color", config.cardBackgroundColor, "important");
-    }
-    if (config.borderColor) {
-      cardEl.style.setProperty("border-color", config.borderColor, "important");
-    }
-    if (config.textColor) {
-      cardEl.style.setProperty("color", config.textColor, "important");
-    }
-    if (config.borderRadius !== undefined) {
-      cardEl.style.setProperty("border-radius", config.borderRadius + "px", "important");
-    }
+    var cardBg = config.cardBackgroundColor || "#ffffff";
+    var borderCol = config.borderColor || "#e2e8f0";
+    var textCol = config.textColor || "#111827";
+    var accentCol = config.accentColor || "#4F46E5";
+    var badgeBg = config.badgeBackgroundColor || "#0F172A";
+    var badgeTextCol = config.badgeTextColor || "#FFFFFF";
+    var radiusNum = (config.borderRadius !== undefined && config.borderRadius !== null) ? Number(config.borderRadius) : 12;
+    var radius = radiusNum + "px";
+
+    cardEl.style.setProperty("--ss-card-bg", cardBg, "important");
+    cardEl.style.setProperty("--ss-border-color", borderCol, "important");
+    cardEl.style.setProperty("--ss-text-color", textCol, "important");
+    cardEl.style.setProperty("--ss-accent-color", accentCol, "important");
+    cardEl.style.setProperty("--ss-badge-bg", badgeBg, "important");
+    cardEl.style.setProperty("--ss-badge-color", badgeTextCol, "important");
+    cardEl.style.setProperty("--ss-border-radius", radius, "important");
+
+    cardEl.style.setProperty("background", cardBg, "important");
+    cardEl.style.setProperty("background-color", cardBg, "important");
+    cardEl.style.setProperty("border", "1.5px solid " + borderCol, "important");
+    cardEl.style.setProperty("border-color", borderCol, "important");
+    cardEl.style.setProperty("border-radius", radius, "important");
+    cardEl.style.setProperty("color", textCol, "important");
 
     // Badges
     var badgesHtml = "";
     if (badgeText || launchLabel) {
       badgesHtml += '<div class="smart-stock-launch-card__badges">';
       if (badgeText) {
-        var badgeStyle = "";
-        if (config.badgeBackgroundColor) badgeStyle += "background-color:" + config.badgeBackgroundColor + " !important; background:" + config.badgeBackgroundColor + " !important;";
-        if (config.badgeTextColor) badgeStyle += "color:" + config.badgeTextColor + " !important;";
-        badgesHtml += '<span class="smart-stock-badge-primary"' + (badgeStyle ? ' style="' + badgeStyle + '"' : '') + '>' + escapeHtml(badgeText) + "</span>";
+        var badgeStyle = "background-color:" + badgeBg + " !important; background:" + badgeBg + " !important; color:" + badgeTextCol + " !important;";
+        badgesHtml += '<span class="smart-stock-badge-primary" style="' + badgeStyle + '">' + escapeHtml(badgeText) + "</span>";
       }
       if (launchLabel) {
-        var secBadgeStyle = config.accentColor ? ' style="background-color:' + config.accentColor + ' !important; background:' + config.accentColor + ' !important; color:#ffffff !important;"' : "";
-        badgesHtml += '<span class="smart-stock-badge-secondary"' + secBadgeStyle + '>' + escapeHtml(launchLabel) + "</span>";
+        var secBadgeStyle = "background-color:" + accentCol + " !important; background:" + accentCol + " !important; color:#ffffff !important;";
+        badgesHtml += '<span class="smart-stock-badge-secondary" style="' + secBadgeStyle + '">' + escapeHtml(launchLabel) + "</span>";
       }
       badgesHtml += "</div>";
     }
 
-    var titleStyle = config.textColor ? ' style="color:' + config.textColor + ' !important;"' : "";
+    var titleStyle = ' style="color:' + textCol + ' !important;"';
     var cardHeaderHtml =
       '<div class="smart-stock-launch-card__header">' +
       '<div class="smart-stock-launch-card__title-group">' +
@@ -428,8 +445,8 @@
       "</div>";
 
     // 2-Column Schedule
-    var dateBoxStyle = config.borderColor ? ' style="border-color:' + config.borderColor + ' !important;"' : "";
-    var dateValStyle = config.textColor ? ' style="color:' + config.textColor + ' !important;"' : "";
+    var dateBoxStyle = ' style="border:1px solid ' + borderCol + ' !important; background:#ffffff !important; border-radius:8px !important;"';
+    var dateValStyle = ' style="color:' + textCol + ' !important;"';
     var dateBoxesHtml = "";
     if (formattedLaunchDate) {
       dateBoxesHtml +=
@@ -453,7 +470,7 @@
     }
 
     // Customer message
-    var msgStyle = config.accentColor ? ' style="border-left-color:' + config.accentColor + ' !important;"' : "";
+    var msgStyle = ' style="border-left:3px solid ' + accentCol + ' !important; background:#ffffff !important; color:' + textCol + ' !important; border-radius:4px !important;"';
     var messageHtml = "";
     if (customerMessage) {
       messageHtml = '<div class="smart-stock-launch-card__message"' + msgStyle + '>✨ ' + escapeHtml(customerMessage) + "</div>";
@@ -466,11 +483,10 @@
     }
 
     // Divider
-    var dividerHtml = '<hr class="smart-stock-launch-divider" />';
+    var dividerHtml = '<hr class="smart-stock-launch-divider" style="border-color:' + borderCol + ' !important;" />';
 
     // Pre-Order Payment Breakdown Section
-    var pctBadgeStyle = config.accentColor ? ' style="background-color:' + config.accentColor + ' !important; background:' + config.accentColor + ' !important; color:#ffffff !important;"' : "";
-    var payNowRowStyle = config.accentColor ? ' style="color:' + config.accentColor + ' !important;"' : "";
+    var pctBadgeStyle = ' style="background-color:' + accentCol + ' !important; background:' + accentCol + ' !important; color:#ffffff !important;"';
     var depositBadgeLabel = depositPct > 0 ? depositPct + '% DEPOSIT' : (depositAmountCents > 0 ? formatMoney(depositAmountCents) + ' DEPOSIT' : 'DEPOSIT');
     var payNowLabel = depositPct > 0 ? 'Pay Now (' + depositPct + '%)' : 'Pay Now (Deposit)';
     var remainingLabel = depositPct > 0 ? 'Remaining Balance (' + (100 - depositPct) + '%)' : 'Remaining Balance';
@@ -479,20 +495,20 @@
       : '💡 Pay ' + formatMoney(depositCents) + ' now to secure your pre-order. Remaining balance will be due before shipping.';
 
     var paymentSectionHtml =
-      '<div class="smart-stock-payment-section">' +
+      '<div class="smart-stock-payment-section" style="background:#ffffff !important; border:1px solid ' + borderCol + ' !important; border-radius:8px !important; padding:12px 14px !important; margin-bottom:14px !important;">' +
       '<div class="smart-stock-payment-header">' +
-      '<span class="smart-stock-payment-title">PRE-ORDER PAYMENT</span>' +
+      '<span class="smart-stock-payment-title" style="color:' + textCol + ' !important;">PRE-ORDER PAYMENT</span>' +
       '<span class="smart-stock-payment-pct-badge"' + pctBadgeStyle + '>' + depositBadgeLabel + '</span>' +
       '</div>' +
-      '<div class="smart-stock-payment-row">' +
+      '<div class="smart-stock-payment-row" style="color:' + textCol + ' !important; border-bottom:1px dashed ' + borderCol + ' !important;">' +
       '<span>Total Product Price</span>' +
       '<strong data-smart-stock-total-price>' + formatMoney(totalCents) + '</strong>' +
       '</div>' +
-      '<div class="smart-stock-payment-row smart-stock-pay-now-row"' + payNowRowStyle + '>' +
+      '<div class="smart-stock-payment-row smart-stock-pay-now-row" style="color:' + textCol + ' !important; border-bottom:1px dashed ' + borderCol + ' !important;">' +
       '<span>' + payNowLabel + '</span>' +
       '<strong data-smart-stock-deposit-price>' + formatMoney(depositCents) + '</strong>' +
       '</div>' +
-      '<div class="smart-stock-payment-row">' +
+      '<div class="smart-stock-payment-row" style="color:' + textCol + ' !important; border-bottom:none !important;">' +
       '<span>' + remainingLabel + '</span>' +
       '<strong data-smart-stock-remaining-price>' + formatMoney(remainingCents) + '</strong>' +
       '</div>' +
@@ -502,14 +518,8 @@
       '</div>';
 
     // Pre-Order CTA Button (Inside the same card)
-    var btnStyle = "";
-    if (config.accentColor) {
-      btnStyle += "background-color:" + config.accentColor + " !important; background:" + config.accentColor + " !important;";
-    }
-    if (config.borderRadius !== undefined) {
-      btnStyle += "border-radius:" + Math.min(16, config.borderRadius) + "px !important;";
-    }
-    var btnStyleAttr = btnStyle ? ' style="' + btnStyle + '"' : "";
+    var btnStyle = "background-color:" + accentCol + " !important; background:" + accentCol + " !important; color:#ffffff !important; border-radius:" + Math.min(16, radiusNum) + "px !important;";
+    var btnStyleAttr = ' style="' + btnStyle + '"';
     var ctaHtml =
       '<button type="button" class="smart-stock-launch-cta-btn" data-smart-stock-launch-cta' + btnStyleAttr + '>' +
       '<span class="ss-btn-text">🛒 ' + escapeHtml(buttonText) + '<span data-smart-stock-cta-amount> · PAY ' + formatMoney(depositCents) + '</span></span>' +
@@ -524,6 +534,58 @@
       dividerHtml +
       paymentSectionHtml +
       ctaHtml;
+
+    // ----------------------------------------------------
+    // INJECT STOREFRONT PRODUCT TITLE & PRICE BADGES
+    // ----------------------------------------------------
+    try {
+      var titleEl = document.querySelector(
+        ".product__title h1, .product__title, .product-single__title, .product-meta__title, [data-product-title]"
+      );
+      if (titleEl && !document.querySelector(".smart-stock-storefront-preorder-badge")) {
+        var badgeWrap = document.createElement("div");
+        badgeWrap.className = "smart-stock-storefront-preorder-badge";
+        badgeWrap.style.cssText = "display:inline-flex; align-items:center; gap:6px; margin-bottom:8px; margin-top:4px;";
+
+        var bgCol = config.badgeBackgroundColor || "#0F172A";
+        var textCol = config.badgeTextColor || "#FFFFFF";
+        var accentCol = config.accentColor || "#4F46E5";
+
+        badgeWrap.innerHTML =
+          '<span style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:6px; background:' +
+          bgCol +
+          '; color:' +
+          textCol +
+          '; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 1px 2px rgba(0,0,0,0.1);">' +
+          escapeHtml(badgeText || "🛒 PRE-ORDER") +
+          '</span>' +
+          (launchLabel
+            ? '<span style="display:inline-flex; align-items:center; padding:4px 8px; border-radius:6px; background:' +
+              accentCol +
+              '; color:#FFFFFF; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">' +
+              escapeHtml(launchLabel) +
+              '</span>'
+            : "");
+
+        titleEl.parentNode.insertBefore(badgeWrap, titleEl);
+      }
+
+      var priceContainer = document.querySelector(
+        ".price__container, .price__sale, .product__info-container .price, .price, .product__price"
+      );
+      if (priceContainer && !document.querySelector(".smart-stock-price-preorder-badge")) {
+        var priceBadge = document.createElement("span");
+        priceBadge.className = "smart-stock-price-preorder-badge";
+        priceBadge.style.cssText =
+          "display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:4px; background:" +
+          (config.badgeBackgroundColor || "#0F172A") +
+          "; color:" +
+          (config.badgeTextColor || "#FFFFFF") +
+          "; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; margin-left:8px; vertical-align:middle;";
+        priceBadge.innerHTML = escapeHtml(badgeText || "PRE-ORDER");
+        priceContainer.appendChild(priceBadge);
+      }
+    } catch (_) {}
 
     // ----------------------------------------------------
     // HIDE THEME BUY BUTTONS & INSERT UNIFIED CARD BELOW QUANTITY

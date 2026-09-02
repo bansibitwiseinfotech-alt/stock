@@ -1013,7 +1013,13 @@ const dynamicAnalysis = getDynamicAnalysis(
 
                         <InlineStack gap="200" align="start">
                           <Button
-                            onClick={() => setLaunchModalOpen(true)}
+                            onClick={() => {
+                              setLaunchForm((prev) => ({
+                                ...prev,
+                                preOrderEnabled: launchConfig ? Boolean(launchConfig.preOrderEnabled) : true,
+                              }));
+                              setLaunchModalOpen(true);
+                            }}
                             variant={
                               (launchConfig?.preOrderEnabled ?? false)
                                 ? "secondary"
@@ -1090,7 +1096,7 @@ const dynamicAnalysis = getDynamicAnalysis(
         open={launchModalOpen}
         size="large"
         onClose={() => setLaunchModalOpen(false)}
-        title="🚀 NEW PRODUCT LAUNCH PRE-ORDER"
+        title=" NEW PRODUCT LAUNCH PRE-ORDER"
         primaryAction={{
           content: savingLaunch ? "Saving..." : "SAVE LAUNCH",
           loading: savingLaunch,
@@ -1125,8 +1131,8 @@ const dynamicAnalysis = getDynamicAnalysis(
             <Divider />
 
             <Checkbox
-              label="Pre-Order: ON"
-              checked={launchForm.preOrderEnabled}
+              label={launchForm.preOrderEnabled ? "Pre-Order: ON (Active)" : "Pre-Order: OFF (Disabled)"}
+              checked={Boolean(launchForm.preOrderEnabled)}
               onChange={(checked) => setLaunchForm((prev) => ({ ...prev, preOrderEnabled: checked }))}
             />
 

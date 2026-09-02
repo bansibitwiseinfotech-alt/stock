@@ -374,7 +374,8 @@ async function getProductWidgetData(req, res) {
     const SmartBadgeApplication = require("../models/SmartBadgeApplication");
     const { getBadgeAssignment } = require("../services/badgeAssignment.service");
     
-    const [smartApp, smartAssignment] = await Promise.all([
+    const LaunchPreOrder = require("../models/LaunchPreOrder");
+    const [smartApp, smartAssignment, activeLaunchPreOrder] = await Promise.all([
       cleanProdId
         ? SmartBadgeApplication.findOne({
             shop: shopId,
@@ -385,6 +386,13 @@ async function getProductWidgetData(req, res) {
       cleanProdId
         ? getBadgeAssignment(shopId, cleanProdId).catch(() => null)
         : null,
+      cleanProdId
+        ? LaunchPreOrder.findOne({
+            shop: shopId,
+            productId: { $in: [cleanProdId, `gid://shopify/Product/${cleanProdId}`, String(productId)] },
+            preOrderEnabled: true,
+          }).lean().catch(() => null)
+        : null,
     ]);
 
     const isSmartAssignmentActive = smartAssignment && smartAssignment.status === "ACTIVE";
@@ -394,7 +402,7 @@ async function getProductWidgetData(req, res) {
     const isSmartBundle = assignedBadgeType === "BUNDLE" || (smartApp?.enabled && smartApp?.badgeType === "BUNDLE");
     const isSmartMarkdown = assignedBadgeType === "PROGRESSIVE_MARKDOWN" || (smartApp?.enabled && smartApp?.badgeType === "PROGRESSIVE_MARKDOWN");
     const isSmartLowStock = assignedBadgeType === "LOW_STOCK" || (smartApp?.enabled && smartApp?.badgeType === "LOW_STOCK");
-    const isSmartPreOrder = assignedBadgeType === "PRE_ORDER" || (smartApp?.enabled && smartApp?.badgeType === "PRE_ORDER");
+    const isSmartPreOrder = assignedBadgeType === "PRE_ORDER" || (smartApp?.enabled && smartApp?.badgeType === "PRE_ORDER") || Boolean(activeLaunchPreOrder);
 
     const isUrgencyActive = isSmartLowStock || parseBoolean(
       storefrontSetting?.lowStockBadge?.enabled ??
@@ -463,14 +471,16 @@ async function getProductWidgetData(req, res) {
       lowStockThreshold: threshold,
       stockoutShield,
       widget: stockoutShield,
-      smartBadge: smartApp?.badgeType || null,
+      smartBadge: smartApp?.badgeType || (activeLaunchPreOrder ? "PRE_ORDER" : null),
       urgencyBadge: {
         enabled: isUrgencyShowing || (isSmartLowStock && stock > 0),
         text: stock > 0 ? `🔥 Only ${stock} left in stock!` : "",
       },
       preOrder: {
         enabled: Boolean(isPreOrderActive),
-        buttonText: "🛒 Pre-Order Now",
+        buttonText: activeLaunchPreOrder?.buttonText || "🛒 Pre-Order Now",
+        badgeText: activeLaunchPreOrder?.badgeText || "🛒 PRE-ORDER",
+        launchLabel: activeLaunchPreOrder?.launchLabel || "NEW LAUNCH",
       },
       backInStock: {
         enabled: isNotifyMeShowing,
@@ -879,17 +889,25 @@ async function getStorefrontLaunchPreOrder(req, res) {
     const now = new Date();
     const launchDate = new Date(config.launchDate);
     const opensAt = config.preOrderOpensAt ? new Date(config.preOrderOpensAt) : null;
+    const shippingDate = config.shippingDate ? new Date(config.shippingDate) : null;
 
-    // End of day allowance for launch date
-    if (!isNaN(launchDate.getTime())) {
-      if (launchDate.getUTCHours() === 0 && launchDate.getUTCMinutes() === 0 && launchDate.getUTCSeconds() === 0) {
-        launchDate.setUTCHours(23, 59, 59, 999);
+    // Cutoff is the later of launchDate or shippingDate (pre-orders run until launch/shipping release)
+    let cutoffDate = launchDate;
+    if (shippingDate && !isNaN(shippingDate.getTime()) && shippingDate > cutoffDate) {
+      cutoffDate = shippingDate;
+    }
+
+    // End of day allowance for cutoff date
+    if (!isNaN(cutoffDate.getTime())) {
+      cutoffDate.setHours(23, 59, 59, 999);
+      if (cutoffDate.getUTCHours() === 0 && cutoffDate.getUTCMinutes() === 0) {
+        cutoffDate.setUTCHours(23, 59, 59, 999);
       }
     }
 
-    // Condition 1: Must not have passed launch date
-    if (isNaN(launchDate.getTime()) || now > launchDate) {
-      return res.status(200).json({ enabled: false, reason: "Launch date passed" });
+    // Condition 1: Must not have passed cutoff date
+    if (isNaN(cutoffDate.getTime()) || now > cutoffDate) {
+      return res.status(200).json({ enabled: false, reason: "Launch/shipping date passed" });
     }
 
     // Condition 2: If opensAt specified, now must be >= opensAt

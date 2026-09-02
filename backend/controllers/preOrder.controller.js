@@ -59,9 +59,15 @@ async function syncPreOrderShopifyDiscount(shop, launchConfig) {
 
     const now = new Date();
     const launchDate = new Date(launchConfig.launchDate);
-    if (!isNaN(launchDate.getTime())) {
-      if (launchDate.getUTCHours() === 0 && launchDate.getUTCMinutes() === 0 && launchDate.getUTCSeconds() === 0) {
-        launchDate.setUTCHours(23, 59, 59, 999);
+    const shippingDate = launchConfig.shippingDate ? new Date(launchConfig.shippingDate) : null;
+    let cutoffDate = launchDate;
+    if (shippingDate && !isNaN(shippingDate.getTime()) && shippingDate > cutoffDate) {
+      cutoffDate = shippingDate;
+    }
+    if (!isNaN(cutoffDate.getTime())) {
+      cutoffDate.setHours(23, 59, 59, 999);
+      if (cutoffDate.getUTCHours() === 0 && cutoffDate.getUTCMinutes() === 0) {
+        cutoffDate.setUTCHours(23, 59, 59, 999);
       }
     }
     const opensAt = launchConfig.preOrderOpensAt ? new Date(launchConfig.preOrderOpensAt) : null;
@@ -69,8 +75,8 @@ async function syncPreOrderShopifyDiscount(shop, launchConfig) {
     const isPreOrderActive =
       launchConfig.preOrderEnabled &&
       isDepositEnabled &&
-      !isNaN(launchDate.getTime()) &&
-      now <= launchDate &&
+      !isNaN(cutoffDate.getTime()) &&
+      now <= cutoffDate &&
       (!opensAt || isNaN(opensAt.getTime()) || now >= opensAt);
 
     if (!isPreOrderActive) {
@@ -644,26 +650,30 @@ async function getLaunchConfigs(req, res) {
         const formattedGid = `gid://shopify/Product/${cleanId}`;
 
         if (!productImage || !productHandle) {
-          // 1. Try local MongoDB Product model
-          const localProd = await Product.findOne({
+          // 1. Try HighDemand model
+          const HighDemand = require("../models/highDemand");
+          const hdItem = await HighDemand.findOne({
+            shop,
             $or: [{ productId: cleanId }, { productId: formattedGid }],
           }).lean().catch(() => null);
 
-          if (localProd) {
-            if (!productImage && localProd.image) productImage = localProd.image;
-            if (!productHandle && localProd.handle) productHandle = localProd.handle;
-            if (!productTitle && localProd.title) productTitle = localProd.title;
+          if (hdItem) {
+            if (!productImage && hdItem.image) productImage = hdItem.image;
+            if (!productHandle && hdItem.handle) productHandle = hdItem.handle;
+            if (!productTitle && (hdItem.productName || hdItem.productTitle)) productTitle = hdItem.productName || hdItem.productTitle;
           }
 
-          // 2. Try HighDemand model
-          if (!productImage) {
-            const HighDemand = require("../models/highDemand");
-            const hdItem = await HighDemand.findOne({
+          // 2. Try Inventory model
+          if (!productImage || !productHandle) {
+            const Inventory = require("../models/Inventory");
+            const invItem = await Inventory.findOne({
               shop,
               $or: [{ productId: cleanId }, { productId: formattedGid }],
             }).lean().catch(() => null);
-            if (hdItem && hdItem.image) {
-              productImage = hdItem.image;
+            if (invItem) {
+              if (!productImage && invItem.image) productImage = invItem.image;
+              if (!productHandle && invItem.handle) productHandle = invItem.handle;
+              if (!productTitle && invItem.title) productTitle = invItem.title;
             }
           }
 
@@ -723,13 +733,19 @@ async function getLaunchConfigs(req, res) {
         }
 
         const launchDate = new Date(item.launchDate);
-        if (!isNaN(launchDate.getTime())) {
-          if (launchDate.getUTCHours() === 0 && launchDate.getUTCMinutes() === 0 && launchDate.getUTCSeconds() === 0) {
-            launchDate.setUTCHours(23, 59, 59, 999);
+        const shippingDate = item.shippingDate ? new Date(item.shippingDate) : null;
+        let cutoffDate = launchDate;
+        if (shippingDate && !isNaN(shippingDate.getTime()) && shippingDate > cutoffDate) {
+          cutoffDate = shippingDate;
+        }
+        if (!isNaN(cutoffDate.getTime())) {
+          cutoffDate.setHours(23, 59, 59, 999);
+          if (cutoffDate.getUTCHours() === 0 && cutoffDate.getUTCMinutes() === 0) {
+            cutoffDate.setUTCHours(23, 59, 59, 999);
           }
         }
         const opensAt = item.preOrderOpensAt ? new Date(item.preOrderOpensAt) : null;
-        const isPastLaunch = !isNaN(launchDate.getTime()) && now > launchDate;
+        const isPastLaunch = !isNaN(cutoffDate.getTime()) && now > cutoffDate;
         const isBeforeOpen = opensAt && !isNaN(opensAt.getTime()) && now < opensAt;
 
         let status = "ACTIVE";
@@ -852,13 +868,39 @@ async function saveLaunchConfig(req, res) {
     const rawPct = depositPercentage !== "" && depositPercentage != null ? Number(depositPercentage) : 50;
     const pct = isNaN(rawPct) ? 50 : Math.max(0, Math.min(100, rawPct));
     const safeDepositAmt = Number(depositAmount) >= 0 ? Number(depositAmount) : 0;
+    let finalHandle = String(productHandle || "").trim();
+    let finalTitle = String(productTitle || "").trim();
+    let finalImage = String(productImage || "").trim();
+
+    if ((!finalHandle || !finalTitle || !finalImage) && shop) {
+      try {
+        const accessToken = await getShopifyAccessToken(shop);
+        if (accessToken) {
+          const prodQ = `
+            query getPInfo($id: ID!) {
+              product(id: $id) {
+                title
+                handle
+                featuredImage { url }
+              }
+            }
+          `;
+          const pData = await shopifyGraphQL(shop, accessToken, prodQ, { id: `gid://shopify/Product/${cleanProductId}` });
+          if (pData?.product) {
+            if (!finalHandle && pData.product.handle) finalHandle = pData.product.handle;
+            if (!finalTitle && pData.product.title) finalTitle = pData.product.title;
+            if (!finalImage && pData.product.featuredImage?.url) finalImage = pData.product.featuredImage.url;
+          }
+        }
+      } catch (_) {}
+    }
 
     const updatePayload = {
       shop,
       productId: cleanProductId,
-      productTitle: productTitle.trim(),
-      productHandle: productHandle.trim(),
-      productImage: productImage.trim(),
+      productTitle: finalTitle,
+      productHandle: finalHandle,
+      productImage: finalImage,
       preOrderEnabled: Boolean(preOrderEnabled),
       preOrderOpensAt: preOrderOpensAt ? new Date(preOrderOpensAt) : null,
       launchDate: new Date(launchDate),
