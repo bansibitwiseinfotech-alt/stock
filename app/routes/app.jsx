@@ -53,7 +53,8 @@ if (typeof window !== "undefined") {
             str.includes("target origin") ||
             str.includes("DOMWindow") ||
             str.includes("startTime") ||
-            str.includes("reportAllChanges")
+            str.includes("reportAllChanges") ||
+            str.includes("validateDOMNesting")
           ) {
             return;
           }
@@ -67,7 +68,23 @@ if (typeof window !== "undefined") {
   try { silence(window.top); } catch (e) {}
   try {
     window.addEventListener('error', function(e) {
-      var msg = (e && e.message) ? String(e.message) : '';
+      var msg = (e && (e.message || (e.error && e.error.message))) ? String(e.message || (e.error && e.error.message)) : '';
+      if (
+        msg.indexOf('postMessage') !== -1 ||
+        msg.indexOf('target origin') !== -1 ||
+        msg.indexOf('startTime') !== -1 ||
+        msg.indexOf('reportAllChanges') !== -1 ||
+        msg.indexOf('validateDOMNesting') !== -1
+      ) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        return true;
+      }
+    }, true);
+    window.addEventListener('unhandledrejection', function(e) {
+      var reason = e && e.reason;
+      var msg = reason ? (typeof reason === 'object' ? (reason.message || JSON.stringify(reason)) : String(reason)) : '';
       if (
         msg.indexOf('postMessage') !== -1 ||
         msg.indexOf('target origin') !== -1 ||
@@ -75,13 +92,12 @@ if (typeof window !== "undefined") {
         msg.indexOf('reportAllChanges') !== -1
       ) {
         if (e.preventDefault) e.preventDefault();
-        if (e.stopPropagation) e.stopPropagation();
         return true;
       }
     }, true);
     var oldOnError = window.onerror;
-    window.onerror = function(message) {
-      var str = String(message || '');
+    window.onerror = function(message, source, lineno, colno, error) {
+      var str = String(message || '') + ' ' + (error ? String(error.message || error) : '');
       if (
         str.indexOf('startTime') !== -1 ||
         str.indexOf('reportAllChanges') !== -1 ||

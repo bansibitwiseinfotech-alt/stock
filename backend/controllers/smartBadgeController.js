@@ -134,52 +134,72 @@ async function runSmartBadgeAnalysis({ shop, accessToken, specificProducts = nul
 
     const appliedBadgeType = appliedBadgesMap[pId] || appliedBadgesMap[cleanPId] || null;
 
+    const firstVariant = product.variants?.nodes?.[0];
+    const sku = firstVariant?.sku || "";
+    const chosenBadge = appliedBadgeType || recommendation.badge;
+    const finalScore = recommendation.score ?? 0;
+    const finalConfidence = recommendation.confidence || "MEDIUM";
+    const finalReason = appliedBadgeType
+      ? `Active ${appliedBadgeType.toLowerCase().replace(/_/g, " ")} strategy active in database.`
+      : recommendation.reason;
+    const isActive = Boolean(appliedBadgeType);
+
     recommendations.push({
       productId: product.id,
       title: product.title,
       handle: product.handle,
       image: product.featuredImage?.url || null,
+      sku,
       inventory,
-      variants: product.variants?.nodes || [],
-
-      unitsSold30d: rawSales.unitsSold30d,
       salesVelocity: rawSales.salesVelocity,
+      stockRisk,
+      suggestedBadge: chosenBadge,
+      score: finalScore,
+      confidence: finalConfidence,
+      reason: finalReason,
+      active: isActive,
+
+      variants: product.variants?.nodes || [],
+      unitsSold30d: rawSales.unitsSold30d,
       lastSaleDate: rawSales.lastSaleDate,
       daysSinceLastSale: rawSales.daysSinceLastSale,
       daysUntilStockout,
-      stockRisk,
 
       recommendation: {
-        badge: appliedBadgeType || recommendation.badge,
-        score: recommendation.score,
-        confidence: recommendation.confidence,
-        reason: appliedBadgeType
-          ? `Active ${appliedBadgeType.toLowerCase().replace(/_/g, " ")} strategy active in database.`
-          : recommendation.reason,
+        badge: chosenBadge,
+        score: finalScore,
+        confidence: finalConfidence,
+        reason: finalReason,
       },
 
       appliedBadge: appliedBadgeType,
-      isApplied: Boolean(appliedBadgeType),
+      isApplied: isActive,
 
       alternatives: recommendation.alternatives || [],
     });
   }
 
   // Calculate summary counts
+  const recommendedCount = recommendations.filter(
+    (r) => (r.suggestedBadge || r.recommendation.badge) !== BADGES.NONE
+  ).length;
+  const appliedCount = realAppliedCount || recommendations.filter((r) => r.active || r.isApplied).length;
+
   const summary = {
     productsScanned: recommendations.length,
     scanned: recommendations.length,
-    recommendations: recommendations.filter((r) => r.recommendation.badge !== BADGES.NONE).length,
-    applied: realAppliedCount || recommendations.filter((r) => r.isApplied).length,
+    recommendations: recommendedCount,
+    recommended: recommendedCount,
+    applied: appliedCount,
     badges: {
-      [BADGES.LOW_STOCK]: recommendations.filter((r) => r.recommendation.badge === BADGES.LOW_STOCK).length,
-      [BADGES.CLEARANCE]: recommendations.filter((r) => r.recommendation.badge === BADGES.CLEARANCE).length,
-      [BADGES.BUNDLE]: recommendations.filter((r) => r.recommendation.badge === BADGES.BUNDLE).length,
+      [BADGES.LOW_STOCK]: recommendations.filter((r) => (r.suggestedBadge || r.recommendation.badge) === BADGES.LOW_STOCK).length,
+      [BADGES.CLEARANCE]: recommendations.filter((r) => (r.suggestedBadge || r.recommendation.badge) === BADGES.CLEARANCE).length,
+      [BADGES.BUNDLE]: recommendations.filter((r) => (r.suggestedBadge || r.recommendation.badge) === BADGES.BUNDLE).length,
       [BADGES.PROGRESSIVE_MARKDOWN]: recommendations.filter(
-        (r) => r.recommendation.badge === BADGES.PROGRESSIVE_MARKDOWN
+        (r) => (r.suggestedBadge || r.recommendation.badge) === BADGES.PROGRESSIVE_MARKDOWN
       ).length,
-      [BADGES.PRE_ORDER]: recommendations.filter((r) => r.recommendation.badge === BADGES.PRE_ORDER).length,
-      [BADGES.NONE]: recommendations.filter((r) => r.recommendation.badge === BADGES.NONE).length,
+      [BADGES.PRE_ORDER]: recommendations.filter((r) => (r.suggestedBadge || r.recommendation.badge) === BADGES.PRE_ORDER).length,
+      [BADGES.NONE]: recommendations.filter((r) => (r.suggestedBadge || r.recommendation.badge) === BADGES.NONE).length,
     },
   };
 
@@ -220,7 +240,9 @@ async function scanProducts(req, res) {
 
     return res.json({
       success: true,
-      scanned: result.scanned,
+      scanned: result.summary.scanned,
+      recommended: result.summary.recommended,
+      applied: result.summary.applied,
       summary: result.summary,
       products: result.products,
       settings: result.settings,
@@ -274,7 +296,9 @@ async function getRecommendations(req, res) {
       if (cached && Array.isArray(cached.products) && cached.products.length > 0) {
         return res.json({
           success: true,
-          scanned: cached.scanned || cached.products.length,
+          scanned: cached.summary?.scanned || cached.summary?.productsScanned || cached.products.length,
+          recommended: cached.summary?.recommended ?? cached.summary?.recommendations ?? 0,
+          applied: cached.summary?.applied ?? 0,
           summary: cached.summary,
           products: cached.products,
           settings: cached.settings || {},
@@ -289,7 +313,9 @@ async function getRecommendations(req, res) {
 
     return res.json({
       success: true,
-      scanned: result.scanned,
+      scanned: result.summary.scanned,
+      recommended: result.summary.recommended,
+      applied: result.summary.applied,
       summary: result.summary,
       products: result.products,
       settings: result.settings,

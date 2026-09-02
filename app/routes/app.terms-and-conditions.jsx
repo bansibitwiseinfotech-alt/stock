@@ -282,9 +282,9 @@ export default function TermsAndConditions() {
                   </Text>
                   <Text as="p">
                     <strong>Support Email:</strong>{" "}
-                    <Text style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
-                      <Text> support@bitwiseinfotech.com</Text>
-                    </Text>
+                    <a href="mailto:support@bitwiseinfotech.com" style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
+                      support@bitwiseinfotech.com
+                    </a>
                   </Text>
                 </BlockStack>
               </Box>

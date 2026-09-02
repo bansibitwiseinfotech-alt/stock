@@ -157,6 +157,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
   const [selectedBadgeForProduct, setSelectedBadgeForProduct] = useState(null);
 
   // ----------------------------------------------------
+  // ----------------------------------------------------
   // INITIAL DATA LOAD
   // ----------------------------------------------------
   const loadInitialData = useCallback(async () => {
@@ -170,16 +171,27 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
       ]);
 
       if (recRes.success && Array.isArray(recRes.products)) {
-        setProducts(recRes.products);
-        setSummary(recRes.summary || null);
+        const productList = recRes.products;
+        setProducts(productList);
+        const scannedCount = recRes.scanned ?? recRes.summary?.scanned ?? productList.length;
+        const recommendedCount = recRes.recommended ?? recRes.summary?.recommended ?? recRes.summary?.recommendations ?? productList.filter((p) => (p.suggestedBadge || p.recommendation?.badge) !== "NONE").length;
+        const appliedCount = recRes.applied ?? recRes.summary?.applied ?? productList.filter((p) => p.active || p.isApplied).length;
+
+        const updatedSummary = {
+          productsScanned: scannedCount,
+          scanned: scannedCount,
+          recommendations: recommendedCount,
+          recommended: recommendedCount,
+          applied: appliedCount,
+          badges: recRes.summary?.badges || {},
+        };
+        setSummary(updatedSummary);
         if (recRes.settings) setStoreSettings(recRes.settings);
         setLastScannedAt(new Date());
 
         try {
-          sessionStorage.setItem("smart_badge_products", JSON.stringify(recRes.products));
-          if (recRes.summary) {
-            sessionStorage.setItem("smart_badge_summary", JSON.stringify(recRes.summary));
-          }
+          sessionStorage.setItem("smart_badge_products", JSON.stringify(productList));
+          sessionStorage.setItem("smart_badge_summary", JSON.stringify(updatedSummary));
         } catch (_) {}
       }
       if (settingsRes) {
@@ -223,20 +235,41 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
   }, [loadInitialData]);
 
   // ----------------------------------------------------
-  // SCAN FLOW
+  // REAL SHOPIFY PRODUCT SCAN FLOW
   // ----------------------------------------------------
   const handleScanProducts = async () => {
-    if (!shop) return;
+    if (!shop || scanning) return;
     setScanning(true);
     setErrorMsg(null);
     try {
       const res = await scanSmartBadgesApi(shop);
-      if (res.success) {
-        setProducts(res.products || []);
-        setSummary(res.summary || null);
+      if (res.success && Array.isArray(res.products)) {
+        const productList = res.products;
+        setProducts(productList);
+
+        const scannedCount = res.scanned ?? res.summary?.scanned ?? productList.length;
+        const recommendedCount = res.recommended ?? res.summary?.recommended ?? res.summary?.recommendations ?? productList.filter((p) => (p.suggestedBadge || p.recommendation?.badge) !== "NONE").length;
+        const appliedCount = res.applied ?? res.summary?.applied ?? productList.filter((p) => p.active || p.isApplied).length;
+
+        const updatedSummary = {
+          productsScanned: scannedCount,
+          scanned: scannedCount,
+          recommendations: recommendedCount,
+          recommended: recommendedCount,
+          applied: appliedCount,
+          badges: res.summary?.badges || {},
+        };
+
+        setSummary(updatedSummary);
         if (res.settings) setStoreSettings(res.settings);
         setLastScannedAt(new Date());
-        setToastMsg(`✓ Scan completed — ${res.scanned || res.products?.length || 0} products analyzed`);
+
+        try {
+          sessionStorage.setItem("smart_badge_products", JSON.stringify(productList));
+          sessionStorage.setItem("smart_badge_summary", JSON.stringify(updatedSummary));
+        } catch (_) {}
+
+        setToastMsg(`✓ Real Shopify catalog scan complete — ${scannedCount} active products analyzed`);
       } else {
         setErrorMsg(res.message || "Failed to complete product scan.");
       }
@@ -336,10 +369,12 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
     const activeKey = TAB_KEYS[selectedTabIndex] || "ALL";
 
     return products.filter((item) => {
+      const itemBadge = item.suggestedBadge || item.recommendation?.badge || "NONE";
+
       // Tab filter
       if (activeKey !== "ALL") {
-        if (activeKey === "NONE" && item.recommendation?.badge !== "NONE") return false;
-        if (activeKey !== "NONE" && item.recommendation?.badge !== activeKey) return false;
+        if (activeKey === "NONE" && itemBadge !== "NONE") return false;
+        if (activeKey !== "NONE" && itemBadge !== activeKey) return false;
       }
 
       // Search filter
@@ -347,12 +382,14 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
         const query = searchQuery.trim().toLowerCase();
         const matchTitle = item.title?.toLowerCase().includes(query);
         const matchHandle = item.handle?.toLowerCase().includes(query);
-        if (!matchTitle && !matchHandle) return false;
+        const matchSku = item.sku?.toLowerCase().includes(query);
+        if (!matchTitle && !matchHandle && !matchSku) return false;
       }
 
       // Confidence filter
       if (selectedConfidence !== "ALL") {
-        if (item.recommendation?.confidence !== selectedConfidence) return false;
+        const conf = item.confidence || item.recommendation?.confidence;
+        if (conf !== selectedConfidence) return false;
       }
 
       // Risk filter
@@ -387,8 +424,8 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
     if (!summary && products.length === 0) return null;
 
     const totalScanned = summary?.scanned ?? summary?.productsScanned ?? products.length;
-    const totalRecs = summary?.recommendations ?? products.filter((p) => p.recommendation?.badge !== "NONE").length;
-    const appliedCount = products.filter((p) => p.isApplied).length;
+    const totalRecs = summary?.recommended ?? summary?.recommendations ?? products.filter((p) => (p.suggestedBadge || p.recommendation?.badge) !== "NONE").length;
+    const appliedCount = summary?.applied ?? products.filter((p) => p.active || p.isApplied).length;
 
     return (
       <div className="smart-badges-metrics-grid">
@@ -459,14 +496,15 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
   // TAB PILLS
   // ----------------------------------------------------
   const tabCounts = useMemo(() => {
+    const getBadge = (p) => p.suggestedBadge || p.recommendation?.badge || "NONE";
     return {
       ALL: products.length,
-      LOW_STOCK: products.filter((p) => p.recommendation?.badge === "LOW_STOCK").length,
-      CLEARANCE: products.filter((p) => p.recommendation?.badge === "CLEARANCE").length,
-      BUNDLE: products.filter((p) => p.recommendation?.badge === "BUNDLE").length,
-      PROGRESSIVE_MARKDOWN: products.filter((p) => p.recommendation?.badge === "PROGRESSIVE_MARKDOWN").length,
-      PRE_ORDER: products.filter((p) => p.recommendation?.badge === "PRE_ORDER").length,
-      NONE: products.filter((p) => p.recommendation?.badge === "NONE").length,
+      LOW_STOCK: products.filter((p) => getBadge(p) === "LOW_STOCK").length,
+      CLEARANCE: products.filter((p) => getBadge(p) === "CLEARANCE").length,
+      BUNDLE: products.filter((p) => getBadge(p) === "BUNDLE").length,
+      PROGRESSIVE_MARKDOWN: products.filter((p) => getBadge(p) === "PROGRESSIVE_MARKDOWN").length,
+      PRE_ORDER: products.filter((p) => getBadge(p) === "PRE_ORDER").length,
+      NONE: products.filter((p) => getBadge(p) === "NONE").length,
     };
   }, [products]);
 
@@ -489,6 +527,12 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
         fullWidth
         title="Smart Badges"
         subtitle="Automated badge recommendations to boost sales velocity."
+        primaryAction={{
+          content: scanning ? "Scanning..." : "Scan Products",
+          onAction: handleScanProducts,
+          loading: scanning,
+          disabled: scanning,
+        }}
       >
         <div style={{ position: "relative", minHeight: "450px" }}>
           {currentPlan !== "premium" && (
@@ -692,15 +736,24 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                           inventory,
                           salesVelocity,
                           stockRisk,
+                          suggestedBadge,
+                          score,
+                          confidence,
+                          reason,
+                          active,
                           recommendation,
                           isApplied,
                         } = product;
 
-                        const badgeInfo = BADGE_CONFIG[recommendation?.badge] || BADGE_CONFIG.NONE;
-                        const isNone = recommendation?.badge === "NONE";
+                        const chosenBadge = suggestedBadge || recommendation?.badge || "NONE";
+                        const badgeInfo = BADGE_CONFIG[chosenBadge] || BADGE_CONFIG.NONE;
+                        const isNone = chosenBadge === "NONE";
 
                         const rawInv = Number(inventory) || 0;
                         const displayInv = Math.max(0, rawInv);
+                        const displayScore = isNone ? "—" : (score ?? recommendation?.score ?? 0);
+                        const displayReason = reason || recommendation?.reason || "Product is performing normally.";
+                        const isActive = Boolean(active ?? isApplied);
 
                         return (
                           <tr
@@ -772,7 +825,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
                                   }}>
                                     {badgeInfo.label}
                                   </span>
-                                  {isApplied && (
+                                  {isActive && (
                                     <span style={{
                                       fontSize: "10px",
                                       fontWeight: "600",
@@ -791,20 +844,20 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
 
                             {/* SCORE */}
                             <td style={{ padding: "12px 12px", whiteSpace: "nowrap", color: "#202223" }}>
-                              {isNone ? <span style={{ color: "#6D7175" }}>—</span> : (recommendation?.score ?? 0)}
+                              {displayScore}
                             </td>
 
                             {/* REASON */}
                             <td style={{ padding: "12px 16px" }}>
                               <div
-                                title={recommendation?.reason || "Product is performing normally."}
+                                title={displayReason}
                                 style={{
                                   fontSize: "12px",
                                   color: isNone ? "#6D7175" : "#5C5F62",
                                   lineHeight: "1.4",
                                 }}
                               >
-                                {recommendation?.reason || "Product is performing normally."}
+                                {displayReason}
                               </div>
                             </td>
                           </tr>

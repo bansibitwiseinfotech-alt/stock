@@ -46,7 +46,8 @@ export default function App() {
                           msg.indexOf("target origin") !== -1 ||
                           msg.indexOf("DOMWindow") !== -1 ||
                           msg.indexOf("startTime") !== -1 ||
-                          msg.indexOf("reportAllChanges") !== -1
+                          msg.indexOf("reportAllChanges") !== -1 ||
+                          msg.indexOf("validateDOMNesting") !== -1
                         ) {
                           return;
                         }
@@ -59,12 +60,13 @@ export default function App() {
                 try { patchConsole(window.parent); } catch (e) {}
                 try { patchConsole(window.top); } catch (e) {}
                 window.addEventListener('error', function(e) {
-                  var msg = (e && e.message) ? String(e.message) : '';
+                  var msg = (e && (e.message || (e.error && e.error.message))) ? String(e.message || (e.error && e.error.message)) : '';
                   if (
                     msg.indexOf('postMessage') !== -1 ||
                     msg.indexOf('target origin') !== -1 ||
                     msg.indexOf('startTime') !== -1 ||
-                    msg.indexOf('reportAllChanges') !== -1
+                    msg.indexOf('reportAllChanges') !== -1 ||
+                    msg.indexOf('validateDOMNesting') !== -1
                   ) {
                     if (e.preventDefault) e.preventDefault();
                     if (e.stopPropagation) e.stopPropagation();
@@ -72,9 +74,22 @@ export default function App() {
                     return true;
                   }
                 }, true);
+                window.addEventListener('unhandledrejection', function(e) {
+                  var reason = e && e.reason;
+                  var msg = reason ? (typeof reason === 'object' ? (reason.message || JSON.stringify(reason)) : String(reason)) : '';
+                  if (
+                    msg.indexOf('postMessage') !== -1 ||
+                    msg.indexOf('target origin') !== -1 ||
+                    msg.indexOf('startTime') !== -1 ||
+                    msg.indexOf('reportAllChanges') !== -1
+                  ) {
+                    if (e.preventDefault) e.preventDefault();
+                    return true;
+                  }
+                }, true);
                 var oldOnError = window.onerror;
-                window.onerror = function(message) {
-                  var str = String(message || '');
+                window.onerror = function(message, source, lineno, colno, error) {
+                  var str = String(message || '') + ' ' + (error ? String(error.message || error) : '');
                   if (
                     str.indexOf('startTime') !== -1 ||
                     str.indexOf('reportAllChanges') !== -1 ||

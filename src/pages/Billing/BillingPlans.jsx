@@ -673,10 +673,10 @@ export default function BillingPlans({ shopDomain = "" }) {
                 Depending on your location and applicable laws, you may have the right to access personal information we hold about you, request correction of inaccurate information, or request deletion of your information. For users in the EEA, UK, and similar jurisdictions, we process personal data under legitimate interests and contractual necessity required to provide the Service.
               </Text>
               <Text as="p">
-                To request deletion of your information, contact
-                <Text style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
-                  <Text> support@bitwiseinfotech.com</Text>
-                </Text> We will respond within a reasonable timeframe.
+                To request deletion of your information, contact{" "}
+                <a href="mailto:support@bitwiseinfotech.com" style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
+                  support@bitwiseinfotech.com
+                </a>. We will respond within a reasonable timeframe.
               </Text>
             </BlockStack>
 
@@ -732,13 +732,13 @@ export default function BillingPlans({ shopDomain = "" }) {
                 background="bg-surface-secondary"
               >
                 <BlockStack gap="100">
-                  <Text as="p"><strong>App:</strong> Smart Stock<Text></Text></Text>
+                  <Text as="p"><strong>App:</strong> Smart Stock</Text>
                   <Text as="p"><strong>Developer:</strong> Bitwise Infotech, Rajkot, Gujarat, India</Text>
                   <Text as="p">
                     <strong>Support Email:</strong>{" "}
-                    <Text style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
-                      <Text> support@bitwiseinfotech.com</Text>
-                    </Text>
+                    <a href="mailto:support@bitwiseinfotech.com" style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
+                      support@bitwiseinfotech.com
+                    </a>
                   </Text>
                 </BlockStack>
               </Box>
@@ -964,9 +964,9 @@ export default function BillingPlans({ shopDomain = "" }) {
                   <Text as="p"><strong>Developer:</strong> Bitwise Infotech, Rajkot, Gujarat, India</Text>
                   <Text as="p">
                     <strong>Support Email:</strong>{" "}
-                    <Text style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
-                      <Text> support@bitwiseinfotech.com</Text>
-                    </Text>
+                    <a href="mailto:support@bitwiseinfotech.com" style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
+                      support@bitwiseinfotech.com
+                    </a>
                   </Text>
                 </BlockStack>
               </Box>
@@ -1020,9 +1020,9 @@ export default function BillingPlans({ shopDomain = "" }) {
                 <Text as="p"><strong>Developer:</strong> Bitwise Infotech, Rajkot, Gujarat, India</Text>
                 <Text as="p">
                   <strong>Support Email:</strong>{" "}
-                  <Text style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
-                    <Text> support@bitwiseinfotech.com</Text>
-                  </Text>
+                  <a href="mailto:support@bitwiseinfotech.com" style={{ color: "#008060", fontWeight: "600", textDecoration: "none" }}>
+                    support@bitwiseinfotech.com
+                  </a>
                 </Text>
               </BlockStack>
             </Box>
