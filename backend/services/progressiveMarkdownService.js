@@ -1045,6 +1045,8 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null, ext
           pricingMode: "DIRECT_VARIANT_PRICE",
         },
       }).catch(() => { });
+    }
+
     // Clear storefront cache immediately so storefront updates in real-time
     try {
       const { clearStorefrontCache } = require("../controllers/storefrontController");
