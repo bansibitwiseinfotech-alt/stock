@@ -3,7 +3,6 @@ const connectDB = require("../config/mongodb");
 const PreOrder = require("../models/PreOrder");
 const PreOrderNotificationLog = require("../models/PreOrderNotificationLog");
 const LaunchPreOrder = require("../models/LaunchPreOrder");
-const Product = require("../models/Product");
 const HighDemand = require("../models/highDemand");
 const {
   maskEmail,

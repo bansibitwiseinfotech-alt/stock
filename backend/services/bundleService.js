@@ -1,7 +1,6 @@
 const Bundle = require("../models/Bundle");
 const DeadStockAction = require("../models/DeadStockAction");
 const DeadStock = require("../models/DeadStock");
-const Product = require("../models/Product");
 const Store = require("../models/Store");
 const DeadStockBundle = require("../models/DeadStockBundle");
 const shopifyGraphQL = require("./shopifyGraphql");

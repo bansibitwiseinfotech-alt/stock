@@ -1,5 +1,4 @@
 const PreOrder = require("../models/PreOrder");
-const Product = require("../models/Product");
 const Store = require("../models/Store");
 const connectDB = require("../config/mongodb");
 const mongoose = require("mongoose");

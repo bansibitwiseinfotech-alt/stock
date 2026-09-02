@@ -336,18 +336,8 @@ app.use(
 );
 
 app.use(
-  "/api/products",
-  require("./routes/products")
-);
-
-app.use(
   "/api/inventory",
   require("./routes/inventory")
-);
-
-app.use(
-  "/api/orders",
-  require("./routes/orders")
 );
 app.use("/api/subscription", subscriptionRoutes);
 // ==================================================
@@ -413,11 +403,6 @@ app.use(
 app.use(
   "/api/bundles",
   require("./routes/bundlesRoutes")
-);
-
-app.use(
-  "/api/automations",
-  require("./routes/automationsRoutes")
 );
 
 app.use(

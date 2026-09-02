@@ -1,7 +1,6 @@
 const MarkdownRule = require("../models/MarkdownRule");
 const DeadStockAction = require("../models/DeadStockAction");
 const Store = require("../models/Store");
-const Order = require("../models/Order");
 const shopifyGraphQL = require("./shopifyGraphql");
 
 const VARIANT_QUERY = `
@@ -38,7 +37,7 @@ mutation UpdateVariantPrice(
       field
       message
     }
-  }
+  }   
 }
 `;
 
@@ -500,7 +499,7 @@ async function createMarkdownRule(
           evaluationIntervalHours: 24,
           pricingMode: "DIRECT_VARIANT_PRICE",
         },
-      }).catch(() => {});
+      }).catch(() => { });
 
       return {
         success: true,
@@ -631,7 +630,7 @@ async function createMarkdownRule(
         error: err.message,
         metadata: { pricingMode: "DIRECT_VARIANT_PRICE" },
       });
-    } catch {}
+    } catch { }
 
     return {
       success: false,
@@ -760,7 +759,7 @@ async function processActiveMarkdownRules(shop = null) {
               currentStock,
               pricingMode: "DIRECT_VARIANT_PRICE",
             },
-          }).catch(() => {});
+          }).catch(() => { });
 
 
           processed++;
@@ -847,7 +846,7 @@ async function processActiveMarkdownRules(shop = null) {
             nextEvaluationAt: nextEval,
             pricingMode: "DIRECT_VARIANT_PRICE",
           },
-        }).catch(() => {});
+        }).catch(() => { });
 
 
 
@@ -859,7 +858,7 @@ async function processActiveMarkdownRules(shop = null) {
         rule.processing = false;
         rule.isProcessing = false;
         rule.lastError = ruleErr.message || "Unknown error";
-        await rule.save().catch(() => {});
+        await rule.save().catch(() => { });
 
         await DeadStockAction.create({
           shop: rule.shop,
@@ -871,7 +870,7 @@ async function processActiveMarkdownRules(shop = null) {
           executedAt: now,
           error: ruleErr.message,
           metadata: { pricingMode: "DIRECT_VARIANT_PRICE", ruleId: rule._id },
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
 
@@ -1072,7 +1071,7 @@ async function stopMarkdownRule(shop, ruleIdOrVariantId, accessToken = null, ext
           restoredPrice: restoredPrice || targetRule?.originalPrice || null,
           pricingMode: "DIRECT_VARIANT_PRICE",
         },
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     return {
