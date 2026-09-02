@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Page,
   Layout,
@@ -69,8 +69,41 @@ const getInitialTrends = () => {
   return { dailyTrend, weeklyTrend, monthlyTrend };
 };
 
+const DASHBOARD_CACHE_KEY = "smart_stock_dashboard_cached_data_v1";
+
+function getLocalCache(shop) {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(`${DASHBOARD_CACHE_KEY}_${shop || "store"}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.totalCashRecovered !== "undefined") {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    // Ignore storage parse errors
+  }
+  return null;
+}
+
+function setLocalCache(shop, val) {
+  if (typeof window === "undefined" || !val) return;
+  try {
+    localStorage.setItem(`${DASHBOARD_CACHE_KEY}_${shop || "store"}`, JSON.stringify(val));
+  } catch (e) {
+    // Ignore storage quota errors
+  }
+}
+
 export default function Dashboard({ shopDomain = "" }) {
   const navigate = useNavigate();
+
+  const effectiveShop =
+    shopDomain ||
+    (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("shop") || ""
+      : "");
 
   const navigateWithParams = (path) => {
     if (!path) return;
@@ -79,133 +112,148 @@ export default function Dashboard({ shopDomain = "" }) {
     navigate(target);
   };
 
-  const [loading, setLoading] = useState(true);
+  const initialTrends = getInitialTrends();
+  const cachedData = getLocalCache(effectiveShop);
+
+  const [loading, setLoading] = useState(!cachedData);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [timeframe, setTimeframe] = useState("monthly"); // "daily" | "weekly" | "monthly"
-  const initialTrends = getInitialTrends();   
-  const [data, setData] = useState({
-    totalCashRecovered: 0,
-    growthPercentage: 0,
-    deadStockCashTiedUp: 0,
-    deadStockSkuCount: 0,
-    revenueAtRisk: 0,
-    highDemandRiskCount: 0,
-    totalActiveAutomations: 0,
-    dailyTrend: initialTrends.dailyTrend,
-    weeklyTrend: initialTrends.weeklyTrend,
-    monthlyTrend: initialTrends.monthlyTrend,
-    stockHealth: {
-      healthyPercent: 70,
-      slowMovingPercent: 20,
-      deadStockPercent: 10,
-      healthyCount: 35,
-      slowMovingCount: 9,
-      deadStockCount: 6,
-    },
-    activityFeed: [],
-    badgeBreakdown: [
-      {
-        key: "clearance",
-        title: "Clearance Sales",
-        badgesUsed: 0,
-        cashRecovered: 0,
-        percentage: 0,
-        color: "#10B981",
-        link: "/app/dead-stock",
+  const [data, setData] = useState(() => {
+    if (cachedData) {
+      return cachedData;
+    }
+    return {
+      totalCashRecovered: 0,
+      growthPercentage: 0,
+      deadStockCashTiedUp: 0,
+      deadStockSkuCount: 0,
+      revenueAtRisk: 0,
+      highDemandRiskCount: 0,
+      totalActiveAutomations: 0,
+      dailyTrend: initialTrends.dailyTrend,
+      weeklyTrend: initialTrends.weeklyTrend,
+      monthlyTrend: initialTrends.monthlyTrend,
+      stockHealth: {
+        healthyPercent: 70,
+        slowMovingPercent: 20,
+        deadStockPercent: 10,
+        healthyCount: 35,
+        slowMovingCount: 9,
+        deadStockCount: 6,
       },
-      {
-        key: "bundle",
-        title: "Bundle Offers",
-        badgesUsed: 0,
-        cashRecovered: 0,
-        percentage: 0,
-        color: "#F59E0B",
-        link: "/app/bundles",
-      },
-      {
-        key: "markdown",
-        title: "Progressive Markdown",
-        badgesUsed: 0,
-        cashRecovered: 0,
-        percentage: 0,
-        color: "#8B5CF6",
-        link: "/app/dead-stock",
-      },
-      {
-        key: "preorder",
-        title: "Pre-Orders & Badges",
-        badgesUsed: 0,
-        cashRecovered: 0,
-        percentage: 0,
-        color: "#0EA5E9",
-        link: "/app/pre-orders",
-      },
-    ],
-    recommendations: [
-      {
-        id: "rec-1",
-        title: "Clear slow-moving products",
-        description: "Items with zero or slow sales. Launch a clearance discount or markdown to recover tied-up capital.",
-        actionText: "Create Clearance Sale",
-        tag: "Dead stock",
-        tone: "attention",
-        link: "/app/dead-stock",
-      },
-      {
-        id: "rec-2",
-        title: "Protect revenue on high-demand products",
-        description: "High velocity items risk stocking out. Enable pre-orders or low-stock urgency badges to secure orders.",
-        actionText: "View High Demand",
-        tag: "High velocity",
-        tone: "info",
-        link: "/app/high-demand",
-      },
-    ],
+      activityFeed: [],
+      badgeBreakdown: [
+        {
+          key: "clearance",
+          title: "Clearance Sales",
+          badgesUsed: 0,
+          cashRecovered: 0,
+          percentage: 0,
+          color: "#10B981",
+          link: "/app/dead-stock",
+        },
+        {
+          key: "bundle",
+          title: "Bundle Offers",
+          badgesUsed: 0,
+          cashRecovered: 0,
+          percentage: 0,
+          color: "#F59E0B",
+          link: "/app/bundles",
+        },
+        {
+          key: "markdown",
+          title: "Progressive Markdown",
+          badgesUsed: 0,
+          cashRecovered: 0,
+          percentage: 0,
+          color: "#8B5CF6",
+          link: "/app/dead-stock",
+        },
+        {
+          key: "preorder",
+          title: "Pre-Orders & Badges",
+          badgesUsed: 0,
+          cashRecovered: 0,
+          percentage: 0,
+          color: "#0EA5E9",
+          link: "/app/pre-orders",
+        },
+      ],
+      recommendations: [
+        {
+          id: "rec-1",
+          title: "Clear slow-moving products",
+          description: "Items with zero or slow sales. Launch a clearance discount or markdown to recover tied-up capital.",
+          actionText: "Create Clearance Sale",
+          tag: "Dead stock",
+          tone: "attention",
+          link: "/app/dead-stock",
+        },
+        {
+          id: "rec-2",
+          title: "Protect revenue on high-demand products",
+          description: "High velocity items risk stocking out. Enable pre-orders or low-stock urgency badges to secure orders.",
+          actionText: "View High Demand",
+          tag: "High velocity",
+          tone: "info",
+          link: "/app/high-demand",
+        },
+      ],
+    };
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async (isForced = false) => {
     try {
-      setLoading(true);
-      const res = await fetchDashboardData(shopDomain);
+      if (isForced) {
+        setIsRefreshing(true);
+      }
+      const res = await fetchDashboardData(effectiveShop, isForced);
       if (res && res.totalCashRecovered !== undefined) {
-        setData((prev) => ({
-          ...prev,
-          totalCashRecovered: res.totalCashRecovered ?? prev.totalCashRecovered,
-          growthPercentage: res.growthPercentage ?? prev.growthPercentage,
-          deadStockCashTiedUp: res.deadStockCashTiedUp ?? prev.deadStockCashTiedUp,
-          deadStockSkuCount: res.deadStockSkuCount ?? prev.deadStockSkuCount,
-          revenueAtRisk: res.revenueAtRisk ?? prev.revenueAtRisk,
-          highDemandRiskCount: res.highDemandRiskCount ?? prev.highDemandRiskCount,
-          totalActiveAutomations: res.totalActiveAutomations ?? prev.totalActiveAutomations,
-          dailyTrend: res.dailyTrend || prev.dailyTrend,
-          weeklyTrend: res.weeklyTrend || prev.weeklyTrend,
-          monthlyTrend: res.monthlyTrend || prev.monthlyTrend,
-          stockHealth: res.stockHealth || prev.stockHealth,
-          activityFeed: res.activityFeed && res.activityFeed.length > 0 ? res.activityFeed : prev.activityFeed,
-          badgeBreakdown: res.badgeBreakdown || prev.badgeBreakdown,
-          recommendations: res.smartRecipes
-            ? res.smartRecipes.map((r) => ({
-                id: r.id,
-                title: r.title,
-                description: r.description,
-                actionText: r.recommendedAction,
-                tag: r.id.includes("summer") ? "Dead stock" : "High demand",
-                tone: r.id.includes("summer") ? "attention" : "info",
-                link: r.link,
-              }))
-            : prev.recommendations,
-        }));
+        setData((prev) => {
+          const updated = {
+            ...prev,
+            totalCashRecovered: res.totalCashRecovered ?? prev.totalCashRecovered,
+            growthPercentage: res.growthPercentage ?? prev.growthPercentage,
+            deadStockCashTiedUp: res.deadStockCashTiedUp ?? prev.deadStockCashTiedUp,
+            deadStockSkuCount: res.deadStockSkuCount ?? prev.deadStockSkuCount,
+            revenueAtRisk: res.revenueAtRisk ?? prev.revenueAtRisk,
+            highDemandRiskCount: res.highDemandRiskCount ?? prev.highDemandRiskCount,
+            totalActiveAutomations: res.totalActiveAutomations ?? prev.totalActiveAutomations,
+            dailyTrend: res.dailyTrend || prev.dailyTrend,
+            weeklyTrend: res.weeklyTrend || prev.weeklyTrend,
+            monthlyTrend: res.monthlyTrend || prev.monthlyTrend,
+            stockHealth: res.stockHealth || prev.stockHealth,
+            activityFeed: res.activityFeed && res.activityFeed.length > 0 ? res.activityFeed : prev.activityFeed,
+            badgeBreakdown: res.badgeBreakdown || prev.badgeBreakdown,
+            recommendations: res.smartRecipes
+              ? res.smartRecipes.map((r) => ({
+                  id: r.id,
+                  title: r.title,
+                  description: r.description,
+                  actionText: r.recommendedAction,
+                  tag: r.id.includes("summer") ? "Dead stock" : "High demand",
+                  tone: r.id.includes("summer") ? "attention" : "info",
+                  link: r.link,
+                }))
+              : prev.recommendations,
+          };
+          setLocalCache(effectiveShop, updated);
+          return updated;
+        });
       }
     } catch (err) {
       console.error("Dashboard Load Error:", err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, [effectiveShop]);
 
   useEffect(() => {
-    loadData();
-  }, [shopDomain]);
+    loadData(false);
+  }, [loadData]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-US", {
@@ -256,6 +304,14 @@ export default function Dashboard({ shopDomain = "" }) {
       fullWidth
       title="Dashboard"
       subtitle="Overview of inventory performance, cash recovery, and automated promotions."
+      secondaryActions={[
+        {
+          content: isRefreshing ? "Refreshing..." : "Refresh data",
+          onAction: () => loadData(true),
+          loading: isRefreshing,
+          disabled: isRefreshing,
+        },
+      ]}
     >
       <Layout>
         {/* ==================================================

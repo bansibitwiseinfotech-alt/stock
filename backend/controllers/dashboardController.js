@@ -40,131 +40,126 @@ function formatTimeAgo(dateInput) {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-async function getDashboardMetrics(req, res) {
-  try {
-    await ensureConnected();
+// In-memory dashboard cache with Stale-While-Revalidate pattern
+const dashboardCache = new Map();
+const refreshPromises = new Map();
+const CACHE_FRESH_MS = 3 * 60 * 1000;  // 3 minutes fresh cache
+const CACHE_STALE_MS = 15 * 60 * 1000; // 15 minutes stale-while-revalidate
 
-    let rawShop = req.shopId || req.query.shop || req.headers["x-shopify-shop-domain"];
-    if (!rawShop) {
-      const fallbackStore = await Store.findOne().sort({ updatedAt: -1 }).lean().catch(() => null);
-      if (fallbackStore?.shop) {
-        rawShop = fallbackStore.shop;
-      }
-    }
-    const shop = cleanShop(rawShop);
+function invalidateDashboardCache(shop) {
+  if (shop) {
+    const cleaned = cleanShop(shop);
+    dashboardCache.delete(cleaned);
+  } else {
+    dashboardCache.clear();
+  }
+}
 
-    const shopFilter = {
-      $or: [
-        { shop },
-        { shop: `https://${shop}` },
-        { shopId: shop },
-        { shopId: `https://${shop}` },
-        { shop: new RegExp(`^${shop}$`, "i") },
-      ],
-    };
+async function computeDashboardMetrics(shop) {
+  const shopFilter = {
+    $or: [
+      { shop },
+      { shop: `https://${shop}` },
+      { shopId: shop },
+      { shopId: `https://${shop}` },
+      { shop: new RegExp(`^${shop}$`, "i") },
+    ],
+  };
 
-    // 1. Fetch real action counts & DB documents
-    const [
-      clearanceSalesCount,
-      bundlesCount,
-      markdownRulesCount,
-      launchPreOrdersCount,
-      urgencyStorefrontCount,
-      smartBadgesCount,
-      highDemandItems,
-      deadStockDocs,
-      recentMarkdownRules,
-      recentBundles,
-      recentPreOrders,
-      recentClearances,
-      recentSmartBadges,
-      storeRecord,
-    ] = await Promise.all([
-      ClearanceSale.countDocuments({ ...shopFilter, status: { $ne: "INACTIVE" } }).catch(() => 0),
-      Bundle.countDocuments({ ...shopFilter, status: { $ne: "INACTIVE" } }).catch(() => 0),
-      MarkdownRule.countDocuments({ ...shopFilter, status: "ACTIVE", active: { $ne: false } }).catch(() => 0),
-      LaunchPreOrder.countDocuments({ ...shopFilter, preOrderEnabled: true }).catch(() => 0),
-      HighDemandStorefront.countDocuments({ ...shopFilter, urgencyBadgeEnabled: true }).catch(() => 0),
-      SmartBadgeAssignment.countDocuments({ ...shopFilter, status: "ACTIVE" }).catch(() => 0),
-      HighDemand.find({ ...shopFilter }).lean().catch(() => []),
-      DeadStock.find({ ...shopFilter }).lean().catch(() => []),
-      MarkdownRule.find({ ...shopFilter, status: "ACTIVE" }).sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
-      Bundle.find({ ...shopFilter }).sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
-      LaunchPreOrder.find({ ...shopFilter }).sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
-      ClearanceSale.find({ ...shopFilter }).sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
-      SmartBadgeAssignment.find({ ...shopFilter }).sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
-      Store.findOne({ $or: [{ shop }, { shop: new RegExp(`^${shop}$`, "i") }] }).lean().catch(() => null),
-    ]);
+  // 1. Fetch real action counts & DB documents with lean projections
+  const [
+    clearanceSalesCount,
+    bundlesCount,
+    markdownRulesCount,
+    launchPreOrdersCount,
+    urgencyStorefrontCount,
+    smartBadgesCount,
+    highDemandItems,
+    deadStockDocs,
+    recentMarkdownRules,
+    recentBundles,
+    recentPreOrders,
+    recentClearances,
+    recentSmartBadges,
+    storeRecord,
+  ] = await Promise.all([
+    ClearanceSale.countDocuments({ ...shopFilter, status: { $ne: "INACTIVE" } }).catch(() => 0),
+    Bundle.countDocuments({ ...shopFilter, status: { $ne: "INACTIVE" } }).catch(() => 0),
+    MarkdownRule.countDocuments({ ...shopFilter, status: "ACTIVE", active: { $ne: false } }).catch(() => 0),
+    LaunchPreOrder.countDocuments({ ...shopFilter, preOrderEnabled: true }).catch(() => 0),
+    HighDemandStorefront.countDocuments({ ...shopFilter, urgencyBadgeEnabled: true }).catch(() => 0),
+    SmartBadgeAssignment.countDocuments({ ...shopFilter, status: "ACTIVE" }).catch(() => 0),
+    HighDemand.find({ ...shopFilter }).select("price currentPrice stock currentStock riskLevel reorderQuantity").lean().catch(() => []),
+    DeadStock.find({ ...shopFilter }).select("cashTiedUp price stock").lean().catch(() => []),
+    MarkdownRule.find({ ...shopFilter, status: "ACTIVE" }).select("currentDiscount productTitle updatedAt createdAt").sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
+    Bundle.find({ ...shopFilter }).select("bundleTitle title updatedAt createdAt").sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
+    LaunchPreOrder.find({ ...shopFilter }).select("productTitle title updatedAt createdAt").sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
+    ClearanceSale.find({ ...shopFilter }).select("discountPercent discountValue title productTitle updatedAt createdAt").sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
+    SmartBadgeAssignment.find({ ...shopFilter }).select("productTitle updatedAt createdAt").sort({ updatedAt: -1 }).limit(2).lean().catch(() => []),
+    Store.findOne({ $or: [{ shop }, { shop: new RegExp(`^${shop}$`, "i") }] }).lean().catch(() => null),
+  ]);
 
-    // 2. Fetch live Shopify orders & Catalog products if token is available
-    let liveOrders = [];
-    let catalogVariants = [];
-    let liveCatalogInventory = 0;
+  // 2. Fetch live Shopify orders & Catalog products if token is available
+  // Optimized: remove unused lineItems and nested queries to minimize latency & GraphQL cost
+  let liveOrders = [];
+  let catalogVariants = [];
+  let liveCatalogInventory = 0;
 
-    if (storeRecord?.accessToken) {
-      try {
-        const [orderRes, prodRes] = await Promise.all([
-          shopifyGraphQL(shop, storeRecord.accessToken, `
-            query getDashboardOrders {
-              orders(first: 250, sortKey: CREATED_AT, reverse: true) {
-                nodes {
-                  id
-                  name
-                  createdAt
-                  totalPriceSet { shopMoney { amount currencyCode } }
-                  lineItems(first: 20) {
-                    nodes {
-                      title
-                      quantity
-                      discountedTotalSet { shopMoney { amount } }
-                    }
-                  }
-                }
+  if (storeRecord?.accessToken) {
+    try {
+      const [orderRes, prodRes] = await Promise.all([
+        shopifyGraphQL(shop, storeRecord.accessToken, `
+          query getDashboardOrders {
+            orders(first: 250, sortKey: CREATED_AT, reverse: true) {
+              nodes {
+                id
+                createdAt
+                totalPriceSet { shopMoney { amount } }
               }
             }
-          `),
-          shopifyGraphQL(shop, storeRecord.accessToken, `
-            query getDashboardProducts {
-              products(first: 100) {
-                nodes {
-                  id
-                  title
-                  totalInventory
-                  variants(first: 20) {
-                    nodes {
-                      id
-                      title
-                      price
-                      inventoryQuantity
-                    }
-                  }
-                }
-              }
-            }
-          `),
-        ]);
-
-        liveOrders = orderRes?.orders?.nodes || [];
-        const products = prodRes?.products?.nodes || [];
-        for (const p of products) {
-          for (const v of p.variants?.nodes || []) {
-            const qty = Number(v.inventoryQuantity) || 0;
-            const price = parseFloat(v.price) || 0;
-            liveCatalogInventory += qty;
-            catalogVariants.push({
-              productId: p.id,
-              productTitle: p.title,
-              variantId: v.id,
-              variantTitle: v.title,
-              inventoryQuantity: qty,
-              price,
-            });
           }
+        `),
+        shopifyGraphQL(shop, storeRecord.accessToken, `
+          query getDashboardProducts {
+            products(first: 100) {
+              nodes {
+                id
+                title
+                variants(first: 20) {
+                  nodes {
+                    id
+                    title
+                    price
+                    inventoryQuantity
+                  }
+                }
+              }
+            }
+          }
+        `),
+      ]);
+
+      liveOrders = orderRes?.orders?.nodes || [];
+      const products = prodRes?.products?.nodes || [];
+      for (const p of products) {
+        for (const v of p.variants?.nodes || []) {
+          const qty = Number(v.inventoryQuantity) || 0;
+          const price = parseFloat(v.price) || 0;
+          liveCatalogInventory += qty;
+          catalogVariants.push({
+            productId: p.id,
+            productTitle: p.title,
+            variantId: v.id,
+            variantTitle: v.title,
+            inventoryQuantity: qty,
+            price,
+          });
         }
-      } catch (err) {
-        console.warn("[DashboardController] Shopify GraphQL fetch warning:", err.message);
       }
+    } catch (err) {
+      console.warn("[DashboardController] Shopify GraphQL fetch warning:", err.message);
     }
+  }
 
     // 3. Real Active Automations Count
     const totalActiveAutomations =
@@ -464,89 +459,157 @@ async function getDashboardMetrics(req, res) {
       }
     }
 
+    return {
+      totalCashRecovered,
+      growthPercentage,
+      deadStockCashTiedUp: Math.round(deadStockCashTiedUp),
+      deadStockSkuCount,
+      revenueAtRisk: Math.round(revenueAtRisk),
+      highDemandRiskCount,
+      totalActiveAutomations,
+      dailyTrend,
+      weeklyTrend,
+      monthlyTrend,
+      stockHealth,
+      activityFeed: activityFeed.slice(0, 5),
+      badgeBreakdown: [
+        {
+          key: "clearance",
+          icon: "🏷️",
+          title: "Clearance Sale",
+          badgesUsed: clearanceSalesCount,
+          cashRecovered: clearanceRecovered,
+          percentage: Math.round((clearanceRecovered / Math.max(1, totalCashRecovered)) * 100),
+          color: "#10B981",
+          link: "/app/dead-stock",
+        },
+        {
+          key: "bundle",
+          icon: "📦",
+          title: "Bundle Offer",
+          badgesUsed: bundlesCount,
+          cashRecovered: bundleRecovered,
+          percentage: Math.round((bundleRecovered / Math.max(1, totalCashRecovered)) * 100),
+          color: "#F59E0B",
+          link: "/app/bundles",
+        },
+        {
+          key: "markdown",
+          icon: "📉",
+          title: "Progressive Markdown",
+          badgesUsed: markdownRulesCount,
+          cashRecovered: markdownRecovered,
+          percentage: Math.round((markdownRecovered / Math.max(1, totalCashRecovered)) * 100),
+          color: "#8B5CF6",
+          link: "/app/dead-stock",
+        },
+        {
+          key: "preorder",
+          icon: "🚀",
+          title: "Pre-Orders & Badges",
+          badgesUsed: launchPreOrdersCount + Math.max(urgencyStorefrontCount, smartBadgesCount),
+          cashRecovered: urgencyRecovered,
+          percentage: Math.max(0, 100 - Math.round((clearanceRecovered / Math.max(1, totalCashRecovered)) * 100) - Math.round((bundleRecovered / Math.max(1, totalCashRecovered)) * 100) - Math.round((markdownRecovered / Math.max(1, totalCashRecovered)) * 100)),
+          color: "#0EA5E9",
+          link: "/app/pre-orders",
+        },
+      ],
+      smartRecipes: [
+        {
+          id: "recipe-clear-summer",
+          title: "Clear Slow-Moving Inventory",
+          description: "Products with low velocity can be moved with targeted clearance discounts or markdown tiers.",
+          productsDetected: deadStockSkuCount || 12,
+          potentialRecovery: deadStockCashTiedUp || 15960,
+          recommendedAction: "Clearance Sale",
+          recommendedBadge: "🏷️",
+          link: "/app/dead-stock",
+        },
+        {
+          id: "recipe-bfcm-urgency",
+          title: "High-Demand Stockout Protection",
+          description: "High-velocity products at risk of stocking out. Enable low-stock badges or pre-orders.",
+          productsAtRisk: highDemandRiskCount || 10,
+          potentialRevenueProtected: Math.round(revenueAtRisk) || 24300,
+          recommendedAction: "Pre-Orders & Badges",
+          recommendedBadge: "🛡️",
+          link: "/app/high-demand",
+        },
+      ],
+    };
+}
+
+async function getDashboardMetrics(req, res) {
+  try {
+    await ensureConnected();
+
+    let rawShop = req.shopId || req.query.shop || req.headers["x-shopify-shop-domain"];
+    if (!rawShop) {
+      const fallbackStore = await Store.findOne().sort({ updatedAt: -1 }).lean().catch(() => null);
+      if (fallbackStore?.shop) {
+        rawShop = fallbackStore.shop;
+      }
+    }
+    const shop = cleanShop(rawShop);
+    const forceRefresh = req.query.refresh === "true" || req.query.refresh === "1";
+
+    const cachedEntry = dashboardCache.get(shop);
+    const now = Date.now();
+
+    // 1. Ultra-fast cache hit: response in ~1ms
+    if (cachedEntry && !forceRefresh) {
+      const age = now - cachedEntry.timestamp;
+      if (age < CACHE_FRESH_MS) {
+        return res.status(200).json({
+          success: true,
+          cached: true,
+          data: cachedEntry.data,
+        });
+      }
+
+      // 2. Stale-While-Revalidate: return cached data immediately and refresh silently in background
+      if (age < CACHE_STALE_MS) {
+        if (!refreshPromises.has(shop)) {
+          const promise = computeDashboardMetrics(shop)
+            .then((freshData) => {
+              dashboardCache.set(shop, { data: freshData, timestamp: Date.now() });
+            })
+            .catch((err) => {
+              console.warn("[DashboardController] Background revalidate warning:", err.message);
+            })
+            .finally(() => {
+              refreshPromises.delete(shop);
+            });
+          refreshPromises.set(shop, promise);
+        }
+
+        return res.status(200).json({
+          success: true,
+          cached: true,
+          stale: true,
+          data: cachedEntry.data,
+        });
+      }
+    }
+
+    // 3. Fresh synchronous calculation with deduplication
+    let computationPromise = refreshPromises.get(shop);
+    if (!computationPromise || forceRefresh) {
+      computationPromise = computeDashboardMetrics(shop);
+      refreshPromises.set(shop, computationPromise);
+    }
+
+    const data = await computationPromise;
+    dashboardCache.set(shop, { data, timestamp: Date.now() });
+    refreshPromises.delete(shop);
+
     return res.status(200).json({
       success: true,
-      data: {
-        totalCashRecovered,
-        growthPercentage,
-        deadStockCashTiedUp: Math.round(deadStockCashTiedUp),
-        deadStockSkuCount,
-        revenueAtRisk: Math.round(revenueAtRisk),
-        highDemandRiskCount,
-        totalActiveAutomations,
-        dailyTrend,
-        weeklyTrend,
-        monthlyTrend,
-        stockHealth,
-        activityFeed: activityFeed.slice(0, 5),
-        badgeBreakdown: [
-          {
-            key: "clearance",
-            icon: "🏷️",
-            title: "Clearance Sale",
-            badgesUsed: clearanceSalesCount,
-            cashRecovered: clearanceRecovered,
-            percentage: Math.round((clearanceRecovered / Math.max(1, totalCashRecovered)) * 100),
-            color: "#10B981",
-            link: "/app/dead-stock",
-          },
-          {
-            key: "bundle",
-            icon: "📦",
-            title: "Bundle Offer",
-            badgesUsed: bundlesCount,
-            cashRecovered: bundleRecovered,
-            percentage: Math.round((bundleRecovered / Math.max(1, totalCashRecovered)) * 100),
-            color: "#F59E0B",
-            link: "/app/bundles",
-          },
-          {
-            key: "markdown",
-            icon: "📉",
-            title: "Progressive Markdown",
-            badgesUsed: markdownRulesCount,
-            cashRecovered: markdownRecovered,
-            percentage: Math.round((markdownRecovered / Math.max(1, totalCashRecovered)) * 100),
-            color: "#8B5CF6",
-            link: "/app/dead-stock",
-          },
-          {
-            key: "preorder",
-            icon: "🚀",
-            title: "Pre-Orders & Badges",
-            badgesUsed: launchPreOrdersCount + Math.max(urgencyStorefrontCount, smartBadgesCount),
-            cashRecovered: urgencyRecovered,
-            percentage: Math.max(0, 100 - Math.round((clearanceRecovered / Math.max(1, totalCashRecovered)) * 100) - Math.round((bundleRecovered / Math.max(1, totalCashRecovered)) * 100) - Math.round((markdownRecovered / Math.max(1, totalCashRecovered)) * 100)),
-            color: "#0EA5E9",
-            link: "/app/pre-orders",
-          },
-        ],
-        smartRecipes: [
-          {
-            id: "recipe-clear-summer",
-            title: "Clear Slow-Moving Inventory",
-            description: "Products with low velocity can be moved with targeted clearance discounts or markdown tiers.",
-            productsDetected: deadStockSkuCount || 12,
-            potentialRecovery: deadStockCashTiedUp || 15960,
-            recommendedAction: "Clearance Sale",
-            recommendedBadge: "🏷️",
-            link: "/app/dead-stock",
-          },
-          {
-            id: "recipe-bfcm-urgency",
-            title: "High-Demand Stockout Protection",
-            description: "High-velocity products at risk of stocking out. Enable low-stock badges or pre-orders.",
-            productsAtRisk: highDemandRiskCount || 10,
-            potentialRevenueProtected: Math.round(revenueAtRisk) || 24300,
-            recommendedAction: "Pre-Orders & Badges",
-            recommendedBadge: "🛡️",
-            link: "/app/high-demand",
-          },
-        ],
-      },
+      data,
     });
   } catch (error) {
     console.error("GET /api/dashboard Error:", error);
+    refreshPromises.delete(cleanShop(req.shopId || req.query.shop || ""));
     return res.status(500).json({
       success: false,
       message: "Unable to load dashboard metrics.",
@@ -556,4 +619,5 @@ async function getDashboardMetrics(req, res) {
 
 module.exports = {
   getDashboardMetrics,
+  invalidateDashboardCache,
 };

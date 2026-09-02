@@ -2,9 +2,13 @@
 // DASHBOARD
 // ==================================================
 
-export async function fetchDashboardData(shop = "") {
+export async function fetchDashboardData(shop = "", refresh = false) {
+  const params = new URLSearchParams();
+  if (shop) params.set("shop", shop);
+  if (refresh) params.set("refresh", "true");
+
   const res = await fetch(
-    `/api/dashboard?shop=${encodeURIComponent(shop)}`
+    `/api/dashboard?${params.toString()}`
   );
 
   if (!res.ok) {
