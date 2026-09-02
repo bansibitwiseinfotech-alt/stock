@@ -395,6 +395,14 @@
       cfg &&
       cfg.enabled === false
     ) {
+      document
+        .querySelectorAll(
+          '[data-smart-stock-feature="clearance"]'
+        )
+        .forEach((element) => {
+          element.remove();
+        });
+      restoreStorefrontProductPrice();
       return;
     }
 
@@ -402,6 +410,14 @@
       !sale ||
       !sale.hasClearance
     ) {
+      document
+        .querySelectorAll(
+          '[data-smart-stock-feature="clearance"]'
+        )
+        .forEach((element) => {
+          element.remove();
+        });
+      restoreStorefrontProductPrice();
       return;
     }
 
@@ -701,11 +717,33 @@
 
 
   /* =========================================================
+     RESTORE STOREFRONT PRODUCT PRICE
+     ========================================================= */
+
+  function restoreStorefrontProductPrice() {
+    try {
+      const priceContainers = document.querySelectorAll(
+        ".product__info-container .price, .product-single__meta .price, .product-info .price, .product__price, .price"
+      );
+      priceContainers.forEach((priceContainer) => {
+        if (priceContainer.dataset.smartStockOriginalHtml) {
+          priceContainer.innerHTML = priceContainer.dataset.smartStockOriginalHtml;
+          delete priceContainer.dataset.smartStockOriginalHtml;
+        }
+        priceContainer.classList.remove("price--on-sale", "price--show-badge");
+      });
+    } catch (_) {}
+  }
+
+  /* =========================================================
      UPDATE TOP STOREFRONT PRICE ON SALE / DISCOUNT
      ========================================================= */
 
   function updateStorefrontProductPrice(originalPrice, salePrice) {
-    if (!originalPrice || !salePrice || originalPrice <= salePrice) return;
+    if (!originalPrice || !salePrice || originalPrice <= salePrice) {
+      restoreStorefrontProductPrice();
+      return;
+    }
 
     try {
       const priceContainers = document.querySelectorAll(
@@ -713,6 +751,9 @@
       );
 
       priceContainers.forEach((priceContainer) => {
+        if (!priceContainer.dataset.smartStockOriginalHtml) {
+          priceContainer.dataset.smartStockOriginalHtml = priceContainer.innerHTML;
+        }
         priceContainer.classList.add("price--on-sale", "price--show-badge");
 
         const salePriceFormatted = formatMoney(salePrice);
@@ -1444,11 +1485,20 @@
      ========================================================= */
 
   function renderMarkdown(data) {
-    document
-      .querySelectorAll('[data-smart-stock-feature="markdown"], .smart-stock-progressive-markdown-wrapper, [data-progressive-markdown-root], .smart-stock-markdown-badge, [data-markdown-badge]')
-      .forEach((element) => {
-        element.remove();
-      });
+    if (!data?.progressiveMarkdown?.enabled) {
+      document
+        .querySelectorAll('[data-smart-stock-feature="markdown"], .smart-stock-progressive-markdown-wrapper, [data-progressive-markdown-root], .smart-stock-markdown-badge, [data-markdown-badge]')
+        .forEach((element) => {
+          element.remove();
+        });
+      restoreStorefrontProductPrice();
+    } else {
+      document
+        .querySelectorAll('[data-smart-stock-feature="markdown"], .smart-stock-progressive-markdown-wrapper, [data-progressive-markdown-root], .smart-stock-markdown-badge, [data-markdown-badge]')
+        .forEach((element) => {
+          element.remove();
+        });
+    }
 
     updateThemeSaleBadges(data);
   }
@@ -1767,9 +1817,15 @@
         data = await response.json();
       }
 
-      try {
-        sessionStorage.setItem(cacheKey, JSON.stringify({ data: data, time: Date.now() }));
-      } catch (_) {}
+      if (!data?.deadStockOffer?.hasClearance && !data?.deadStockOffer?.hasBundle && !data?.progressiveMarkdown?.enabled) {
+        try {
+          sessionStorage.removeItem(cacheKey);
+        } catch (_) {}
+      } else {
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify({ data: data, time: Date.now() }));
+        } catch (_) {}
+      }
 
       /* -----------------------------------------------
          Immediate render (zero delay)

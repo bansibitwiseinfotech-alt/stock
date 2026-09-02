@@ -491,6 +491,32 @@ async function deleteClearanceSale(shop, accessToken, { productId, variantId }) 
     metadata: { clearanceSaleId: sale._id, deletedAutomaticDiscountId: deleted.deletedId },
   }).catch(() => {});
 
+  // Deactivate any SmartBadgeAssignment and SmartBadgeApplication for this product
+  try {
+    const { removeBadgeAssignment } = require("./badgeAssignment.service");
+    const targetProd = sale.productId || formattedProductId || cleanProdNum;
+    if (targetProd) {
+      await removeBadgeAssignment(shop, targetProd).catch(() => {});
+    }
+    const SmartBadgeApplication = require("../models/SmartBadgeApplication");
+    await SmartBadgeApplication.updateMany(
+      {
+        $or: [{ shop }, { shopId: shop }],
+        productId: { $in: [sale.productId, formattedProductId, cleanProdNum, sale.variantId, formattedVariantId, cleanVarNum].filter(Boolean) },
+        badgeType: "CLEARANCE",
+      },
+      { $set: { enabled: false } }
+    ).catch(() => {});
+  } catch (_) {}
+
+  // Clear storefront cache immediately so storefront updates in real-time
+  try {
+    const { clearStorefrontCache } = require("../controllers/storefrontController");
+    if (typeof clearStorefrontCache === "function") {
+      clearStorefrontCache(shop);
+    }
+  } catch (_) {}
+
   return { success: true, message: "Clearance sale deleted successfully." };
 }
 

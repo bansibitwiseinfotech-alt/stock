@@ -16,9 +16,9 @@ async function ensureConnected() {
   }
 }
 
-// FAST IN-MEMORY STOREFRONT CACHE (TTL: 30 seconds)
+// FAST IN-MEMORY STOREFRONT CACHE (TTL: 5 seconds for rapid updates)
 const storefrontCache = new Map();
-const STOREFRONT_CACHE_TTL = 30000;
+const STOREFRONT_CACHE_TTL = 5000;
 
 function getStorefrontCache(key) {
   const item = storefrontCache.get(key);
@@ -37,6 +37,19 @@ function setStorefrontCache(key, data) {
     }
   }
   storefrontCache.set(key, { time: Date.now(), data });
+}
+
+function clearStorefrontCache(shopId = "") {
+  if (!shopId) {
+    storefrontCache.clear();
+    return;
+  }
+  const cleanShop = String(shopId).replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim().toLowerCase();
+  for (const key of storefrontCache.keys()) {
+    if (!cleanShop || key.toLowerCase().includes(cleanShop)) {
+      storefrontCache.delete(key);
+    }
+  }
 }
 
 async function getProductWidgetData(req, res) {
@@ -419,13 +432,15 @@ async function getProductWidgetData(req, res) {
       notifyMeEnabled: isNotifyMeActive,
     };
 
-    const hasClearanceOffer = Boolean(clearanceSale) || Boolean(isSmartClearance);
+    // A Clearance Sale offer MUST only show if a real active/scheduled ClearanceSale record exists in DB
+    const hasClearanceOffer = Boolean(clearanceSale);
     const origPriceNum = Number(originalPrice) || 0;
+    const finalDiscountVal = hasClearanceOffer ? Number(clearanceSale?.discountValue ?? clearanceSale?.discountPercent ?? 0) : 0;
     const calcSalePrice = hasClearanceOffer && origPriceNum > 0
-      ? Number((origPriceNum * (1 - finalDiscountPercent / 100)).toFixed(2))
+      ? Number((origPriceNum * (1 - finalDiscountVal / 100)).toFixed(2))
       : null;
     const calcSavings = hasClearanceOffer && origPriceNum > 0
-      ? Number((origPriceNum * (finalDiscountPercent / 100)).toFixed(2))
+      ? Number((origPriceNum * (finalDiscountVal / 100)).toFixed(2))
       : null;
 
     const MarkdownConfig = require("../models/MarkdownConfig");
@@ -433,31 +448,10 @@ async function getProductWidgetData(req, res) {
       $or: [{ shop: shopId }, { shop: new RegExp(`^${shopId}$`, "i") }],
     }).lean().catch(() => null);
 
-    let activeMarkdownData = markdownData;
-    if (isSmartMarkdown && (!activeMarkdownData || !activeMarkdownData.enabled)) {
-      const discountVal = 15;
-      const origPrice = origPriceNum > 0 ? origPriceNum : 100;
-      const curPrice = Number((origPrice * (1 - discountVal / 100)).toFixed(2));
+    // Progressive Markdown MUST only be enabled if a real active MarkdownRule exists
+    const activeMarkdownData = (markdownData && markdownData.enabled) ? markdownData : { enabled: false };
 
-      activeMarkdownData = {
-        enabled: true,
-        productId: cleanProdId,
-        variantId: cleanVarId,
-        originalPrice: origPrice,
-        currentPrice: curPrice,
-        currentDiscount: discountVal,
-        label: "Progressive Markdown",
-        config: {
-          badgeText: userMarkdownConfig?.badgeText || "{discount}% OFF",
-          showStrikethroughPrice: userMarkdownConfig?.showStrikethroughPrice !== false,
-          badgeBackgroundColor: userMarkdownConfig?.badgeBackgroundColor || "#E53935",
-          badgeTextColor: userMarkdownConfig?.badgeTextColor || "#FFFFFF",
-          priceColor: userMarkdownConfig?.priceColor || "#111111",
-          strikethroughColor: userMarkdownConfig?.strikethroughColor || "#757575",
-          borderRadius: userMarkdownConfig?.borderRadius != null ? Number(userMarkdownConfig.borderRadius) : 4,
-        },
-      };
-    }
+    const isRealBundleActive = Boolean(hasBundleOffer && activeBundle && resolvedBundle);
 
     const responsePayload = {
       success: true,
@@ -496,27 +490,29 @@ async function getProductWidgetData(req, res) {
         borderRadius: 4,
         showStrikethroughPrice: true,
       },
-      progressiveMarkdown: activeMarkdownData || { enabled: false },
+      progressiveMarkdown: activeMarkdownData,
       deadStockOffer: {
         hasClearance: Boolean(hasClearanceOffer),
         productId: hasClearanceOffer ? (clearanceSale?.productId || cleanProdId || null) : null,
         saleVariantId: hasClearanceOffer ? (clearanceSale?.variantId || cleanVarId || null) : null,
-        discountPercent: hasClearanceOffer ? finalDiscountPercent : 0,
-        badgeText: hasClearanceOffer ? `🏷️ ${finalDiscountPercent}% OFF` : "",
+        discountPercent: hasClearanceOffer ? finalDiscountVal : 0,
+        badgeText: hasClearanceOffer ? `🏷️ ${finalDiscountVal}% OFF` : "",
         originalPrice: hasClearanceOffer ? origPriceNum : null,
         salePrice: hasClearanceOffer ? calcSalePrice : null,
         savings: hasClearanceOffer ? calcSavings : null,
-        startsAt: hasClearanceOffer ? (clearanceSale?.startDate || new Date()) : null,
-        endsAt: hasClearanceOffer ? (clearanceSale?.endDate || new Date(Date.now() + 30 * 86400000)) : null,
-        hasBundle: Boolean(hasBundleOffer || isSmartBundle),
-        bundleName: (hasBundleOffer || isSmartBundle) ? (activeBundle?.bundleName || "Bundle Offer") : "",
-        bundleDiscountPercent: (hasBundleOffer || isSmartBundle) ? (activeBundle?.discountPercent || 15) : 0,
-        bundle: (hasBundleOffer || isSmartBundle) ? resolvedBundle : null,
+        startsAt: hasClearanceOffer ? (clearanceSale?.startDate || null) : null,
+        endsAt: hasClearanceOffer ? (clearanceSale?.endDate || null) : null,
+        hasBundle: isRealBundleActive,
+        bundleName: isRealBundleActive ? (activeBundle?.bundleName || "Bundle Offer") : "",
+        bundleDiscountPercent: isRealBundleActive ? (activeBundle?.discountPercent || 0) : 0,
+        bundle: isRealBundleActive ? resolvedBundle : null,
       },
     };
 
     setStorefrontCache(cacheKey, responsePayload);
-    res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     return res.status(200).json(responsePayload);
   } catch (error) {
     console.error("Storefront Widget API Error:", error.message);
@@ -781,45 +777,11 @@ async function getProgressiveMarkdownStorefront(req, res) {
     }
 
     const progressiveMarkdownService = require("../services/progressiveMarkdownService");
-    let data = await progressiveMarkdownService.getStorefrontMarkdownData(shop, productId, variantId).catch(() => ({ enabled: false }));
-
-    const SmartBadgeApplication = require("../models/SmartBadgeApplication");
-    const cleanProdId = String(productId || "").replace(/^gid:\/\/shopify\/Product\//, "");
-    const smartMarkdownApp = await SmartBadgeApplication.findOne({
-      $or: [{ shop }, { shop: new RegExp(`^${shop}$`, "i") }],
-      productId: { $in: [productId, cleanProdId, `gid://shopify/Product/${cleanProdId}`].filter(Boolean) },
-      badgeType: "PROGRESSIVE_MARKDOWN",
-      enabled: true,
-    }).lean().catch(() => null);
-
-    if ((!data || !data.enabled) && smartMarkdownApp) {
-      const MarkdownConfig = require("../models/MarkdownConfig");
-      const userMarkdownConfig = await MarkdownConfig.findOne({
-        $or: [{ shop }, { shop: new RegExp(`^${shop}$`, "i") }],
-      }).lean().catch(() => null);
-
-      const discountVal = 15;
-      data = {
-        enabled: true,
-        productId: cleanProdId,
-        variantId: variantId || "",
-        currentDiscount: discountVal,
-        label: "Progressive Markdown",
-        config: {
-          badgeText: userMarkdownConfig?.badgeText || "{discount}% OFF",
-          showStrikethroughPrice: userMarkdownConfig?.showStrikethroughPrice !== false,
-          badgeBackgroundColor: userMarkdownConfig?.badgeBackgroundColor || "#E53935",
-          badgeTextColor: userMarkdownConfig?.badgeTextColor || "#FFFFFF",
-          priceColor: userMarkdownConfig?.priceColor || "#111111",
-          strikethroughColor: userMarkdownConfig?.strikethroughColor || "#757575",
-          borderRadius: userMarkdownConfig?.borderRadius != null ? Number(userMarkdownConfig.borderRadius) : 4,
-        },
-      };
-    }
+    const data = await progressiveMarkdownService.getStorefrontMarkdownData(shop, productId, variantId).catch(() => ({ enabled: false }));
 
     return res.status(200).json({
       success: true,
-      data,
+      data: (data && data.enabled) ? data : { enabled: false },
     });
   } catch (error) {
     console.error("[StorefrontMarkdown] Error:", error.message);
@@ -910,19 +872,6 @@ async function getStorefrontLaunchPreOrder(req, res) {
       enabled: true,
     }).lean().catch(() => null);
 
-    if (!config && smartPreOrderApp) {
-      config = {
-        preOrderEnabled: true,
-        productId: cleanProductId,
-        launchDate: new Date(Date.now() + 30 * 86400000),
-        badgeText: "🛒 PRE-ORDER",
-        launchLabel: "PRE-ORDER",
-        buttonText: "PRE-ORDER NOW",
-        customerMessage: "Reserve yours now — ships soon.",
-        depositEnabled: false,
-      };
-    }
-
     if (!config || !config.preOrderEnabled) {
       return res.status(200).json({ enabled: false });
     }
@@ -953,7 +902,7 @@ async function getStorefrontLaunchPreOrder(req, res) {
       $or: shopQueries.length > 0 ? shopQueries : [{ shop }],
     }).lean().catch(() => null);
 
-    if (globalPreOrderConfig && globalPreOrderConfig.enabled === false && !smartPreOrderApp) {
+    if (globalPreOrderConfig && globalPreOrderConfig.enabled === false) {
       return res.status(200).json({ enabled: false, reason: "Pre-order globally disabled" });
     }
 
@@ -1025,6 +974,7 @@ module.exports = {
   getProgressiveMarkdownStorefront,
   getStorefrontLaunchPreOrder,
   getStorefrontBadge,
+  clearStorefrontCache,
 };
 
 

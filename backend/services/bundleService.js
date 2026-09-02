@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Bundle = require("../models/Bundle");
 const DeadStockAction = require("../models/DeadStockAction");
 const DeadStock = require("../models/DeadStock");
@@ -434,14 +435,17 @@ async function resolveProductDetails(shop, accessToken, productIdOrVariantId, fa
 
   // 3. Try MongoDB Product collection if fields still missing
   if (!title || isPlaceholderText(title) || !image || !variantId || !price) {
-    const productItem = await Product.findOne({
-      $or: [
-        { productId: cleanId },
-        { productId: `gid://shopify/Product/${cleanId}` },
-        { "variants.variantId": cleanId },
-        { "variants.variantId": `gid://shopify/ProductVariant/${cleanId}` },
-      ],
-    }).lean().catch(() => null);
+    const productModel = mongoose.models.Product;
+    const productItem = productModel
+      ? await productModel.findOne({
+          $or: [
+            { productId: cleanId },
+            { productId: `gid://shopify/Product/${cleanId}` },
+            { "variants.variantId": cleanId },
+            { "variants.variantId": `gid://shopify/ProductVariant/${cleanId}` },
+          ],
+        }).lean().catch(() => null)
+      : null;
 
     if (productItem) {
       if (!title || isPlaceholderText(title)) title = productItem.title || "";
@@ -991,19 +995,22 @@ async function getCompanionProducts(shop, accessToken, deadStockProductId) {
     }
 
     // 2. Fallback: Try Product collection
-    const productItems = await Product.find({
-      $or: [{ shop: cleanShopDomain }, { shop }],
-      productId: {
-        $nin: [
-          deadStockProductId,
-          formattedDeadStockProductId,
-          cleanProductId,
-          `gid://shopify/Product/${cleanProductId}`,
-        ],
-      },
-    })
-      .limit(15)
-      .lean();
+    const productModel = mongoose.models.Product;
+    const productItems = productModel
+      ? await productModel.find({
+          $or: [{ shop: cleanShopDomain }, { shop }],
+          productId: {
+            $nin: [
+              deadStockProductId,
+              formattedDeadStockProductId,
+              cleanProductId,
+              `gid://shopify/Product/${cleanProductId}`,
+            ],
+          },
+        })
+          .limit(15)
+          .lean()
+      : [];
 
     if (productItems && productItems.length > 0) {
       return productItems.map((item) => {
@@ -1081,10 +1088,13 @@ async function deleteDeadStockBundle(shop, accessToken, productIdOrVariantId) {
 
     // Also look up related product or variant IDs from MongoDB models
     try {
+      const productModel = mongoose.models.Product;
       const [matchedProd, matchedDs] = await Promise.all([
-        Product.findOne({
-          $or: [{ productId: cleanId }, { "variants.variantId": cleanId }],
-        }).lean().catch(() => null),
+        productModel
+          ? productModel.findOne({
+              $or: [{ productId: cleanId }, { "variants.variantId": cleanId }],
+            }).lean().catch(() => null)
+          : null,
         DeadStock.findOne({
           $or: [{ productId: cleanId }, { variantId: cleanId }],
         }).lean().catch(() => null),
@@ -1247,6 +1257,30 @@ async function deleteDeadStockBundle(shop, accessToken, productIdOrVariantId) {
     } catch (auditErr) {
       console.warn("[BundleService] Audit log warning:", auditErr.message);
     }
+
+    // Deactivate badge assignments and clear storefront cache
+    try {
+      const { removeBadgeAssignment } = require("./badgeAssignment.service");
+      for (const tid of targetIdArray) {
+        await removeBadgeAssignment(cleanShopDomain, tid).catch(() => {});
+      }
+      const SmartBadgeApplication = require("../models/SmartBadgeApplication");
+      await SmartBadgeApplication.updateMany(
+        {
+          $or: [{ shop: cleanShopDomain }, { shopId: cleanShopDomain }, { shop }],
+          productId: { $in: targetIdArray },
+          badgeType: "BUNDLE",
+        },
+        { $set: { enabled: false } }
+      ).catch(() => {});
+    } catch (_) {}
+
+    try {
+      const { clearStorefrontCache } = require("../controllers/storefrontController");
+      if (typeof clearStorefrontCache === "function") {
+        clearStorefrontCache(cleanShopDomain);
+      }
+    } catch (_) {}
 
     return {
       success: true,
