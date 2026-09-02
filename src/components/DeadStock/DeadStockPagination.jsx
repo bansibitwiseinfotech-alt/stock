@@ -33,7 +33,8 @@ export default function DeadStockPagination({
         <InlineStack
           align="space-between"
           blockAlign="center"
-          wrap={false}
+          gap="200"
+          wrap
         >
           <Text
             variant="bodySm"
@@ -94,7 +95,8 @@ export default function DeadStockPagination({
       <InlineStack
         align="space-between"
         blockAlign="center"
-        wrap={false}
+        gap="200"
+        wrap
       >
         <Text
           variant="bodySm"

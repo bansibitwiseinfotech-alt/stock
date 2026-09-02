@@ -5,6 +5,8 @@ import {
   TextField,
   Select,
   Banner,
+  Text,
+  BlockStack,
 } from "@shopify/polaris";
 import {
   fetchCompanionProducts,
@@ -41,6 +43,7 @@ export default function CreateDeadStockBundleModal({
   const [isLoadingCompanions, setIsLoadingCompanions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [error, setError] = useState("");
 
   const productId =
@@ -52,7 +55,12 @@ export default function CreateDeadStockBundleModal({
 
   // Load companion products when modal opens
   useEffect(() => {
-    if (!open || !productId) return;
+    if (!open) {
+      setConfirmDeleteOpen(false);
+      return;
+    }
+    setConfirmDeleteOpen(false);
+    if (!productId) return;
 
     setError("");
     setIsLoadingCompanions(true);
@@ -200,9 +208,7 @@ export default function CreateDeadStockBundleModal({
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this bundle? This action cannot be undone.")) return;
-
+  const executeConfirmedDelete = async () => {
     setError("");
     try {
       setIsDeleting(true);
@@ -211,6 +217,7 @@ export default function CreateDeadStockBundleModal({
       if (onDeleted) {
         onDeleted();
       }
+      setConfirmDeleteOpen(false);
       onClose();
     } catch (err) {
       setError(err.message || "Failed to delete bundle.");
@@ -236,6 +243,47 @@ export default function CreateDeadStockBundleModal({
   }));
 
   if (!open) return null;
+
+  if (confirmDeleteOpen) {
+    return (
+      <Modal
+        open={open}
+        onClose={() => !isDeleting && setConfirmDeleteOpen(false)}
+        title="Delete Dead Stock Bundle?"
+        primaryAction={{
+          content: isDeleting ? "Deleting..." : "Delete Bundle",
+          destructive: true,
+          loading: isDeleting,
+          disabled: isDeleting,
+          onAction: executeConfirmedDelete,
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            disabled: isDeleting,
+            onAction: () => setConfirmDeleteOpen(false),
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            {error && (
+              <Banner tone="critical" onDismiss={() => setError("")}>
+                <p>{error}</p>
+              </Banner>
+            )}
+            <Text as="p" variant="bodyMd">
+              Are you sure you want to delete the bundle{" "}
+              <strong>"{bundleName || effectiveBundle?.bundleName || "this bundle"}"</strong>?
+            </Text>
+            <Text as="p" tone="subdued" variant="bodySm">
+              This action cannot be undone. This bundle offer will immediately be removed from your store and storefront.
+            </Text>
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -263,8 +311,10 @@ export default function CreateDeadStockBundleModal({
               {
                 content: "Delete Bundle",
                 destructive: true,
-                onAction: handleDelete,
-                loading: isDeleting,
+                onAction: () => {
+                  setError("");
+                  setConfirmDeleteOpen(true);
+                },
                 disabled: isSubmitting || isDeleting,
               },
             ]

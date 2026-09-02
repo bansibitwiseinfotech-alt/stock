@@ -420,15 +420,25 @@
   async function loadBundles() {
     if (!rootContainer || !shop) return;
 
+    var cacheKey = "ss_bundle_" + shop + "_" + (productId || "") + "_" + (currentVariantId || "");
+    try {
+      var raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.bundles) && parsed.bundles.length > 0) {
+          section.style.display = "block";
+          renderBundleWidgets(parsed.bundles, parsed.bundleConfig);
+        }
+      }
+    } catch (_) {}
+
     var params = new URLSearchParams({ shop: shop });
     if (productId) params.append("productId", productId);
     if (currentVariantId) params.append("variantId", currentVariantId);
 
     var candidateUrls = [
-      "/apps/smart-stock/api/storefront/bundles?" + params.toString(),
-      "/api/storefront/bundles?" + params.toString(),
-      "/apps/smart-stock/api/storefront/product-widget?" + params.toString(),
-      "/api/storefront/product-widget?" + params.toString()
+      "/apps/smart-stock/bundles?" + params.toString(),
+      "/apps/smart-stock/product-widget?" + params.toString()
     ];
 
     var bundles = [];
@@ -438,8 +448,7 @@
       try {
         var res = await fetch(candidateUrls[i], {
           method: "GET",
-          headers: { Accept: "application/json" },
-          cache: "no-store"
+          headers: { Accept: "application/json" }
         });
 
         if (res.ok) {
@@ -459,6 +468,12 @@
           }
         }
       } catch (err) {}
+    }
+
+    if (bundles && bundles.length > 0) {
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ bundles: bundles, bundleConfig: bundleConfig }));
+      } catch (_) {}
     }
 
     if (bundleConfig && bundleConfig.enabled === false) {
@@ -896,10 +911,9 @@
     }
   }
 
+  loadBundles();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", loadBundles);
-  } else {
-    loadBundles();
   }
 })();
 </script> 

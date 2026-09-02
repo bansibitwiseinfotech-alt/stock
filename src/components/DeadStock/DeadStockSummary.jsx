@@ -29,7 +29,7 @@ export default function DeadStockSummary({ summary, products = [] }) {
   return (
     <Card padding="400">
       <BlockStack gap="150">
-        <InlineStack align="space-between" blockAlign="center">
+        <InlineStack align="space-between" blockAlign="center" gap="200" wrap>
           <Text variant="headingSm" as="h3" fontWeight="semibold">
             Cash tied up in dead stock
           </Text>

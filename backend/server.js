@@ -460,6 +460,11 @@ app.use(
   require("./routes/badgeSettingsRoutes")
 );
 
+app.use(
+  "/api/contact-support",
+  require("./routes/contactSupportRoutes")
+);
+
 // ==================================================
 // 404
 // ==================================================

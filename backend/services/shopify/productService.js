@@ -17,13 +17,13 @@ query ProductsPage($cursor: String, $first: Int!) {
         featuredImage {
           url
         }
-        collections(first: 50) {
+        collections(first: 5) {
           nodes {
             id
             title
           }
         }
-        variants(first: 250) {
+        variants(first: 20) {
           nodes {
             id
             title
@@ -36,7 +36,7 @@ query ProductsPage($cursor: String, $first: Int!) {
                 amount
                 currencyCode
               }
-              inventoryLevels(first: 10) {
+              inventoryLevels(first: 5) {
                 nodes {
                   location {
                     id
@@ -57,7 +57,7 @@ query ProductsPage($cursor: String, $first: Int!) {
 }
 `;
 
-async function fetchProducts(shop, accessToken, pageSize = 250) {
+async function fetchProducts(shop, accessToken, pageSize = 20) {
   const products = [];
   let cursor = null;
 

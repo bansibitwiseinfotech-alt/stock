@@ -399,7 +399,7 @@ export default function HighDemand({
 
         {/* 4 SUMMARY METRIC CARDS */}
         {!loading && products.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+          <div className="high-demand-metrics-grid">
             {/* CARD 1: PRODUCTS ANALYZED */}
             <Card padding="400">
               <BlockStack gap="100">
@@ -465,8 +465,8 @@ export default function HighDemand({
         {/* MAIN TABLE CONTAINER */}
         <Card padding="0">
           <Box padding="300" borderBlockEndWidth="025" borderColor="border">
-            <InlineStack gap="300" align="space-between" blockAlign="center">
-              <div style={{ width: "220px" }}>
+            <div className="high-demand-filter-bar">
+              <div className="high-demand-filter-select">
                 <Select
                   label="Risk Level"
                   labelHidden
@@ -485,7 +485,7 @@ export default function HighDemand({
                 Showing {filteredProducts.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}–
                 {Math.min(filteredProducts.length, currentPage * ITEMS_PER_PAGE)} of {filteredProducts.length} products
               </Text>
-            </InlineStack>
+            </div>
           </Box>
 
           {/* LOADING */}
@@ -513,27 +513,29 @@ export default function HighDemand({
             </Box>
           ) : (
             <>
-              <IndexTable
-                resourceName={resourceName}
-                itemCount={paginatedProducts.length}
-                headings={[
-                  { title: "Product / SKU" },
-                  { title: "Stock Units" },
-                  { title: "Sold (30D)" },
-                  { title: "Sales Velocity" },
-                  { title: "Days Left" },
-                  { title: "Risk Level" },
-                  { title: "Action" },
-                ]}
-                selectable={false}
-              >
-                {rowMarkup}
-              </IndexTable>
+              <div className="table-responsive-container">
+                <IndexTable
+                  resourceName={resourceName}
+                  itemCount={paginatedProducts.length}
+                  headings={[
+                    { title: "Product / SKU" },
+                    { title: "Stock Units" },
+                    { title: "Sold (30D)" },
+                    { title: "Sales Velocity" },
+                    { title: "Days Left" },
+                    { title: "Risk Level" },
+                    { title: "Action" },
+                  ]}
+                  selectable={false}
+                >
+                  {rowMarkup}
+                </IndexTable>
+              </div>
 
               {/* PAGINATION FOOTER */}
               {filteredProducts.length > 0 && (
                 <Box padding="300" borderBlockStartWidth="025" borderColor="border">
-                  <InlineStack align="space-between" blockAlign="center">
+                  <InlineStack align="space-between" blockAlign="center" wrap gap="200">
                     <Text variant="bodySm" tone="subdued" as="span">
                       Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
                       {Math.min(filteredProducts.length, currentPage * ITEMS_PER_PAGE)} of {filteredProducts.length} products

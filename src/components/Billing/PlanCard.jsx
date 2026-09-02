@@ -30,6 +30,7 @@ export default function PlanCard({
 
   return (
     <div
+      className={`billing-plan-card ${isCurrentPlan ? "billing-plan-card--current" : ""}`}
       style={{
         border: isCurrentPlan
           ? "2px solid #008060"
@@ -44,14 +45,13 @@ export default function PlanCard({
           ? "0 4px 14px rgba(0, 128, 96, 0.12)"
           : "0 1px 3px rgba(0, 0, 0, 0.05)",
         transition: "all 0.2s ease-in-out",
-        overflow: "hidden",
       }}
     >
-      <Box padding="500">
+      <div className="billing-plan-card-body">
         <BlockStack gap="400">
           {/* 1. HEADER & BADGES */}
           <BlockStack gap="150">
-            <InlineStack align="space-between" blockAlign="center">
+            <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
               <Text variant="headingLg" as="h3" fontWeight="bold">
                 {plan.name}
               </Text>
@@ -69,11 +69,9 @@ export default function PlanCard({
 
           {/* 2. PRICING & CATALOG LIMIT */}
           <div
+            className="billing-plan-price-box"
             style={{
-              padding: "16px",
               backgroundColor: isCurrentPlan ? "#eaf9f4" : "#f8fafc",
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
             }}
           >
             <BlockStack gap="100">
@@ -151,7 +149,7 @@ export default function PlanCard({
             </BlockStack>
           </BlockStack>
         </BlockStack>
-      </Box>
+      </div>
     </div>
   );
 }

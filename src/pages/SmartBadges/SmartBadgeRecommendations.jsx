@@ -391,7 +391,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
     const appliedCount = products.filter((p) => p.isApplied).length;
 
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: "16px" }}>
+      <div className="smart-badges-metrics-grid">
         {/* CARD 1: PRODUCTS SCANNED */}
         <Card padding="400">
           <BlockStack gap="100">
@@ -552,14 +552,15 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
               overflow: "hidden"
             }}>
               {/* TAB PILLS HEADER */}
-              <div style={{
+              <div className="smart-badges-tabs-header" style={{
                 display: "flex",
                 gap: "8px",
                 padding: "10px 14px",
                 borderBottom: "1px solid #E1E3E5",
                 background: "#F7F8F9",
                 overflowX: "auto",
-                whiteSpace: "nowrap"
+                whiteSpace: "nowrap",
+                WebkitOverflowScrolling: "touch"
               }}>
                 {tabItems.map((tab) => {
                   const isActive = (TAB_KEYS[selectedTabIndex] || "ALL") === tab.key;
@@ -603,7 +604,7 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
               </div>
 
               {/* SEARCH & FILTERS BAR */}
-              <div style={{
+              <div className="smart-badges-filter-bar" style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
                 gap: "12px",
@@ -648,9 +649,10 @@ export default function SmartBadgeRecommendations({ shopDomain = "" }) {
               </div>
 
               {/* RESPONSIVE FULLY SIZED TABLE */}
-              <div style={{ overflowX: "auto", width: "100%" }}>
+              <div className="table-responsive-container" style={{ overflowX: "auto", width: "100%", WebkitOverflowScrolling: "touch" }}>
                 <table style={{
                   width: "100%",
+                  minWidth: "650px",
                   borderCollapse: "collapse",
                   textAlign: "left",
                   fontSize: "13px",

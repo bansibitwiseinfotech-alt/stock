@@ -1,12 +1,22 @@
 // ==================================================
 // emailDigestService.js
 //
-// Generates a simple, clean, and elegant weekly email
-// digest matching the Smart Stock Dashboard & Customization
-// settings using live MongoDB data.
+// Generates a weekly email digest using 100% REAL LIVE
+// MongoDB & Shopify store data matching the Dashboard.
 // ==================================================
 
 const mongoose = require("mongoose");
+const DeadStock = require("../models/DeadStock");
+const HighDemand = require("../models/highDemand");
+const ClearanceSale = require("../models/ClearanceSale");
+const Bundle = require("../models/Bundle");
+const MarkdownRule = require("../models/MarkdownRule");
+const LaunchPreOrder = require("../models/LaunchPreOrder");
+const HighDemandStorefront = require("../models/HighDemandStorefront");
+const SmartBadgeAssignment = require("../models/SmartBadgeAssignment");
+const Store = require("../models/Store");
+const shopifyGraphQL = require("./shopifyGraphql");
+const { runDeadStockEngine } = require("./deadStock/deadStockEngine");
 
 // ==================================================
 // AGGREGATE DASHBOARD & STORE METRICS
@@ -19,137 +29,226 @@ async function generateWeeklyDigest(shop) {
     .replace(/^https?:\/\//, "")
     .replace(/\/+$/, "");
 
-  console.log(`[EmailDigest] Fetching live dashboard & customization data for: ${cleanShop}`);
+  console.log(`[EmailDigest] Aggregating live store data for: ${cleanShop}`);
 
-  const db = mongoose.connection.db;
-  const shopQuery = {
+  const shopFilter = {
     $or: [
       { shop: cleanShop },
+      { shop: `https://${cleanShop}` },
       { shopId: cleanShop },
-      { shop_id: cleanShop },
-      { store: cleanShop },
+      { shopId: `https://${cleanShop}` },
+      { shop: new RegExp(`^${cleanShop}$`, "i") },
+      { shopId: new RegExp(`^${cleanShop}$`, "i") },
     ],
   };
 
   try {
-    const [
-      highDemands,
-      preorders,
-      markdownRules,
-      bundles,
+    // 1. Fetch Store record (for access token & currency)
+    const storeRecord = await Store.findOne({
+      $or: [{ shop: cleanShop }, { shop: new RegExp(`^${cleanShop}$`, "i") }],
+    })
+      .lean()
+      .catch(() => null);
+
+    // 2. Fetch live action counts & documents from MongoDB
+    let [
+      deadStockDocs,
+      highDemandDocs,
       clearanceSales,
-      smartBadges,
-      launchPreorders,
-      storeSettings,
+      bundles,
+      markdownRules,
+      launchPreOrders,
+      highDemandStorefronts,
+      smartBadgeAssignments,
     ] = await Promise.all([
-      db.collection("tbl_highdemands").find(shopQuery).sort({ last30DaysSales: -1, currentStock: 1 }).toArray(),
-      db.collection("tbl_preorders").find(shopQuery).sort({ createdAt: -1 }).toArray(),
-      db.collection("tbl_markdownrules").find({ ...shopQuery, active: true }).toArray(),
-      db.collection("tbl_bundles").find(shopQuery).toArray(),
-      db.collection("tbl_clearancesales").find(shopQuery).toArray(),
-      db.collection("tbl_smart_badge_applications").find(shopQuery).toArray(),
-      db.collection("tbl_launch_preorders").find(shopQuery).toArray(),
-      db.collection("tbl_storesettings").findOne(shopQuery),
+      DeadStock.find(shopFilter).lean().catch(() => []),
+      HighDemand.find(shopFilter).lean().catch(() => []),
+      ClearanceSale.find(shopFilter).lean().catch(() => []),
+      Bundle.find(shopFilter).lean().catch(() => []),
+      MarkdownRule.find(shopFilter).lean().catch(() => []),
+      LaunchPreOrder.find(shopFilter).lean().catch(() => []),
+      HighDemandStorefront.find(shopFilter).lean().catch(() => []),
+      SmartBadgeAssignment.find(shopFilter).lean().catch(() => []),
     ]);
 
-    // 1. High Demand & Stockout Metrics
-    const criticalStockouts = highDemands.filter(
-      (h) => h.riskLevel === "CRITICAL" || (h.currentStock != null && h.currentStock <= 0)
-    );
-    const highRiskStockouts = highDemands.filter((h) => h.riskLevel === "HIGH");
-    const stockoutCount = criticalStockouts.length + highRiskStockouts.length || 56;
+    // If dead stock has not been synced yet, run dead stock sync
+    if (deadStockDocs.length === 0 && storeRecord?.accessToken) {
+      try {
+        console.log(`[EmailDigest] Running DeadStock sync for ${cleanShop}...`);
+        await runDeadStockEngine(cleanShop, storeRecord.accessToken);
+        deadStockDocs = await DeadStock.find(shopFilter).lean().catch(() => []);
+      } catch (syncErr) {
+        console.warn("[EmailDigest] DeadStock sync notice:", syncErr.message);
+      }
+    }
 
-    const topStockouts = (criticalStockouts.length > 0 ? criticalStockouts : highDemands)
+    // 3. Fetch real live Shopify orders & currency if token is present
+    let liveOrders = [];
+    let currencySymbol = "$";
+    if (storeRecord?.accessToken) {
+      try {
+        const orderRes = await shopifyGraphQL(
+          cleanShop,
+          storeRecord.accessToken,
+          `query getDigestOrders {
+            shop { currencyCode }
+            orders(first: 250, sortKey: CREATED_AT, reverse: true) {
+              nodes {
+                id
+                name
+                createdAt
+                totalPriceSet { shopMoney { amount currencyCode } }
+              }
+            }
+          }`
+        );
+        liveOrders = orderRes?.orders?.nodes || [];
+        const code = orderRes?.shop?.currencyCode || "USD";
+        currencySymbol = code === "USD" ? "$" : code === "EUR" ? "€" : code === "GBP" ? "£" : code === "INR" ? "₹" : "$";
+      } catch (gqlErr) {
+        console.warn("[EmailDigest] Shopify GraphQL orders fetch notice:", gqlErr.message);
+      }
+    }
+
+    // 4. REAL Total Cash Recovered (Real sum of store order revenues)
+    let totalOrderRevenue = 0;
+    for (const o of liveOrders) {
+      totalOrderRevenue += parseFloat(o.totalPriceSet?.shopMoney?.amount || 0);
+    }
+    const totalCashRecovered = Math.round(totalOrderRevenue);
+
+    // 5. REAL Dead Stock Cash Tied Up & SKU Count
+    let deadStockCashTiedUp = 0;
+    let deadStockSkuCount = 0;
+    const deadOnly = deadStockDocs.filter(
+      (d) => d.status === "dead_stock" || (d.daysUnsold != null && d.daysUnsold >= 60)
+    );
+    const deadItemsToCount = deadOnly.length > 0 ? deadOnly : deadStockDocs.filter((d) => (d.cashTiedUp || 0) > 0);
+
+    for (const d of deadItemsToCount) {
+      const cash = Number(d.cashTiedUp) || (Number(d.price || d.currentPrice || 0) * Number(d.stock || 0));
+      if (cash > 0) {
+        deadStockCashTiedUp += cash;
+        deadStockSkuCount++;
+      }
+    }
+
+    // 6. REAL High Demand, Stockout Risks & Revenue at Risk
+    const priceMap = new Map();
+    for (const d of deadStockDocs) {
+      const p = Number(d.currentPrice || d.price || 0);
+      if (p > 0) {
+        if (d.variantId) priceMap.set(d.variantId, p);
+        if (d.productId) priceMap.set(d.productId, p);
+      }
+    }
+
+    const highRiskItems = highDemandDocs.filter((h) =>
+      ["CRITICAL", "HIGH", "Critical", "High"].includes(h.riskLevel)
+    );
+                   
+    let revenueAtRisk = 0;
+    for (const item of highRiskItems) {
+      const price = priceMap.get(item.variantId) || priceMap.get(item.productId) || Number(item.price || item.currentPrice || 0);
+      const stock = Number(item.stock || item.currentStock || 0);
+      const reorderQty = Number(item.reorderQuantity) || 5;
+      revenueAtRisk += price > 0 ? price * (stock > 0 ? stock : reorderQty) : 0;
+    }
+
+    const stockoutRiskCount = highRiskItems.length > 0 ? highRiskItems.length : highDemandDocs.length;
+
+    // Real Top Stockouts table rows
+    const topStockouts = (highRiskItems.length > 0 ? highRiskItems : highDemandDocs)
       .slice(0, 5)
       .map((h) => ({
-        name: h.productName || "Product",
+        name: h.productName || h.title || "Product",
         variant: h.variantTitle && h.variantTitle !== "Default Title" ? h.variantTitle : "",
-        stock: h.currentStock ?? 0,
-        sales30d: h.last30DaysSales || 0,
-        reorderQty: h.reorderQuantity || (h.currentStock <= 0 ? 10 : 5),
+        stock: Number(h.stock ?? h.currentStock ?? 0),
+        sales30d: Number(h.salesLast30Days ?? h.last30DaysSales ?? h.sales30Days ?? 0),
+        reorderQty: Number(h.reorderQuantity) || (Number(h.stock ?? h.currentStock ?? 0) <= 0 ? 10 : 5),
       }));
 
-    // 2. Active Automations Count (Matches Dashboard: Clearance + Bundles + Markdown + PreOrders & Badges)
+    // 7. REAL Active Automations Count
+    const activeClearances = clearanceSales.filter((c) => c.status !== "INACTIVE").length;
+    const activeBundles = bundles.filter((b) => b.status !== "INACTIVE").length;
+    const activeMarkdowns = markdownRules.filter((m) => m.status === "ACTIVE" && m.active !== false).length;
+    const activePreOrders = launchPreOrders.filter((l) => l.preOrderEnabled).length;
+    const activeUrgencyBadges = highDemandStorefronts.filter((h) => h.urgencyBadgeEnabled).length;
+    const activeSmartBadges = smartBadgeAssignments.filter((s) => s.status === "ACTIVE").length;
+
     const activeAutomationsCount =
-      (clearanceSales.length || 6) +
-      (bundles.length || 2) +
-      (markdownRules.length || 9) +
-      (launchPreorders.length || 6);
+      activeClearances +
+      activeBundles +
+      activeMarkdowns +
+      activePreOrders +
+      Math.max(activeUrgencyBadges, activeSmartBadges);
 
-    // 3. Pre-Orders & Revenue
-    const totalOrdersCount = preorders.length;
-    const totalPreorderRevenue = preorders.reduce((sum, p) => sum + (p.totalPrice || 0), 0);
-
-    const recentOrders = preorders.slice(0, 4).map((p) => ({
-      orderNumber: p.shopifyOrderName || p.orderNumber || "#Order",
-      productTitle: p.productTitle || "Product",
-      totalPrice: p.totalPrice || 0,
-      paymentStatus: p.paymentStatus || p.financialStatus || "PAID",
-    }));
-
-    // 4. Customization & Badges Status
+    // 8. REAL Promotional Badges & Widgets Statuses
     const customizationBadges = [
       {
         name: "Clearance Sale",
         description: "Renders clearance badges and urgency banners on discounted inventory.",
-        status: "Active",
+        status: activeClearances > 0 ? "Active" : "Inactive",
+        count: activeClearances,
       },
       {
         name: "Bundle Offer",
         description: "Displays bundle offers and companion pairings with 1-click cart addition.",
-        status: "Active",
+        status: activeBundles > 0 ? "Active" : "Inactive",
+        count: activeBundles,
       },
       {
         name: "Progressive Markdown",
         description: "Displays progressive discount badges beside real pricing on active markdowns.",
-        status: "Active",
+        status: activeMarkdowns > 0 ? "Active" : "Inactive",
+        count: activeMarkdowns,
       },
       {
         name: "Low Stock Badge",
         description: "Displays an urgency badge and remaining inventory count on low-stock items (≤ 5 units).",
-        status: "Active",
+        status: activeUrgencyBadges > 0 ? "Active" : "Inactive",
+        count: activeUrgencyBadges,
       },
       {
         name: "Pre-Orders",
         description: "Allows customers to pre-order upcoming new product launches with deposit options.",
-        status: "Active",
+        status: activePreOrders > 0 ? "Active" : "Inactive",
+        count: activePreOrders,
       },
     ];
 
+    console.log(`[EmailDigest] Summary compiled for ${cleanShop}: recovered=${totalCashRecovered}, deadStock=${deadStockCashTiedUp}, skus=${deadStockSkuCount}, risk=${revenueAtRisk}, automations=${activeAutomationsCount}`);
+
     return {
       shop: cleanShop,
-      totalCashRecovered: 876819,
-      deadStockCashTiedUp: 3726020,
-      deadStockSkuCount: 54,
-      revenueAtRisk: 140000,
-      stockoutRiskCount: stockoutCount,
-      activeAutomationsCount: activeAutomationsCount || 23,
+      currencySymbol,
+      totalCashRecovered,
+      deadStockCashTiedUp: Math.round(deadStockCashTiedUp),
+      deadStockSkuCount,
+      revenueAtRisk: Math.round(revenueAtRisk),
+      stockoutRiskCount,
+      activeAutomationsCount,
       topStockouts,
-      totalOrdersCount,
-      totalPreorderRevenue,
-      recentOrders,
       customizationBadges,
     };
   } catch (err) {
     console.error("[EmailDigest] Error aggregating data:", err.message);
     return {
       shop: cleanShop,
-      totalCashRecovered: 876819,
-      deadStockCashTiedUp: 3726020,
-      deadStockSkuCount: 54,
-      revenueAtRisk: 140000,
-      stockoutRiskCount: 56,
-      activeAutomationsCount: 23,
+      currencySymbol: "$",
+      totalCashRecovered: 0,
+      deadStockCashTiedUp: 0,
+      deadStockSkuCount: 0,
+      revenueAtRisk: 0,
+      stockoutRiskCount: 0,
+      activeAutomationsCount: 0,
       topStockouts: [],
-      totalOrdersCount: 16,
-      totalPreorderRevenue: 263536,
-      recentOrders: [],
       customizationBadges: [
-        { name: "Clearance Sale", description: "Clearance badges and urgency banners", status: "Active" },
-        { name: "Bundle Offer", description: "Frequently Bought Together pairings", status: "Active" },
-        { name: "Progressive Markdown", description: "Dynamic discount tier badges", status: "Active" },
-        { name: "Low Stock Badge", description: "Urgency inventory alert for stock ≤ 5 units", status: "Active" },
-        { name: "Pre-Orders", description: "Customer pre-order deposit buttons", status: "Active" },
+        { name: "Clearance Sale", description: "Clearance badges and urgency banners", status: "Inactive" },
+        { name: "Bundle Offer", description: "Frequently Bought Together pairings", status: "Inactive" },
+        { name: "Progressive Markdown", description: "Dynamic discount tier badges", status: "Inactive" },
+        { name: "Low Stock Badge", description: "Urgency inventory alert for stock ≤ 5 units", status: "Inactive" },
+        { name: "Pre-Orders", description: "Customer pre-order deposit buttons", status: "Inactive" },
       ],
     };
   }
@@ -172,8 +271,9 @@ function buildDigestHTML(digest, shop) {
     day: "numeric",
   });
 
-  const formatUSD = (val) =>
-    `$${Number(val || 0).toLocaleString("en-US", {
+  const sym = digest.currencySymbol || "$";
+  const formatMoney = (val) =>
+    `${sym}${Number(val || 0).toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     })}`;
@@ -217,8 +317,8 @@ function buildDigestHTML(digest, shop) {
           ${b.description}
         </td>
         <td style="padding:12px 10px;border-bottom:1px solid #e5e7eb;text-align:right;">
-          <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d;">
-            ● Active
+          <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:${b.status === "Active" ? "#dcfce7" : "#f3f4f6"};color:${b.status === "Active" ? "#15803d" : "#6b7280"};">
+            ● ${b.status}${b.count != null ? ` (${b.count})` : ""}
           </span>
         </td>
       </tr>`
@@ -262,14 +362,14 @@ function buildDigestHTML(digest, shop) {
                   <!-- CARD 1: Total Cash Recovered -->
                   <td width="48%" style="padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;vertical-align:top;">
                     <div style="font-size:11px;font-weight:600;color:#4b5563;text-transform:uppercase;">Total cash recovered</div>
-                    <div style="font-size:22px;font-weight:800;color:#111827;margin-top:4px;">${formatUSD(digest.totalCashRecovered)}</div>
+                    <div style="font-size:22px;font-weight:800;color:#111827;margin-top:4px;">${formatMoney(digest.totalCashRecovered)}</div>
                     <div style="font-size:11px;color:#16a34a;font-weight:600;margin-top:2px;">Across active promotions</div>
                   </td>
                   <td width="4%"></td>
                   <!-- CARD 2: Dead Stock Cash Tied Up -->
                   <td width="48%" style="padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;vertical-align:top;">
                     <div style="font-size:11px;font-weight:600;color:#4b5563;text-transform:uppercase;">Dead stock cash tied up</div>
-                    <div style="font-size:22px;font-weight:800;color:#111827;margin-top:4px;">${formatUSD(digest.deadStockCashTiedUp)}</div>
+                    <div style="font-size:22px;font-weight:800;color:#111827;margin-top:4px;">${formatMoney(digest.deadStockCashTiedUp)}</div>
                     <div style="font-size:11px;color:#dc2626;font-weight:600;margin-top:2px;">${digest.deadStockSkuCount} SKUs identified</div>
                   </td>
                 </tr>
@@ -278,7 +378,7 @@ function buildDigestHTML(digest, shop) {
                   <!-- CARD 3: Revenue at Risk -->
                   <td width="48%" style="padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;vertical-align:top;">
                     <div style="font-size:11px;font-weight:600;color:#4b5563;text-transform:uppercase;">Revenue at risk</div>
-                    <div style="font-size:22px;font-weight:800;color:#111827;margin-top:4px;">${formatUSD(digest.revenueAtRisk)}</div>
+                    <div style="font-size:22px;font-weight:800;color:#111827;margin-top:4px;">${formatMoney(digest.revenueAtRisk)}</div>
                     <div style="font-size:11px;color:#d97706;font-weight:600;margin-top:2px;">${digest.stockoutRiskCount} items at risk</div>
                   </td>
                   <td width="4%"></td>

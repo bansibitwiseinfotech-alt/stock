@@ -582,13 +582,7 @@ export default function PreOrders({ shopDomain } = {}) {
         {mainView === 0 && (
           <BlockStack gap="500">
             {/* METRICS ROW */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
-                gap: "16px",
-              }}
-            >
+            <div className="preorder-metrics-grid">
               <Card padding="400">
                 <BlockStack gap="100">
                   <Text variant="bodySm" tone="subdued">
@@ -626,8 +620,8 @@ export default function PreOrders({ shopDomain } = {}) {
             {/* LAUNCH PRODUCTS TABLE */}
             <Card padding="0">
               <Box padding="400">
-                <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
-                  <div style={{ flex: "1 1 240px", minWidth: "min(100%, 200px)" }}>
+                <div className="preorders-filter-bar">
+                  <div className="preorders-search-field">
                     <TextField
                       placeholder="Search launch product..."
                       value={launchSearch}
@@ -637,8 +631,8 @@ export default function PreOrders({ shopDomain } = {}) {
                       autoComplete="off"
                     />
                   </div>
-                  <InlineStack gap="200" blockAlign="center" wrap>
-                    <div style={{ minWidth: "min(100%, 150px)" }}>
+                  <div className="preorders-filter-controls">
+                    <div className="preorders-status-select">
                       <Select
                         options={[
                           { label: "All Statuses", value: "ALL" },
@@ -654,8 +648,8 @@ export default function PreOrders({ shopDomain } = {}) {
                     <Button variant="primary" onClick={handleOpenCreateModal}>
                       + Add Launch Pre-Order
                     </Button>
-                  </InlineStack>
-                </InlineStack>
+                  </div>
+                </div>
               </Box>
 
               <Divider />
@@ -682,7 +676,8 @@ export default function PreOrders({ shopDomain } = {}) {
                   </EmptyState>
                 </Box>
               ) : (
-                <IndexTable
+                <div className="table-responsive-container" style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                  <IndexTable
                   itemCount={filteredLaunchConfigs.length}
                   headings={[
                     { title: "Product" },
@@ -808,7 +803,8 @@ export default function PreOrders({ shopDomain } = {}) {
                     );
                   })}
                 </IndexTable>
-              )}
+              </div>
+            )}
             </Card>
           </BlockStack>
         )}
@@ -819,13 +815,7 @@ export default function PreOrders({ shopDomain } = {}) {
         {mainView === 1 && (
           <BlockStack gap="500">
             {/* 4 SUMMARY METRICS CARDS */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
-                gap: "16px",
-              }}
-            >
+            <div className="preorder-orders-metrics-grid">
               <Card padding="400">
                 <BlockStack gap="100">
                   <Text variant="bodySm" tone="subdued">
@@ -916,7 +906,8 @@ export default function PreOrders({ shopDomain } = {}) {
                   </BlockStack>
                 </Box>
               ) : (
-                <IndexTable
+                <div className="table-responsive-container" style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                  <IndexTable
                   itemCount={preOrders.length}
                   headings={[
                     { title: "Order #" },
@@ -1099,7 +1090,8 @@ export default function PreOrders({ shopDomain } = {}) {
                     );
                   })}
                 </IndexTable>
-              )}
+              </div>
+            )}
 
               {pagination.totalPages > 1 && (
                 <Box padding="400">

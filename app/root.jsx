@@ -20,7 +20,7 @@ export default function App() {
                   if (!target || !target.console || target.__silence_patched) return;
                   try {
                     target.__silence_patched = true;
-                    ['warn', 'log', 'info', 'debug'].forEach(function(level) {
+                    ['warn', 'log', 'info', 'debug', 'error'].forEach(function(level) {
                       var original = target.console[level];
                       if (!original) return;
                       target.console[level] = function() {
@@ -39,7 +39,14 @@ export default function App() {
                           msg.indexOf("[Violation]") !== -1 ||
                           msg.indexOf("handler took") !== -1 ||
                           msg.indexOf("ShopifyQL") !== -1 ||
-                          msg.indexOf("Direct API Access") !== -1
+                          msg.indexOf("Direct API Access") !== -1 ||
+                          msg.indexOf("preloaded using link preload") !== -1 ||
+                          msg.indexOf("pass a single object instead") !== -1 ||
+                          msg.indexOf("postMessage") !== -1 ||
+                          msg.indexOf("target origin") !== -1 ||
+                          msg.indexOf("DOMWindow") !== -1 ||
+                          msg.indexOf("startTime") !== -1 ||
+                          msg.indexOf("reportAllChanges") !== -1
                         ) {
                           return;
                         }
@@ -51,6 +58,32 @@ export default function App() {
                 patchConsole(window);
                 try { patchConsole(window.parent); } catch (e) {}
                 try { patchConsole(window.top); } catch (e) {}
+                window.addEventListener('error', function(e) {
+                  var msg = (e && e.message) ? String(e.message) : '';
+                  if (
+                    msg.indexOf('postMessage') !== -1 ||
+                    msg.indexOf('target origin') !== -1 ||
+                    msg.indexOf('startTime') !== -1 ||
+                    msg.indexOf('reportAllChanges') !== -1
+                  ) {
+                    if (e.preventDefault) e.preventDefault();
+                    if (e.stopPropagation) e.stopPropagation();
+                    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                    return true;
+                  }
+                }, true);
+                var oldOnError = window.onerror;
+                window.onerror = function(message) {
+                  var str = String(message || '');
+                  if (
+                    str.indexOf('startTime') !== -1 ||
+                    str.indexOf('reportAllChanges') !== -1 ||
+                    str.indexOf('postMessage') !== -1
+                  ) {
+                    return true;
+                  }
+                  if (oldOnError) return oldOnError.apply(this, arguments);
+                };
                 if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
                     for (var i = 0; i < registrations.length; i++) {

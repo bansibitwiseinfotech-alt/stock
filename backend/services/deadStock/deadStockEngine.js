@@ -95,120 +95,59 @@ async function runDeadStockEngine(shopId, accessToken, thresholdDays = 60) {
       const costPrice = Number.isFinite(unitCostAmount) && unitCostAmount > 0 ? unitCostAmount : variantPrice;
 
       const locationLevels = variant.inventoryItem?.inventoryLevels?.nodes || [];
+      const locationId = locationLevels[0]?.location?.id || locations[0]?.id || "main-location";
+      const locationName = locationLevels[0]?.location?.name || locations[0]?.name || "Main Location";
+      const stock = Number(variant.inventoryQuantity) || 0;
 
-      // Multi-location inventory handling:
-      if (locationLevels.length > 0) {
-        for (const level of locationLevels) {
-          const locObj = level.location || locations[0] || { id: "main-location", name: "Main Location" };
-          const locationId = locObj.id;
-          const locationName = locObj.name;
-          const availQty = level.quantities?.find((q) => q.name === "available" || q.name === "on_hand")?.quantity;
-          const stock = Number.isFinite(Number(availQty)) ? Number(availQty) : (Number(variant.inventoryQuantity) || 0);
+      if (processedKeys.has(variantId)) continue;
+      processedKeys.add(variantId);
 
-          const key = `${variantId}_${locationId}`;
-          if (processedKeys.has(key)) continue;
-          processedKeys.add(key);
+      const lastSoldAt = lastSoldMap.get(variantId) || null;
+      const salesLast7Days = sales7Map.get(variantId) || 0;
+      const salesLast30Days = sales30Map.get(variantId) || 0;
+      const salesLast60Days = sales60Map.get(variantId) || 0;
 
-          const lastSoldAt = lastSoldMap.get(variantId) || null;
-          const salesLast7Days = sales7Map.get(variantId) || 0;
-          const salesLast30Days = sales30Map.get(variantId) || 0;
-          const salesLast60Days = sales60Map.get(variantId) || 0;
+      const daysUnsold = calculateDaysUnsold(lastSoldAt, createdAt);
+      const salesVelocity = calculateSalesVelocity(salesLast30Days);
+      const cashTiedUp = calculateCashTiedUp(stock, costPrice);
+      const previousStatus = existingStatusMap.get(variantId) || null;
+      const status = determineStatus(daysUnsold, previousStatus, thresholdDays);
 
-          const daysUnsold = calculateDaysUnsold(lastSoldAt, createdAt);
-          const salesVelocity = calculateSalesVelocity(salesLast30Days);
-          const cashTiedUp = calculateCashTiedUp(stock, costPrice);
-          const previousStatus = existingStatusMap.get(key) || null;
-          const status = determineStatus(daysUnsold, previousStatus, thresholdDays);
-
-          if (status === "dead_stock") {
-            deadStockFoundCount++;
-          }
-
-          bulkOps.push({
-            updateOne: {
-              filter: { shopId, variantId, locationId },
-              update: {
-                $set: {
-                  shopId,
-                  productId,
-                  variantId,
-                  title,
-                  sku: variant.sku || "",
-                  image,
-                  locationId,
-                  locationName,
-                  collectionIds,
-                  stock,
-                  costPrice,
-                  currentPrice: variantPrice,
-                  lastSoldAt,
-                  daysUnsold,
-                  salesLast7Days,
-                  salesLast30Days,
-                  salesLast60Days,
-                  salesVelocity,
-                  cashTiedUp,
-                  status,
-                },
-              },
-              upsert: true,
-            },
-          });
-        }
-      } else {
-        const stock = Number(variant.inventoryQuantity) || 0;
-        const locationId = locations[0]?.id || "main-location";
-        const locationName = locations[0]?.name || "Main Location";
-
-        const key = `${variantId}_${locationId}`;
-        processedKeys.add(key);
-
-        const lastSoldAt = lastSoldMap.get(variantId) || null;
-        const salesLast7Days = sales7Map.get(variantId) || 0;
-        const salesLast30Days = sales30Map.get(variantId) || 0;
-        const salesLast60Days = sales60Map.get(variantId) || 0;
-
-        const daysUnsold = calculateDaysUnsold(lastSoldAt, createdAt);
-        const salesVelocity = calculateSalesVelocity(salesLast30Days);
-        const cashTiedUp = calculateCashTiedUp(stock, costPrice);
-        const previousStatus = existingStatusMap.get(key) || null;
-        const status = determineStatus(daysUnsold, previousStatus, thresholdDays);
-
-        if (status === "dead_stock") {
-          deadStockFoundCount++;
-        }
-
-        bulkOps.push({
-          updateOne: {
-            filter: { shopId, variantId, locationId },
-            update: {
-              $set: {
-                shopId,
-                productId,
-                variantId,
-                title,
-                sku: variant.sku || "",
-                image,
-                locationId,
-                locationName,
-                collectionIds,
-                stock,
-                costPrice,
-                currentPrice: variantPrice,
-                lastSoldAt,
-                daysUnsold,
-                salesLast7Days,
-                salesLast30Days,
-                salesLast60Days,
-                salesVelocity,
-                cashTiedUp,
-                status,
-              },
-            },
-            upsert: true,
-          },
-        });
+      if (status === "dead_stock") {
+        deadStockFoundCount++;
       }
+
+      bulkOps.push({
+        updateOne: {
+          filter: { shopId, productId, variantId },
+          update: {
+            $set: {
+              shop: shopId,
+              shopId,
+              productId,
+              variantId,
+              title,
+              sku: variant.sku || "",
+              image,
+              locationId,
+              locationName,
+              collectionIds,
+              stock,
+              costPrice,
+              currentPrice: variantPrice,
+              lastSoldAt,
+              daysUnsold,
+              salesLast7Days,
+              salesLast30Days,
+              salesLast60Days,
+              salesVelocity,
+              cashTiedUp,
+              status,
+            },
+          },
+          upsert: true,
+        },
+      });
     }
   }
 

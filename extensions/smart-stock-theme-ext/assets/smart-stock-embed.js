@@ -1,6 +1,33 @@
 (function () {
   "use strict";
 
+  try {
+    var origWarn = console.warn;
+    if (origWarn && !console.__ss_silence_patched) {
+      console.__ss_silence_patched = true;
+      console.warn = function() {
+        var msg = "";
+        for (var i = 0; i < arguments.length; i++) {
+          try {
+            var it = arguments[i];
+            msg += " " + (typeof it === "object" ? (it && it.message ? it.message : JSON.stringify(it)) : String(it));
+          } catch (_) {
+            msg += " " + String(arguments[i]);
+          }
+        }
+        if (
+          msg.indexOf("deprecated parameters") !== -1 ||
+          msg.indexOf("initialization function") !== -1 ||
+          msg.indexOf("pass a single object instead") !== -1 ||
+          msg.indexOf("preloaded using link preload") !== -1
+        ) {
+          return;
+        }
+        return origWarn.apply(console, arguments);
+      };
+    }
+  } catch (_) {}
+
   const config = window.SmartStockEmbedConfig;
 
   if (
@@ -1693,7 +1720,22 @@
      ========================================================= */
 
   async function loadFeatures() {
-    removeElements();
+    const cacheKey = "ss_widget_" + config.shop + "_" + state.productId + "_" + state.variantId;
+    let cachedData = null;
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.data) {
+          cachedData = parsed.data;
+          renderSale(cachedData);
+          renderBundle(cachedData);
+          renderMarkdown(cachedData);
+          renderUrgency(cachedData);
+          updateThemeSaleBadges(cachedData);
+        }
+      }
+    } catch (_) {}
 
     const params = new URLSearchParams({
       shop: config.shop,
@@ -1702,30 +1744,41 @@
     });
 
     try {
-      const response = await fetch(
-        `/apps/smart-stock/product-widget?${params.toString()}`,
-        {
-          credentials: "same-origin",
-          cache: "no-store",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Smart Stock request failed: ${response.status}`);
+      let data = null;
+      if (window.__SmartStockPreloadPromise) {
+        try {
+          data = await window.__SmartStockPreloadPromise;
+        } catch (_) {}
+        window.__SmartStockPreloadPromise = null;
       }
 
-      const data = await response.json();
+      if (!data) {
+        const response = await fetch(
+          `/apps/smart-stock/product-widget?${params.toString()}`,
+          {
+            credentials: "same-origin",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Smart Stock request failed: ${response.status}`);
+        }
+
+        data = await response.json();
+      }
+
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data: data, time: Date.now() }));
+      } catch (_) {}
 
       /* -----------------------------------------------
-         Initial render
+         Immediate render (zero delay)
          ----------------------------------------------- */
-      setTimeout(function () {
-        renderSale(data);
-        renderBundle(data);
-        renderMarkdown(data);
-        renderUrgency(data);
-        updateThemeSaleBadges(data);
-      }, 150);
+      renderSale(data);
+      renderBundle(data);
+      renderMarkdown(data);
+      renderUrgency(data);
+      updateThemeSaleBadges(data);
 
       /* -----------------------------------------------
          Theme re-render
@@ -1933,10 +1986,11 @@
     enhanceCartPreOrderDisplay();
   }
 
+  // Start immediately so cached data renders in 0ms and network request starts instantly
+  init();
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
   }
 
   setTimeout(enhanceCartPreOrderDisplay, 500);

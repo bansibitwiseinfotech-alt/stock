@@ -16,14 +16,31 @@ async function ensureConnected() {
   }
 }
 
+// FAST IN-MEMORY STOREFRONT CACHE (TTL: 30 seconds)
+const storefrontCache = new Map();
+const STOREFRONT_CACHE_TTL = 30000;
+
+function getStorefrontCache(key) {
+  const item = storefrontCache.get(key);
+  if (item && Date.now() - item.time < STOREFRONT_CACHE_TTL) {
+    return item.data;
+  }
+  return null;
+}
+
+function setStorefrontCache(key, data) {
+  if (storefrontCache.size > 2000) {
+    const keys = storefrontCache.keys();
+    for (let i = 0; i < 500; i++) {
+      const nextKey = keys.next().value;
+      if (nextKey) storefrontCache.delete(nextKey);
+    }
+  }
+  storefrontCache.set(key, { time: Date.now(), data });
+}
+
 async function getProductWidgetData(req, res) {
   try {
-    await ensureConnected();
-
-    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.set("Pragma", "no-cache");
-    res.set("Expires", "0");
-
     const shopId = req.query.shop;
     const variantId = req.query.variantId;
     const productId = req.query.productId;
@@ -31,6 +48,17 @@ async function getProductWidgetData(req, res) {
     if (!shopId) {
       return res.status(400).json({ success: false, message: "Missing shop parameter." });
     }
+
+    const cacheKey = `widget_${shopId}_${productId || ""}_${variantId || ""}`;
+    const cachedData = getStorefrontCache(cacheKey);
+    if (cachedData) {
+      res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+      return res.status(200).json(cachedData);
+    }
+
+    await ensureConnected();
+
+    res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
 
     const settings = await StoreSettings.findOne({ shopId }).lean().catch(() => null);
     const threshold = Number(settings?.lowStockThresholdUnits) || 5;
@@ -93,7 +121,7 @@ async function getProductWidgetData(req, res) {
     const isLowStock = stock > 0 && stock <= threshold;
 
     const now = new Date();
-    await ClearanceSale.updateMany(
+    ClearanceSale.updateMany(
       {
         shop: shopId,
         status: "SCHEDULED",
@@ -103,7 +131,7 @@ async function getProductWidgetData(req, res) {
       { $set: { status: "ACTIVE" } }
     ).catch(() => { });
 
-    await ClearanceSale.updateMany(
+    ClearanceSale.updateMany(
       {
         shop: shopId,
         status: { $in: ["SCHEDULED", "ACTIVE"] },
@@ -431,7 +459,7 @@ async function getProductWidgetData(req, res) {
       };
     }
 
-    return res.status(200).json({
+    const responsePayload = {
       success: true,
       shop: shopId,
       clearanceConfig,
@@ -485,7 +513,11 @@ async function getProductWidgetData(req, res) {
         bundleDiscountPercent: (hasBundleOffer || isSmartBundle) ? (activeBundle?.discountPercent || 15) : 0,
         bundle: (hasBundleOffer || isSmartBundle) ? resolvedBundle : null,
       },
-    });
+    };
+
+    setStorefrontCache(cacheKey, responsePayload);
+    res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+    return res.status(200).json(responsePayload);
   } catch (error) {
     console.error("Storefront Widget API Error:", error.message);
     return res.status(500).json({
@@ -501,12 +533,6 @@ async function getProductWidgetData(req, res) {
  */
 async function getStorefrontBundles(req, res) {
   try {
-    await ensureConnected();
-
-    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.set("Pragma", "no-cache");
-    res.set("Expires", "0");
-
     const shop = req.query.shop || req.headers["x-shopify-shop-domain"];
     const productId = req.query.productId;
     const variantId = req.query.variantId;
@@ -514,6 +540,17 @@ async function getStorefrontBundles(req, res) {
     if (!shop) {
       return res.status(400).json({ success: false, message: "Shop domain is required." });
     }
+
+    const bundleCacheKey = `bundles_${shop}_${productId || ""}_${variantId || ""}`;
+    const cachedBundles = getStorefrontCache(bundleCacheKey);
+    if (cachedBundles) {
+      res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+      return res.status(200).json(cachedBundles);
+    }
+
+    await ensureConnected();
+
+    res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
 
     const store = await Store.findOne({ shop }).lean().catch(() => null);
     const accessToken = store?.accessToken || req.headers["x-shopify-access-token"];
@@ -709,11 +746,14 @@ async function getStorefrontBundles(req, res) {
       return true;
     });
 
-    return res.status(200).json({
+    const bundleResponse = {
       success: true,
       data: validBundles,
       bundleConfig,
-    });
+    };
+
+    setStorefrontCache(bundleCacheKey, bundleResponse);
+    return res.status(200).json(bundleResponse);
   } catch (error) {
     console.error("[StorefrontBundles] Error:", error.message);
     return res.status(500).json({ success: false, message: "Unable to retrieve bundles." });

@@ -42,11 +42,11 @@ export const BILLING_PLANS = [
       periodLabel: "Free Forever",
     },
     highlight: false,
-    features: [
+    features: [      
       { name: "10 Products Catalog Limit", included: true },
       { name: "3 Clearance Sales", included: true },
       { name: "Clearance Sale Customization", included: true },
-
+                                                                             
     ],
   },
   {
@@ -54,21 +54,21 @@ export const BILLING_PLANS = [
     name: "Basic",
     tag: "Growth",
     description: "Expanded inventory clearance and BOGO bundle creation for growing merchants.",
-    products: "25 Products",
-    productLimit: 25,
-    monthly: {
+    products: "20 Products",
+    productLimit: 20,
+    monthly: {  
       price: PLAN_PRICES.basic.monthly,
       formattedPrice: `$${PLAN_PRICES.basic.monthly}`,
       periodLabel: "/ month",
     },
-    yearly: {
+    yearly: {                                                                                                                                                                                                                                                                                                                                    
       price: PLAN_PRICES.basic.yearly,
-      formattedPrice: `$${PLAN_PRICES.basic.yearly}`,
+      formattedPrice: `$${PLAN_PRICES.basic.yearly}`,       
       periodLabel: "/ year",
     },
     highlight: false,
     features: [
-      { name: "25 Products Catalog Limit", included: true },
+      { name: "20 Products Catalog Limit", included: true },
       { name: "10 Clearance Sales", included: true },
       { name: "Clearance Sale Customization", included: true },
       { name: "10 Dead Stock Bundles (BOGO)", included: true },
@@ -82,13 +82,13 @@ export const BILLING_PLANS = [
     name: "Pro",
     tag: "Popular",
     description: "Urgency conversion badges with higher catalog and automation capacity.",
-    products: "50 Products",
-    productLimit: 50,
+    products: "500 Products",
+    productLimit: 500,
     monthly: {
       price: PLAN_PRICES.pro.monthly,
       formattedPrice: `$${PLAN_PRICES.pro.monthly}`,
       periodLabel: "/ month",
-    },
+    },     
     yearly: {
       price: PLAN_PRICES.pro.yearly,
       formattedPrice: `$${PLAN_PRICES.pro.yearly}`,
@@ -96,10 +96,10 @@ export const BILLING_PLANS = [
     },
     highlight: true,
     features: [
-      { name: "50 Products Catalog Limit", included: true },
+      { name: "500 Products Catalog Limit", included: true },
       { name: "15 Clearance Sales", included: true },
       { name: "15 Dead Stock Bundles(BOGO)", included: true },
-      { name: "15 Progressive Markdown", included: true },
+      { name: "15 Progressive Markdown", included: true },                                                    
       { name: "15 Low Stock Badge Uses", included: true },
       { name: "Clearance Sale Customization", included: true },
       { name: "Bundle Customization", included: true },
@@ -113,8 +113,8 @@ export const BILLING_PLANS = [
     name: "Premium",
     tag: "All-Inclusive",
     description: "Unlimited automation suite, bulk collection sales, smart badges, and automated email schedules.",
-    products: "Unlimited Products",
-    productLimit: Infinity,
+    products: "5,000 Products",
+    productLimit: 5000,              
     monthly: {
       price: PLAN_PRICES.premium.monthly,
       formattedPrice: `$${PLAN_PRICES.premium.monthly}`,
@@ -127,7 +127,7 @@ export const BILLING_PLANS = [
     },
     highlight: false,
     features: [
-      { name: "100000 Products Catalog", included: true },
+      { name: "5,000 Products Catalog Limit", included: true },
       { name: " Clearance Sales", included: true },
       { name: " Dead Stock Bundles(BOGO)", included: true },
       { name: " Low Stock Badges", included: true },
@@ -157,5 +157,6 @@ export function getPlanDetails(planId) {
 
 export function getPlanPrice(plan, billingCycle = "monthly") {
   if (!plan) return { formattedPrice: "$0", periodLabel: "" };
-  return billingCycle === "yearly" ? plan.yearly : plan.monthly;
+  return billingCycle === "yearly" ? plan.yearly : plan.monthly;           
 }
+                                                                                                                                                                                        

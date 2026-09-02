@@ -262,27 +262,21 @@ export default function Dashboard({ shopDomain = "" }) {
             1. KPI SUMMARY STATS CARDS
             ================================================== */}
         <Layout.Section>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
-              gap: "16px",
-            }}
-          >
+          <div className="dashboard-metrics-grid">
             {/* Metric 1 */}
             <Card padding="400">
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "105px" }}>
-                <InlineStack align="space-between" blockAlign="center">
-                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#000000" }}>
+              <div className="dashboard-kpi-content">
+                <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
+                  <span className="dashboard-kpi-title">
                     Total cash recovered
                   </span>
                   <Badge tone="success">{`+${data.growthPercentage}%`}</Badge>
                 </InlineStack>
-                <div style={{ marginTop: "8px" }}>
-                  <div style={{ fontSize: "28px", fontWeight: "800", color: "#000000", lineHeight: "1.2" }}>
+                <div style={{ marginTop: "6px" }}>
+                  <div className="dashboard-kpi-value">
                     {formatCurrency(data.totalCashRecovered)}
                   </div>
-                  <div style={{ fontSize: "11px", fontWeight: "500", color: "#000000", marginTop: "4px" }}>
+                  <div className="dashboard-kpi-subtext">
                     Across all active promotions
                   </div>
                 </div>
@@ -291,19 +285,19 @@ export default function Dashboard({ shopDomain = "" }) {
 
             {/* Metric 2 */}
             <Card padding="400">
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "105px" }}>
-                <InlineStack align="space-between" blockAlign="center">
-                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#000000" }}>
+              <div className="dashboard-kpi-content">
+                <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
+                  <span className="dashboard-kpi-title">
                     Dead stock cash tied up
                   </span>
                   <Badge tone="critical">{`${data.deadStockSkuCount} SKUs`}</Badge>
                 </InlineStack>
-                <div style={{ marginTop: "8px" }}>
-                  <div style={{ fontSize: "28px", fontWeight: "800", color: "#000000", lineHeight: "1.2" }}>
+                <div style={{ marginTop: "6px" }}>
+                  <div className="dashboard-kpi-value">
                     {formatCurrency(data.deadStockCashTiedUp)}
                   </div>
                   <div
-                    style={{ fontSize: "12px", fontWeight: "600", color: "#000000", marginTop: "4px", cursor: "pointer", textDecoration: "underline" }}
+                    className="dashboard-kpi-subtext dashboard-kpi-link"
                     onClick={() => navigateWithParams("/app/dead-stock")}
                   >
                     View dead stock →
@@ -314,19 +308,19 @@ export default function Dashboard({ shopDomain = "" }) {
                   
             {/* Metric 3 */}
             <Card padding="400">
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "105px" }}>
-                <InlineStack align="space-between" blockAlign="center">
-                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#000000" }}>
+              <div className="dashboard-kpi-content">
+                <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
+                  <span className="dashboard-kpi-title">
                     Revenue at risk
                   </span>
                   <Badge tone="attention">High demand</Badge>
                 </InlineStack>
-                <div style={{ marginTop: "8px" }}>
-                  <div style={{ fontSize: "28px", fontWeight: "800", color: "#000000", lineHeight: "1.2" }}>
+                <div style={{ marginTop: "6px" }}>
+                  <div className="dashboard-kpi-value">
                     {formatCurrency(data.revenueAtRisk)}
                   </div>
                   <div
-                    style={{ fontSize: "12px", fontWeight: "600", color: "#000000", marginTop: "4px", cursor: "pointer", textDecoration: "underline" }}
+                    className="dashboard-kpi-subtext dashboard-kpi-link"
                     onClick={() => navigateWithParams("/app/high-demand")}
                   >
                     {data.highDemandRiskCount || 0} items at risk →
@@ -337,18 +331,18 @@ export default function Dashboard({ shopDomain = "" }) {
 
             {/* Metric 4 */}
             <Card padding="400">
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "105px" }}>
-                <InlineStack align="space-between" blockAlign="center">
-                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#000000" }}>
+              <div className="dashboard-kpi-content">
+                <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
+                  <span className="dashboard-kpi-title">
                     Active automations
                   </span>
                   <Badge tone="info">Running</Badge>
                 </InlineStack>
-                <div style={{ marginTop: "8px" }}>
-                  <div style={{ fontSize: "28px", fontWeight: "800", color: "#000000", lineHeight: "1.2" }}>
+                <div style={{ marginTop: "6px" }}>
+                  <div className="dashboard-kpi-value">
                     {data.totalActiveAutomations ?? (data.badgeBreakdown || []).reduce((s, b) => s + (b.badgesUsed || 0), 0)}
                   </div>
-                  <div style={{ fontSize: "11px", fontWeight: "500", color: "#000000", marginTop: "4px" }}>
+                  <div className="dashboard-kpi-subtext">
                     Badges & discount rules active
                   </div>
                 </div>

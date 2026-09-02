@@ -122,24 +122,22 @@ export default function DeadStockTable({
   });
 
   return (
-    <Card padding="0">
-      <Box width="100%">
-   <IndexTable
-  resourceName={resourceName}
-  itemCount={products.length}    
-  selectable={false}
-  headings={[
-    { title: "Product / SKU" },
-    { title: "Stock Units" },
-    { title: "Days Unsold" },
-    { title: "Sales Velocity" },
-    { title: "Cash Tied Up" },
-    { title: "Action" },
-  ]}
-> 
-  {rowMarkup}
-</IndexTable>
-      </Box>
-    </Card>
+    <div className="table-responsive-container" style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <IndexTable
+        resourceName={resourceName}
+        itemCount={products.length}    
+        selectable={false}
+        headings={[
+          { title: "Product / SKU" },
+          { title: "Stock Units" },
+          { title: "Days Unsold" },
+          { title: "Sales Velocity" },
+          { title: "Cash Tied Up" },
+          { title: "Action" },
+        ]}
+      > 
+        {rowMarkup}
+      </IndexTable>
+    </div>
   );
 }

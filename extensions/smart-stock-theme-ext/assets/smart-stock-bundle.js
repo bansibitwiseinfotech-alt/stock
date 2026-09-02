@@ -1,6 +1,33 @@
 (function () {
   "use strict";
 
+  try {
+    var origWarn = console.warn;
+    if (origWarn && !console.__ss_silence_patched) {
+      console.__ss_silence_patched = true;
+      console.warn = function() {
+        var msg = "";
+        for (var i = 0; i < arguments.length; i++) {
+          try {
+            var it = arguments[i];
+            msg += " " + (typeof it === "object" ? (it && it.message ? it.message : JSON.stringify(it)) : String(it));
+          } catch (_) {
+            msg += " " + String(arguments[i]);
+          }
+        }
+        if (
+          msg.indexOf("deprecated parameters") !== -1 ||
+          msg.indexOf("initialization function") !== -1 ||
+          msg.indexOf("pass a single object instead") !== -1 ||
+          msg.indexOf("preloaded using link preload") !== -1
+        ) {
+          return;
+        }
+        return origWarn.apply(console, arguments);
+      };
+    }
+  } catch (_) {}
+
   function formatMoney(amount, currency, moneyFormat) {
     var num = Number(amount);
     if (isNaN(num)) return "";

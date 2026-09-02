@@ -1,6 +1,33 @@
 (function () {
   "use strict";
 
+  try {
+    var origWarn = console.warn;
+    if (origWarn && !console.__ss_silence_patched) {
+      console.__ss_silence_patched = true;
+      console.warn = function() {
+        var msg = "";
+        for (var i = 0; i < arguments.length; i++) {
+          try {
+            var it = arguments[i];
+            msg += " " + (typeof it === "object" ? (it && it.message ? it.message : JSON.stringify(it)) : String(it));
+          } catch (_) {
+            msg += " " + String(arguments[i]);
+          }
+        }
+        if (
+          msg.indexOf("deprecated parameters") !== -1 ||
+          msg.indexOf("initialization function") !== -1 ||
+          msg.indexOf("pass a single object instead") !== -1 ||
+          msg.indexOf("preloaded using link preload") !== -1
+        ) {
+          return;
+        }
+        return origWarn.apply(console, arguments);
+      };
+    }
+  } catch (_) {}
+
   // Prevent multiple script instances from initializing competing lifecycles
   if (window.__SmartStockStockoutShieldActive) {
     return;
@@ -627,6 +654,17 @@
     const shop = getShopDomain();
     const productId = getProductId();
 
+    const cacheKey = `ss_stockout_${shop}_${productId}_${variantId}`;
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached && cached.data) {
+          renderStockoutState(cached.data, variantId);
+        }
+      }
+    } catch (_) {}
+
     const proxyUrls = [
       `/apps/smart-stock/stockout-shield?shop=${encodeURIComponent(shop)}&variantId=${encodeURIComponent(variantId)}&productId=${encodeURIComponent(productId)}`,
       `/apps/smart-stock/high-demand?shop=${encodeURIComponent(shop)}&variantId=${encodeURIComponent(variantId)}&productId=${encodeURIComponent(productId)}`,
@@ -661,6 +699,9 @@
     }
 
     if (data) {
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data: data, time: Date.now() }));
+      } catch (_) {}
       renderStockoutState(data, variantId);
     } else {
       console.warn("[Smart Stock] Unable to reach backend. Keeping safe default.");

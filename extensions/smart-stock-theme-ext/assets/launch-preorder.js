@@ -5,6 +5,33 @@
 (function () {
   "use strict";
 
+  try {
+    var origWarn = console.warn;
+    if (origWarn && !console.__ss_silence_patched) {
+      console.__ss_silence_patched = true;
+      console.warn = function() {
+        var msg = "";
+        for (var i = 0; i < arguments.length; i++) {
+          try {
+            var it = arguments[i];
+            msg += " " + (typeof it === "object" ? (it && it.message ? it.message : JSON.stringify(it)) : String(it));
+          } catch (_) {
+            msg += " " + String(arguments[i]);
+          }
+        }
+        if (
+          msg.indexOf("deprecated parameters") !== -1 ||
+          msg.indexOf("initialization function") !== -1 ||
+          msg.indexOf("pass a single object instead") !== -1 ||
+          msg.indexOf("preloaded using link preload") !== -1
+        ) {
+          return;
+        }
+        return origWarn.apply(console, arguments);
+      };
+    }
+  } catch (_) {}
+
   if (window.__smartStockLaunchPreOrderRunning) {
     return;
   }
@@ -198,6 +225,18 @@
     var cleanProductId = String(productId || "").replace(/^gid:\/\/shopify\/Product\//, "").trim();
     var cleanVarId = String(variantId || "").replace(/^gid:\/\/shopify\/ProductVariant\//, "").trim();
     var cleanHandle = String(handle || "").trim();
+
+    var cacheKey = "ss_preorder_" + shop + "_" + cleanProductId + "_" + cleanVarId;
+    try {
+      var raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        var cached = JSON.parse(raw);
+        if (cached && typeof cached.enabled !== "undefined") {
+          return cached;
+        }
+      }
+    } catch (_) {}
+
     var ts = Date.now();
     var queryParams = "shop=" + encodeURIComponent(shop) +
       "&productId=" + encodeURIComponent(cleanProductId) +
@@ -220,11 +259,11 @@
             "Accept": "application/json",
             "Content-Type": "application/json",
           },
-          cache: "no-store",
         });
         if (res.ok) {
           var data = await res.json();
           if (data && typeof data.enabled !== "undefined") {
+            try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch (_) {}
             return data;
           }
         }

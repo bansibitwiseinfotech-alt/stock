@@ -34,7 +34,7 @@ const PLAN_LIMITS = {
     basic: {
         name: "Basic",
 
-        products: 25,
+        products: 20,
 
         clearanceSale: 10,
         deadStockBundle: 10,
@@ -58,7 +58,7 @@ const PLAN_LIMITS = {
     pro: {
         name: "Pro",
 
-        products: 50,
+        products: 500,
 
         clearanceSale: 15,
         deadStockBundle: 15,
@@ -82,8 +82,8 @@ const PLAN_LIMITS = {
     premium: {
         name: "Premium",
 
-        products: Infinity,
-
+        products: 5000,
+ 
         clearanceSale: Infinity,
         deadStockBundle: Infinity,
         lowStockBadge: Infinity,

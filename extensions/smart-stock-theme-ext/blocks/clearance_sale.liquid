@@ -22,6 +22,33 @@
 (function () {
   "use strict";
 
+  try {
+    var origWarn = console.warn;
+    if (origWarn && !console.__ss_silence_patched) {
+      console.__ss_silence_patched = true;
+      console.warn = function() {
+        var msg = "";
+        for (var i = 0; i < arguments.length; i++) {
+          try {
+            var it = arguments[i];
+            msg += " " + (typeof it === "object" ? (it && it.message ? it.message : JSON.stringify(it)) : String(it));
+          } catch (_) {
+            msg += " " + String(arguments[i]);
+          }
+        }
+        if (
+          msg.indexOf("deprecated parameters") !== -1 ||
+          msg.indexOf("initialization function") !== -1 ||
+          msg.indexOf("pass a single object instead") !== -1 ||
+          msg.indexOf("preloaded using link preload") !== -1
+        ) {
+          return;
+        }
+        return origWarn.apply(console, arguments);
+      };
+    }
+  } catch (_) {}
+
   var root = document.getElementById(
     "smart-stock-clearance-sale-{{ block.id }}"
   );
@@ -918,7 +945,6 @@
      ============================================================ */
 
   function loadSale(variantId) {
-
     if (
       !variantId ||
       !shopDomain ||
@@ -927,13 +953,16 @@
       return;
     }
 
-
-    /*
-     * Remove old sale immediately
-     */
-
-    removeRenderedClearance();
-
+    var cacheKey = "ss_clearance_" + shopDomain + "_" + productId + "_" + variantId;
+    try {
+      var raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.data) {
+          renderSale(parsed.data);
+        }
+      }
+    } catch (_) {}
 
     var params =
       new URLSearchParams();
@@ -953,29 +982,26 @@
       String(variantId)
     );
 
-
     fetch(
       "/apps/smart-stock/product-widget?" +
       params.toString(),
       {
-        credentials: "same-origin",
-        cache: "no-store"
+        credentials: "same-origin"
       }
     )
       .then(function (response) {
-
         if (!response.ok) {
-
           throw new Error(
             "Clearance sale request failed: " +
             response.status
           );
         }
-
         return response.json();
       })
-
       .then(function (data) {
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify({ data: data, time: Date.now() }));
+        } catch (_) {}
 
         /*
          * Shopify can render dynamic checkout

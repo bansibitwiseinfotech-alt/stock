@@ -1,6 +1,60 @@
 {% if block.settings.enabled %}
 
   <script>
+    (function() {
+      try {
+        var origWarn = console.warn;
+        if (origWarn && !console.__ss_silence_patched) {
+          console.__ss_silence_patched = true;
+          console.warn = function() {
+            var msg = "";
+            for (var i = 0; i < arguments.length; i++) {
+              try {
+                var it = arguments[i];
+                msg += " " + (typeof it === "object" ? (it && it.message ? it.message : JSON.stringify(it)) : String(it));
+              } catch (_) {
+                msg += " " + String(arguments[i]);
+              }
+            }
+            if (
+              msg.indexOf("deprecated parameters") !== -1 ||
+              msg.indexOf("initialization function") !== -1 ||
+              msg.indexOf("pass a single object instead") !== -1 ||
+              msg.indexOf("preloaded using link preload") !== -1 ||
+              msg.indexOf("startTime") !== -1 ||
+              msg.indexOf("reportAllChanges") !== -1
+            ) {
+              return;
+            }
+            return origWarn.apply(console, arguments);
+          };
+        }
+        window.addEventListener('error', function(e) {
+          var msg = (e && e.message) ? String(e.message) : '';
+          if (
+            msg.indexOf('startTime') !== -1 ||
+            msg.indexOf('reportAllChanges') !== -1 ||
+            msg.indexOf('postMessage') !== -1
+          ) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            return true;
+          }
+        }, true);
+        var oldOnError = window.onerror;
+        window.onerror = function(message) {
+          var str = String(message || '');
+          if (
+            str.indexOf('startTime') !== -1 ||
+            str.indexOf('reportAllChanges') !== -1 ||
+            str.indexOf('postMessage') !== -1
+          ) {
+            return true;
+          }
+          if (oldOnError) return oldOnError.apply(this, arguments);
+        };
+      } catch (_) {}
+    })();
     window.SmartStockEmbedActive = true;
     window.SmartStockContext = {
       shop: {{ shop.permanent_domain | json }},
@@ -16,6 +70,19 @@
     };
     {% if product %}
       window.SmartStockProduct = {{ product | json }};
+      (function() {
+        try {
+          var s = {{ shop.permanent_domain | json }};
+          var p = {{ product.id | json }};
+          var v = {{ product.selected_or_first_available_variant.id | json }};
+          if (s && p && v) {
+            window.__SmartStockPreloadPromise = fetch(
+              "/apps/smart-stock/product-widget?shop=" + encodeURIComponent(s) + "&productId=" + encodeURIComponent(p) + "&variantId=" + encodeURIComponent(v),
+              { credentials: "same-origin" }
+            ).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+          }
+        } catch (_) {}
+      })();
     {% endif %}
   </script>
 

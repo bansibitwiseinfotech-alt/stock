@@ -67,22 +67,26 @@ html, body {
   }
 
   .Polaris-Layout {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 12px !important;
+    display: block !important;
     margin: 0 !important;
     width: 100% !important;
   }
 
   .Polaris-Layout__Section {
+    display: block !important;
     max-width: 100% !important;
     min-width: 0 !important;
     width: 100% !important;
-    margin: 0 !important;
+    margin: 0 0 14px 0 !important;
+    flex: none !important;
+  }
+
+  .Polaris-Layout__Section:last-child {
+    margin-bottom: 0 !important;
   }
 
   .Polaris-Card {
-    padding: 12px !important;
+    padding: 14px 12px !important;
     border-radius: 8px !important;
   }
 }
@@ -142,6 +146,74 @@ html, body {
     justify-content: center !important;
     text-align: center !important;
   }
+
+  /* Dead Stock Filters layout on mobile */
+  .dead-stock-filters-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .dead-stock-filters-main {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+  }
+
+  .dead-stock-search-field,
+  .dead-stock-days-select,
+  .dead-stock-bulk-action {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+  }
+
+  .dead-stock-bulk-action .Polaris-Button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+.dead-stock-filters-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.dead-stock-filters-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 260px;
+  flex-wrap: wrap;
+}
+
+.dead-stock-search-field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.dead-stock-days-select {
+  min-width: 140px;
+}
+
+.dead-stock-bulk-action {
+  flex-shrink: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -252,5 +324,586 @@ html, body {
 
   .segmented-tabs-wrapper::-webkit-scrollbar {
     display: none !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. POLARIS TABS CLEAN SCROLL (NO UGLY OS SCROLLBARS)
+   -------------------------------------------------------------------------- */
+.Polaris-Tabs__Wrapper,
+.Polaris-Tabs,
+.Polaris-Tabs__List,
+.Polaris-Tabs__ScrollContainer,
+.Polaris-Tabs__TabsContainer {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.Polaris-Tabs__Wrapper::-webkit-scrollbar,
+.Polaris-Tabs::-webkit-scrollbar,
+.Polaris-Tabs__List::-webkit-scrollbar,
+.Polaris-Tabs__ScrollContainer::-webkit-scrollbar,
+.Polaris-Tabs__TabsContainer::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. PRE-ORDERS METRICS & FILTER RESPONSIVENESS
+   -------------------------------------------------------------------------- */
+.preorder-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.preorder-orders-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.preorders-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.preorders-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.preorders-search-field {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.preorders-status-select {
+  min-width: 150px;
+}
+
+@media screen and (max-width: 768px) {
+  .preorder-metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .preorder-orders-metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .preorder-metrics-grid .Polaris-Card,
+  .preorder-orders-metrics-grid .Polaris-Card {
+    padding: 10px 8px !important;
+    border-radius: 8px !important;
+  }
+
+  .preorder-metrics-grid .Polaris-Text--bodySm,
+  .preorder-orders-metrics-grid .Polaris-Text--bodySm {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+  }
+
+  .preorder-metrics-grid .Polaris-Text--headingXl,
+  .preorder-orders-metrics-grid .Polaris-Text--headingXl {
+    font-size: 20px !important;
+    line-height: 1.2 !important;
+  }
+
+  .preorders-filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .preorders-filter-controls {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+  }
+
+  .preorders-search-field,
+  .preorders-status-select {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+  }
+
+  .preorders-filter-controls .Polaris-Button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+@media screen and (max-width: 440px) {
+  .preorder-metrics-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+
+  .preorder-metrics-grid .Polaris-Card {
+    padding: 8px 6px !important;
+  }
+
+  .preorder-metrics-grid .Polaris-Text--bodySm {
+    font-size: 10px !important;
+  }
+
+  .preorder-metrics-grid .Polaris-Text--headingXl {
+    font-size: 18px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   10. SMART BADGES RESPONSIVENESS
+   -------------------------------------------------------------------------- */
+.smart-badges-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.smart-badges-tabs-header {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.smart-badges-tabs-header::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+@media screen and (max-width: 768px) {
+  .smart-badges-metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .smart-badges-metrics-grid .Polaris-Card {
+    padding: 10px 8px !important;
+    border-radius: 8px !important;
+  }
+
+  .smart-badges-metrics-grid .Polaris-Text--headingXs {
+    font-size: 10px !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  .smart-badges-metrics-grid .Polaris-Text--heading2xl {
+    font-size: 20px !important;
+    line-height: 1.2 !important;
+  }
+
+  .smart-badges-metrics-grid .Polaris-Text--bodySm {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+
+  .smart-badges-filter-bar {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. DASHBOARD RESPONSIVENESS
+   -------------------------------------------------------------------------- */
+.dashboard-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.dashboard-kpi-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 105px;
+}
+
+.dashboard-kpi-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.dashboard-kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #000000;
+  line-height: 1.2;
+}
+
+.dashboard-kpi-subtext {
+  font-size: 11px;
+  font-weight: 500;
+  color: #000000;
+  margin-top: 4px;
+}
+
+.dashboard-kpi-link {
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@media screen and (max-width: 768px) {
+  .dashboard-metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .dashboard-metrics-grid .Polaris-Card {
+    padding: 10px 8px !important;
+    border-radius: 8px !important;
+  }
+
+  .dashboard-kpi-content {
+    min-height: auto !important;
+  }
+
+  .dashboard-kpi-title {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+  }
+
+  .dashboard-kpi-value {
+    font-size: 19px !important;
+    line-height: 1.15 !important;
+  }
+
+  .dashboard-kpi-subtext {
+    font-size: 10px !important;
+    margin-top: 2px !important;
+  }
+
+  .dashboard-metrics-grid .Polaris-Badge {
+    padding: 1px 4px !important;
+    font-size: 10px !important;
+  }
+}
+
+@media screen and (max-width: 380px) {
+  .dashboard-metrics-grid {
+    gap: 6px !important;
+  }
+
+  .dashboard-kpi-value {
+    font-size: 17px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   12. BILLING & PLANS RESPONSIVENESS
+   -------------------------------------------------------------------------- */
+.billing-cycle-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.billing-cycle-selector {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f1f2f3;
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid #e1e3e5;
+}
+
+.billing-cycle-btn {
+  background: transparent;
+  color: #6d7175;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease-in-out;
+}
+
+.billing-cycle-btn--active {
+  background: #ffffff !important;
+  color: #202223 !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.billing-mobile-plan-pills {
+  display: none;
+}
+
+.billing-plan-card {
+  border-radius: 12px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s ease-in-out;
+  overflow: hidden;
+}
+
+.billing-plan-card-body {
+  padding: 20px;
+}
+
+.billing-plan-price-box {
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.billing-footer-wrapper {
+  border-top: 1px solid #E1E3E5;
+  padding-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.billing-footer-copy {
+  font-size: 12px;
+  color: #6d7175;
+}
+
+.billing-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.billing-footer-link {
+  color: #008060;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-block;
+  transition: color 0.15s ease;
+}
+
+.billing-footer-link:hover {
+  text-decoration: underline;
+}
+
+.billing-footer-pipe {
+  color: #8C9196;
+  font-size: 12px;
+}
+
+@media screen and (max-width: 768px) {
+  .billing-cycle-wrapper {
+    justify-content: center !important;
+    margin-bottom: 8px !important;
+  }
+
+  .billing-cycle-selector {
+    width: 100% !important;
+    max-width: 280px !important;
+    display: flex !important;
+  }
+
+  .billing-cycle-btn {
+    flex: 1 !important;
+    text-align: center !important;
+    padding: 7px 10px !important;
+  }
+
+  .billing-mobile-plan-pills {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 2px 2px 6px 2px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .billing-mobile-plan-pills::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .billing-mobile-pill {
+    flex: 1 0 auto !important;
+    background: #ffffff !important;
+    border: 1px solid #D2D5D8 !important;
+    border-radius: 20px !important;
+    padding: 6px 14px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #202223 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+  }
+
+  .billing-mobile-pill--current {
+    background: #eaf9f4 !important;
+    border-color: #008060 !important;
+    color: #008060 !important;
+  }
+
+  .billing-plan-card {
+    border-radius: 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .billing-plan-card-body {
+    padding: 14px 12px !important;
+  }
+
+  .billing-plan-price-box {
+    padding: 10px 12px !important;
+  }
+
+  .billing-plan-card .Polaris-Text--headingLg {
+    font-size: 18px !important;
+  }
+
+  .billing-plan-card .Polaris-Text--heading2xl {
+    font-size: 22px !important;
+  }
+
+  .billing-footer-wrapper {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 12px !important;
+    padding-top: 14px !important;
+  }
+
+  .billing-footer-links {
+    justify-content: center !important;
+    gap: 8px 12px !important;
+  }
+
+  .billing-footer-pipe {
+    display: none !important;
+  }
+
+  .billing-footer-link {
+    font-size: 12px !important;
+    padding: 5px 10px !important;
+    background: #F1F2F4 !important;
+    border-radius: 6px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   13. HIGH DEMAND RESPONSIVENESS
+   -------------------------------------------------------------------------- */
+.high-demand-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.high-demand-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.high-demand-filter-select {
+  width: 220px;
+}
+
+@media screen and (max-width: 768px) {
+  .high-demand-metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .high-demand-metrics-grid .Polaris-Card {
+    padding: 10px 8px !important;
+    border-radius: 8px !important;
+  }
+
+  .high-demand-metrics-grid .Polaris-Text--headingXs {
+    font-size: 10px !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  .high-demand-metrics-grid .Polaris-Text--heading2xl {
+    font-size: 20px !important;
+    line-height: 1.2 !important;
+  }
+
+  .high-demand-metrics-grid .Polaris-Text--bodySm {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+
+  .high-demand-filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .high-demand-filter-select {
+    width: 100% !important;
+  }
+}
+
+@media screen and (max-width: 380px) {
+  .high-demand-metrics-grid {
+    gap: 6px !important;
+  }
+
+  .high-demand-metrics-grid .Polaris-Text--heading2xl {
+    font-size: 18px !important;
   }
 }

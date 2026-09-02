@@ -2213,6 +2213,44 @@ export async function toggleWeeklyDigestApi(
 }
 
 // ==================================================
+// CONTACT SUPPORT
+// ==================================================
+
+export async function submitContactSupportApi({
+  shop = "",
+  name = "",
+  email = "",
+  category = "general",
+  subject = "",
+  message = "",
+} = {}) {
+  const queryParam = shop ? `?shop=${encodeURIComponent(shop)}` : "";
+  const res = await fetch(`/api/contact-support${queryParam}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(shop ? { "X-Shopify-Shop-Domain": shop } : {}),
+    },
+    body: JSON.stringify({
+      shop,
+      name,
+      email,
+      category,
+      subject,
+      message,
+    }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || "Failed to submit support request.");
+  }
+
+  return json;
+}
+
+// ==================================================
 // SUBSCRIPTION / BILLING
 // ==================================================
 
