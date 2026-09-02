@@ -13,6 +13,7 @@ import {
 
 import { AppProvider as PolarisProvider } from "@shopify/polaris";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import responsiveStyles from "../../src/styles/responsive.css?url";
 import "../../src/styles/responsive.css";
 import enTranslations from "@shopify/polaris/locales/en.json";
 
@@ -21,6 +22,7 @@ import {
 } from "../shopify.server";
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
+  { rel: "stylesheet", href: responsiveStyles },
 ];
 
 if (typeof window !== "undefined") {

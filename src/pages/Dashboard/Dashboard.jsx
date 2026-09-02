@@ -318,17 +318,25 @@ export default function Dashboard({ shopDomain = "" }) {
             1. KPI SUMMARY STATS CARDS
             ================================================== */}
         <Layout.Section>
-          <div className="dashboard-metrics-grid">
+          <div
+            className="dashboard-metrics-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+              gap: "16px",
+              width: "100%",
+            }}
+          >
             {/* Metric 1 */}
             <Card padding="400">
               <div className="dashboard-kpi-content">
-                <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
+                <InlineStack align="space-between" blockAlign="center" gap="100" wrap={false}>
                   <span className="dashboard-kpi-title">
                     Total cash recovered
                   </span>
                   <Badge tone="success">{`+${data.growthPercentage}%`}</Badge>
                 </InlineStack>
-                <div style={{ marginTop: "6px" }}>
+                <div style={{ marginTop: "8px" }}>
                   <div className="dashboard-kpi-value">
                     {formatCurrency(data.totalCashRecovered)}
                   </div>
@@ -342,13 +350,13 @@ export default function Dashboard({ shopDomain = "" }) {
             {/* Metric 2 */}
             <Card padding="400">
               <div className="dashboard-kpi-content">
-                <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
+                <InlineStack align="space-between" blockAlign="center" gap="100" wrap={false}>
                   <span className="dashboard-kpi-title">
                     Dead stock cash tied up
                   </span>
                   <Badge tone="critical">{`${data.deadStockSkuCount} SKUs`}</Badge>
                 </InlineStack>
-                <div style={{ marginTop: "6px" }}>
+                <div style={{ marginTop: "8px" }}>
                   <div className="dashboard-kpi-value">
                     {formatCurrency(data.deadStockCashTiedUp)}
                   </div>
@@ -365,13 +373,13 @@ export default function Dashboard({ shopDomain = "" }) {
             {/* Metric 3 */}
             <Card padding="400">
               <div className="dashboard-kpi-content">
-                <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
+                <InlineStack align="space-between" blockAlign="center" gap="100" wrap={false}>
                   <span className="dashboard-kpi-title">
                     Revenue at risk
                   </span>
                   <Badge tone="attention">High demand</Badge>
                 </InlineStack>
-                <div style={{ marginTop: "6px" }}>
+                <div style={{ marginTop: "8px" }}>
                   <div className="dashboard-kpi-value">
                     {formatCurrency(data.revenueAtRisk)}
                   </div>
@@ -388,13 +396,13 @@ export default function Dashboard({ shopDomain = "" }) {
             {/* Metric 4 */}
             <Card padding="400">
               <div className="dashboard-kpi-content">
-                <InlineStack align="space-between" blockAlign="center" gap="100" wrap>
+                <InlineStack align="space-between" blockAlign="center" gap="100" wrap={false}>
                   <span className="dashboard-kpi-title">
                     Active automations
                   </span>
                   <Badge tone="info">Running</Badge>
                 </InlineStack>
-                <div style={{ marginTop: "6px" }}>
+                <div style={{ marginTop: "8px" }}>
                   <div className="dashboard-kpi-value">
                     {data.totalActiveAutomations ?? (data.badgeBreakdown || []).reduce((s, b) => s + (b.badgesUsed || 0), 0)}
                   </div>
@@ -414,7 +422,7 @@ export default function Dashboard({ shopDomain = "" }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))",
               gap: "16px",
             }}
           >
@@ -805,7 +813,7 @@ export default function Dashboard({ shopDomain = "" }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))",
               gap: "16px",
             }}
           >
