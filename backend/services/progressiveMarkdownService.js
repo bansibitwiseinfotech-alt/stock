@@ -316,34 +316,7 @@ async function getUnitsSoldLast24Hours(shop, accessToken, variantId, productId =
 
     let totalSold = 0;
 
-    // 1. Check local MongoDB Order collection
-    try {
-      const orders = await Order.find({
-        shop,
-        orderDate: { $gte: twentyFourHoursAgo },
-      }).lean();
-
-      if (orders && orders.length > 0) {
-        for (const o of orders) {
-          if (!Array.isArray(o.items)) continue;
-          for (const item of o.items) {
-            const itemVar = cleanIdNumber(item.variantId);
-            const itemProd = cleanIdNumber(item.productId);
-            if (
-              (cleanVarNum && itemVar === cleanVarNum) ||
-              (cleanProdNum && itemProd === cleanProdNum && !itemVar)
-            ) {
-              totalSold += Number(item.quantity || 0);
-            }
-          }
-        }
-        return totalSold;
-      }
-    } catch (dbErr) {
-      console.warn("[ProgressiveMarkdown] DB Order query warning:", dbErr.message);
-    }
-
-    // 2. Query Shopify GraphQL Orders API if token is provided
+    // Query Shopify GraphQL Orders API if token is provided
     if (shop && accessToken) {
       try {
         const queryFilter = `created_at:>=${twentyFourHoursAgo.toISOString()}`;
