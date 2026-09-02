@@ -28,7 +28,7 @@ export default function App() {
                         for (var i = 0; i < arguments.length; i++) {
                           try {
                             var item = arguments[i];
-                            msg += " " + (typeof item === "object" ? (item ? item.message || JSON.stringify(item) : "") : String(item));
+                            msg += " " + (typeof item === "object" ? (item ? item.message || item.stack || JSON.stringify(item) : "") : String(item));
                           } catch (e) {
                             msg += " " + String(arguments[i]);
                           }
@@ -59,8 +59,103 @@ export default function App() {
                 patchConsole(window);
                 try { patchConsole(window.parent); } catch (e) {}
                 try { patchConsole(window.top); } catch (e) {}
+
+                // 1. Wrap window.setTimeout to catch reportAllChanges & startTime inside n.timeout
+                try {
+                  var origSetTimeout = window.setTimeout;
+                  window.setTimeout = function(fn, delay) {
+                    var extraArgs = Array.prototype.slice.call(arguments, 2);
+                    if (typeof fn === 'function') {
+                      var wrappedFn = function() {
+                        try {
+                          return fn.apply(this, arguments);
+                        } catch (err) {
+                          var msg = (err && (err.message || err.stack || String(err))) || '';
+                          if (msg.indexOf('startTime') !== -1 || msg.indexOf('reportAllChanges') !== -1) {
+                            return;
+                          }
+                          throw err;
+                        }
+                      };
+                      return origSetTimeout.apply(this, [wrappedFn, delay].concat(extraArgs));
+                    }
+                    return origSetTimeout.apply(this, arguments);
+                  };
+                } catch (e) {}
+
+                // 2. Wrap window.requestIdleCallback to catch soft nav metrics
+                try {
+                  if (typeof window.requestIdleCallback === 'function') {
+                    var origRIC = window.requestIdleCallback;
+                    window.requestIdleCallback = function(fn, options) {
+                      if (typeof fn === 'function') {
+                        var wrappedFn = function() {
+                          try {
+                            return fn.apply(this, arguments);
+                          } catch (err) {
+                            var msg = (err && (err.message || err.stack || String(err))) || '';
+                            if (msg.indexOf('startTime') !== -1 || msg.indexOf('reportAllChanges') !== -1) {
+                              return;
+                            }
+                            throw err;
+                          }
+                        };
+                        return origRIC.call(this, wrappedFn, options);
+                      }
+                      return origRIC.apply(this, arguments);
+                    };
+                  }
+                } catch (e) {}
+
+                // 3. Wrap PerformanceObserver to prevent undefined entries crashing web-vitals
+                try {
+                  if (typeof window.PerformanceObserver === 'function') {
+                    var OrigPO = window.PerformanceObserver;
+                    window.PerformanceObserver = function(callback) {
+                      var safeCb = function(entryList, observer) {
+                        try {
+                          return callback.call(this, entryList, observer);
+                        } catch (err) {
+                          var msg = (err && (err.message || err.stack || String(err))) || '';
+                          if (msg.indexOf('startTime') !== -1 || msg.indexOf('reportAllChanges') !== -1) {
+                            return;
+                          }
+                          throw err;
+                        }
+                      };
+                      return new OrigPO(safeCb);
+                    };
+                    window.PerformanceObserver.prototype = OrigPO.prototype;
+                    if (OrigPO.supportedEntryTypes) {
+                      window.PerformanceObserver.supportedEntryTypes = OrigPO.supportedEntryTypes;
+                    }
+                  }
+                } catch (e) {}
+
+                // 4. Safely intercept Chrome DevTools window.devToolsReportSoftNavs
+                try {
+                  var _devToolsReportSoftNavs = undefined;
+                  Object.defineProperty(window, 'devToolsReportSoftNavs', {
+                    configurable: true,
+                    enumerable: true,
+                    get: function() { return _devToolsReportSoftNavs; },
+                    set: function(val) {
+                      if (typeof val === 'function') {
+                        _devToolsReportSoftNavs = function() {
+                          try {
+                            return val.apply(this, arguments);
+                          } catch (err) {}
+                        };
+                      } else {
+                        _devToolsReportSoftNavs = val;
+                      }
+                    }
+                  });
+                } catch (e) {}
+
+                // 5. Global error event listener (capture phase)
                 window.addEventListener('error', function(e) {
-                  var msg = (e && (e.message || (e.error && e.error.message))) ? String(e.message || (e.error && e.error.message)) : '';
+                  var msg = (e && (e.message || (e.error && (e.error.message || e.error.stack)))) ? String(e.message || (e.error && (e.error.message || e.error.stack))) : '';
                   if (
                     msg.indexOf('postMessage') !== -1 ||
                     msg.indexOf('target origin') !== -1 ||
@@ -74,9 +169,11 @@ export default function App() {
                     return true;
                   }
                 }, true);
+
+                // 6. Unhandled rejection listener
                 window.addEventListener('unhandledrejection', function(e) {
                   var reason = e && e.reason;
-                  var msg = reason ? (typeof reason === 'object' ? (reason.message || JSON.stringify(reason)) : String(reason)) : '';
+                  var msg = reason ? (typeof reason === 'object' ? (reason.message || reason.stack || JSON.stringify(reason)) : String(reason)) : '';
                   if (
                     msg.indexOf('postMessage') !== -1 ||
                     msg.indexOf('target origin') !== -1 ||
@@ -87,18 +184,44 @@ export default function App() {
                     return true;
                   }
                 }, true);
-                var oldOnError = window.onerror;
-                window.onerror = function(message, source, lineno, colno, error) {
-                  var str = String(message || '') + ' ' + (error ? String(error.message || error) : '');
-                  if (
-                    str.indexOf('startTime') !== -1 ||
-                    str.indexOf('reportAllChanges') !== -1 ||
-                    str.indexOf('postMessage') !== -1
-                  ) {
-                    return true;
-                  }
-                  if (oldOnError) return oldOnError.apply(this, arguments);
-                };
+
+                // 7. Lock window.onerror with permanent filtering
+                try {
+                  var _currentOnError = null;
+                  Object.defineProperty(window, 'onerror', {
+                    configurable: true,
+                    enumerable: true,
+                    get: function() { return _currentOnError; },
+                    set: function(handler) {
+                      _currentOnError = function(message, source, lineno, colno, error) {
+                        var str = String(message || '') + ' ' + (error ? String(error.message || error.stack || error) : '');
+                        if (
+                          str.indexOf('startTime') !== -1 ||
+                          str.indexOf('reportAllChanges') !== -1 ||
+                          str.indexOf('postMessage') !== -1
+                        ) {
+                          return true;
+                        }
+                        if (typeof handler === 'function') {
+                          return handler.apply(this, arguments);
+                        }
+                      };
+                    }
+                  });
+                  window.onerror = null;
+                } catch (e) {
+                  window.onerror = function(message, source, lineno, colno, error) {
+                    var str = String(message || '') + ' ' + (error ? String(error.message || error) : '');
+                    if (
+                      str.indexOf('startTime') !== -1 ||
+                      str.indexOf('reportAllChanges') !== -1 ||
+                      str.indexOf('postMessage') !== -1
+                    ) {
+                      return true;
+                    }
+                  };
+                }
+
                 if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
                     for (var i = 0; i < registrations.length; i++) {
